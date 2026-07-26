@@ -18,8 +18,10 @@ function LoginPage() {
     dispatch(
       setCredentials({
         accessToken: "dev-token",
+        refreshToken: "dev-refresh-token",
         user: {
           id: "1",
+          username: "admin",
           email: values.email,
           name: "Admin Hải tặc vui vẻ",
           role: "admin",

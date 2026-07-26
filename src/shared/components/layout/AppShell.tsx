@@ -61,7 +61,7 @@ export function AppShell() {
             icon={<LogoutOutlined />}
             onClick={() => {
               dispatch(logout());
-              navigate("/login");
+              navigate("/sign-up-login-screen");
             }}
           >
             Dang xuat

@@ -12,7 +12,7 @@ export const appRoutes: AppRoute[] = [
   { path: '/', element: <PirateLandingPage />, isPublic: true },
   { path: '/download-screen', element: <GameDownloadPage />, isPublic: true },
   { path: '/sign-up-login-screen', element: <PlayerAuthPage />, isPublic: true },
-  { path: '/user-account', element: <PlayerAccountPage />, isPublic: true },
-  { path: '/doi-coin', element: <CoinExchangePage />, isPublic: true },
-  { path: '/nap-tien', element: <WalletDepositPage />, isPublic: true },
+  { path: '/user-account', element: <PlayerAccountPage />, allowedRoles: ['user', 'moderator', 'admin'] },
+  { path: '/doi-coin', element: <CoinExchangePage />, allowedRoles: ['user', 'moderator', 'admin'] },
+  { path: '/nap-tien', element: <WalletDepositPage />, allowedRoles: ['user', 'moderator', 'admin'] },
 ];

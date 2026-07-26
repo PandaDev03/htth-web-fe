@@ -61,7 +61,7 @@ const ReleaseHistory = () => {
                   <p className="mt-0.5 text-xs text-gray-400">{release.date}</p>
                 </div>
                 <span
-                  className={`rounded-full border px-2.5 py-0.5 text-xs font-600 ${release.badge === "M�>i nhất" ? "border-teal-200 bg-teal-50 text-teal-700" : release.badge === "Major" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-600"}`}
+                  className={`rounded-full border px-2.5 py-0.5 text-xs font-600 ${release.badge === "Mới nhất" ? "border-teal-200 bg-teal-50 text-teal-700" : release.badge === "Major" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-600"}`}
                 >
                   {release.badge}
                 </span>

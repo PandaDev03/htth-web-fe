@@ -13,7 +13,7 @@ import type { ReactNode } from "react";
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { useAppDispatch } from "@/app/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/app/store/hooks";
 import { AccountPasswordModal } from "@/features/account/components/PasswordModal";
 import { logout } from "@/features/auth/model/authSlice";
 import { Footer } from "@/shared/components/site/Footer";
@@ -88,7 +88,13 @@ function SecurityPasswordRow({
 }
 
 function PlayerAccountPage() {
-  const account = PREVIEW_ACCOUNT;
+  const authUser = useAppSelector((state) => state.auth.user);
+  const account = {
+    ...PREVIEW_ACCOUNT,
+    username: authUser?.username ?? authUser?.name ?? PREVIEW_ACCOUNT.username,
+    coin: authUser?.coin ?? PREVIEW_ACCOUNT.coin,
+    tongnap: authUser?.tongnap ?? PREVIEW_ACCOUNT.tongnap,
+  };
   const [avatar, setAvatar] = useState<string | null>(account.avatar);
   const [modal, setModal] = useState<null | "pass" | "pass2">(null);
   const fileInput = useRef<HTMLInputElement>(null);

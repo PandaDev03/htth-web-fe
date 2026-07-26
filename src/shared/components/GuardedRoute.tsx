@@ -19,7 +19,7 @@ export function GuardedRoute({ route, children }: GuardedRouteProps) {
   }
 
   if (!accessToken) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
+    return <Navigate to="/sign-up-login-screen" replace state={{ from: location }} />;
   }
 
   if (!hasAllowedRole(user?.role, route.allowedRoles)) {
