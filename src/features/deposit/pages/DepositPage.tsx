@@ -1,58 +1,56 @@
 import {
-  ArrowLeft,
-  Banknote,
-  Building2,
+    Banknote,
   CheckCircle,
-  ChevronRight,
   Clock,
   Copy,
   CreditCard,
+  ExternalLink,
+  Loader2,
+  QrCode,
+  RefreshCw,
   ShieldCheck,
-  Smartphone,
   Wallet,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
+import {
+  createPayosPayment,
+  getPayosPaymentStatus,
+  type PayosPayment,
+} from "@/features/deposit/api/payosApi";
 import { Footer } from "@/shared/components/site/Footer";
 import { Header } from "@/shared/components/site/Header";
 
-import DepositProgress, { DepositStep } from "../components/DepositProgress";
-
 const DEPOSIT_PRESETS = [
-  { value: 50_000, bonus: 0 },
-  { value: 100_000, bonus: 0 },
-  { value: 200_000, bonus: 5 },
-  { value: 500_000, bonus: 10 },
-  { value: 1_000_000, bonus: 15 },
-  { value: 2_000_000, bonus: 20 },
+  50_000,
+  100_000,
+  200_000,
+  500_000,
+  1_000_000,
+  2_000_000,
+  5_000_000,
+  10_000_000,
 ];
 
-const PAYMENT_OPTIONS = [
-  {
-    id: "atm",
-    label: "Thẻ ATM Nội Địa",
-    description: "Napas, Visa Debit",
-    icon: <CreditCard size={20} className="text-blue-600" />,
-    bg: "bg-blue-50",
-  },
-  {
-    id: "bank",
-    label: "Chuyển Khoản Ngân Hàng",
-    description: "Vietcombank, MB, Techcombank...",
-    icon: <Building2 size={20} className="text-emerald-600" />,
-    bg: "bg-emerald-50",
-  },
-  {
-    id: "momo",
-    label: "Ví Điện Tử",
-    description: "MoMo, ZaloPay, VNPay",
-    icon: <Smartphone size={20} className="text-pink-600" />,
-    bg: "bg-pink-50",
-  },
-];
+const MIN_DEPOSIT_AMOUNT = 1_000;
+const MAX_DEPOSIT_AMOUNT = 2_000_000_000;
+const QR_CREATE_DEBOUNCE_MS = 900;
+const PAYMENT_STATUS_DELAY_MS = 3_000;
+const MAX_STATUS_ATTEMPTS = 100;
 
-const formatVnd = (amount: number) => amount.toLocaleString("vi-VN") + " ₫";
+const formatNumber = (amount: number) => amount.toLocaleString("vi-VN");
+const formatVnd = (amount: number) => formatNumber(amount) + " đ";
+
+function parseAmount(value: string) {
+  return Number.parseInt(value.replace(/\D/g, ""), 10) || 0;
+}
+
+function formatAmountInput(value: string) {
+  const amount = parseAmount(value);
+  return amount > 0 ? formatNumber(amount) : "";
+}
 
 const DepositPageHeader = () => {
   return (
@@ -63,422 +61,508 @@ const DepositPageHeader = () => {
           Nạp Tiền
         </span>
       </div>
-      <h1 className="text-2xl font-bold text-gray-800">Nạp Tiền ATM</h1>
+      <h1 className="text-2xl font-bold text-gray-800">Nạp Coin PayOS</h1>
       <p className="mt-1 text-sm text-gray-500">
-        Nạp tiền vào ví để nhận Coin và tham gia trò chơi
+        Chọn hoặc nhập số tiền cần nạp, hệ thống sẽ tự tạo QR thanh toán PayOS.
       </p>
     </header>
   );
 };
 
 function WalletDepositPage() {
+  const qrContainerRef = useRef<HTMLDivElement | null>(null);
+  const debounceTimerRef = useRef<number | null>(null);
+  const statusTimerRef = useRef<number | null>(null);
+  const statusAttemptsRef = useRef(0);
+  const activeOrderCodeRef = useRef("");
+  const generatedAmountRef = useRef<number | null>(null);
+
+  const [amountInput, setAmountInput] = useState("");
+  const [payment, setPayment] = useState<PayosPayment | null>(null);
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<DepositStep>("select");
+  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [paymentState, setPaymentState] = useState("Chưa tạo mã");
+  const [statusText, setStatusText] = useState("");
+  const [error, setError] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
-  const [txId] = useState(() => "NAP" + Date.now().toString().slice(-8));
-  const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
 
-  const [note, setNote] = useState("");
-  const [method, setMethod] = useState("atm");
-  const [customAmount, setCustomAmount] = useState("");
+  const amount = parseAmount(amountInput);
+  const canCreateQr = amount >= MIN_DEPOSIT_AMOUNT && amount <= MAX_DEPOSIT_AMOUNT;
+  const isSameGeneratedAmount = generatedAmountRef.current === amount && Boolean(payment);
 
-  const amount =
-    selectedAmount ??
-    (Number.parseInt(customAmount.replace(/\D/g, ""), 10) || 0);
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        window.clearTimeout(debounceTimerRef.current);
+      }
+      if (statusTimerRef.current) {
+        window.clearTimeout(statusTimerRef.current);
+      }
+    };
+  }, []);
 
-  const bonusPercent =
-    DEPOSIT_PRESETS.find((item) => item.value === selectedAmount)?.bonus ?? 0;
-
-  const bonus = Math.floor((amount * bonusPercent) / 100);
-  const total = amount + bonus;
-
-  function changeCustom(event: React.ChangeEvent<HTMLInputElement>) {
-    const raw = event.target.value.replace(/\D/g, "");
-    setCustomAmount(
-      raw ? Number.parseInt(raw, 10).toLocaleString("vi-VN") : "",
-    );
-    setSelectedAmount(null);
+  function scrollToQr() {
+    window.setTimeout(() => {
+      qrContainerRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
   }
 
-  function copy(value: string, key: string) {
-    navigator.clipboard.writeText(value).then(() => {
+  function clearStatusTimer() {
+    if (statusTimerRef.current) {
+      window.clearTimeout(statusTimerRef.current);
+      statusTimerRef.current = null;
+    }
+  }
+
+  function resetQrIfAmountChanged(nextAmount: number) {
+    if (generatedAmountRef.current && generatedAmountRef.current !== nextAmount) {
+      generatedAmountRef.current = null;
+      activeOrderCodeRef.current = "";
+      setPayment(null);
+      setPaymentState("Chưa tạo mã");
+      setStatusText("");
+      clearStatusTimer();
+    }
+  }
+
+  async function copy(value: string, key: string) {
+    if (!value) return;
+
+    try {
+      await navigator.clipboard.writeText(value);
       setCopied(key);
-      setTimeout(() => setCopied(null), 1500);
-    });
+      window.setTimeout(() => setCopied(null), 1200);
+    } catch {
+      toast.warning("Chưa thể sao chép tự động.");
+    }
   }
 
-  async function confirm() {
+  async function checkPaymentStatus(orderCode = activeOrderCodeRef.current, silent = false) {
+    if (!orderCode) return;
+
+    if (!silent) {
+      setCheckingStatus(true);
+      statusAttemptsRef.current += 1;
+    }
+
+    try {
+      const result = await getPayosPaymentStatus(orderCode);
+      const data = result.data;
+
+      if (data.paid) {
+        clearStatusTimer();
+        setCheckingStatus(false);
+        setPaymentState("Đã thanh toán");
+        setStatusText(result.message);
+        toast.success(result.message || "Giao dịch thành công. Coin sẽ được cộng vào ví.");
+        return;
+      }
+
+      if (data.state === "queued") {
+        setPaymentState("Đang cộng Coin");
+        setStatusText(result.message || "Đã thanh toán, server game đang cộng Coin vào ví.");
+        schedulePaymentStatusCheck(1_500);
+        return;
+      }
+
+      if (data.state !== "empty") {
+        setPaymentState("Đang chờ thanh toán");
+        setStatusText("Đang chờ thanh toán...");
+        schedulePaymentStatusCheck(PAYMENT_STATUS_DELAY_MS);
+      }
+    } catch (error) {
+      if (!silent) {
+        setStatusText(error instanceof Error ? error.message : "Chưa kiểm tra được trạng thái thanh toán.");
+        schedulePaymentStatusCheck(5_000);
+      }
+    } finally {
+      setCheckingStatus(false);
+    }
+  }
+
+  function schedulePaymentStatusCheck(delay = PAYMENT_STATUS_DELAY_MS) {
+    clearStatusTimer();
+
+    if (!activeOrderCodeRef.current) return;
+
+    if (statusAttemptsRef.current >= MAX_STATUS_ATTEMPTS) {
+      setPaymentState("Đang chờ thanh toán");
+      setStatusText("Hệ thống vẫn đang chờ thanh toán. Bạn có thể giữ QR này hoặc tạo lại mã mới.");
+      return;
+    }
+
+    statusTimerRef.current = window.setTimeout(() => {
+      void checkPaymentStatus(activeOrderCodeRef.current, false);
+    }, delay);
+  }
+
+  async function generatePayosQr(nextAmount = amount, force = false) {
+    if (nextAmount < MIN_DEPOSIT_AMOUNT) {
+      setError(nextAmount > 0 ? "Số tiền nạp tối thiểu là 1.000 đ." : "");
+      return;
+    }
+
+    if (nextAmount > MAX_DEPOSIT_AMOUNT) {
+      setError("Số tiền nạp tối đa là 2.000.000.000 đ.");
+      return;
+    }
+
+    if (!force && generatedAmountRef.current === nextAmount && payment) {
+      scrollToQr();
+      return;
+    }
+
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setLoading(false);
-    setStep("success");
+    setError("");
+    setStatusText("Đang tạo mã QR...");
+    setPaymentState("Đang tạo QR");
+
+    try {
+      const result = await createPayosPayment(nextAmount);
+
+      generatedAmountRef.current = Number(result.data.amount || nextAmount);
+      activeOrderCodeRef.current = result.data.order_code || "";
+      statusAttemptsRef.current = 0;
+
+      setPayment(result.data);
+      setPaymentState("Đang chờ thanh toán");
+      setStatusText("Quét QR hoặc mở cổng PayOS để thanh toán.");
+
+      toast.success(result.message || "Tạo mã QR thanh toán thành công.");
+
+      scrollToQr();
+      schedulePaymentStatusCheck(PAYMENT_STATUS_DELAY_MS);
+    } catch (error) {
+      setPayment(null);
+
+      generatedAmountRef.current = null;
+      activeOrderCodeRef.current = "";
+      
+      clearStatusTimer();
+
+      setPaymentState("Chưa tạo mã");
+      setStatusText("");
+      setError(error instanceof Error ? error.message : "Không thể tạo mã QR thanh toán.");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  if (step === "select")
-    return (
-      <div className="flex min-h-screen flex-col bg-gray-50">
-        <Header />
-        <main className="flex-1 px-4 pb-16 pt-24">
-          <div className="mx-auto max-w-2xl">
-            <DepositPageHeader />
-            <DepositProgress current="select" />
-            <section className="mb-5 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-              <h2 className="mb-4 flex items-center gap-2 text-sm font-bold text-gray-700">
-                <Banknote size={16} className="text-amber-500" />
-                Chọn Mệnh Giá Nạp
-              </h2>
-              <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {DEPOSIT_PRESETS.map((preset) => (
-                  <button
-                    type="button"
-                    key={preset.value}
-                    onClick={() => {
-                      setSelectedAmount(preset.value);
-                      setCustomAmount("");
-                    }}
-                    className={`relative rounded-xl border-2 p-3 text-left transition-all ${selectedAmount === preset.value ? "border-amber-500 bg-amber-50" : "border-gray-100 bg-gray-50 hover:border-amber-200"}`}
-                  >
-                    {preset.bonus > 0 && (
-                      <span className="absolute -right-2 -top-2 rounded-full bg-green-500 px-1.5 py-0.5 text-2xs font-bold text-white">
-                        +{preset.bonus}%
-                      </span>
-                    )}
-                    <p className="text-sm font-bold text-gray-800">
-                      {formatVnd(preset.value)}
-                    </p>
-                    <p className="mt-0.5 text-xs text-gray-500">
-                      {preset.value.toLocaleString("vi-VN")} Coin{" "}
-                      {preset.bonus > 0 && (
-                        <span className="font-semibold text-green-600">
-                          +
-                          {Math.floor(
-                            (preset.value * preset.bonus) / 100,
-                          ).toLocaleString("vi-VN")}{" "}
-                          bonus
-                        </span>
-                      )}
-                    </p>
-                  </button>
-                ))}
-              </div>
-              <label className="mb-1.5 block text-xs font-semibold text-gray-600">
-                Hoặc nhập số tiền khác (tối thiểu 10,000 ₫)
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={customAmount}
-                  onChange={changeCustom}
-                  placeholder="Nhập số tiền..."
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-800 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-300"
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">
-                  VND
-                </span>
-              </div>
-            </section>
-            {amount >= 10_000 && (
-              <div className="mb-5 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <div>
-                  <p className="text-xs font-medium text-amber-700">
-                    Bạn sẽ nhận được
-                  </p>
-                  <p className="text-lg font-bold text-amber-800">
-                    {total.toLocaleString("vi-VN")} Coin
-                  </p>
-                  {bonus > 0 && (
-                    <p className="text-xs font-semibold text-green-600">
-                      Bao gồm +{bonus.toLocaleString("vi-VN")} Coin bonus
-                    </p>
-                  )}
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-500">Số tiền nạp</p>
-                  <p className="text-base font-bold text-gray-800">
-                    {formatVnd(amount)}
-                  </p>
-                </div>
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => setStep("details")}
-              disabled={amount < 10_000}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-3.5 font-bold text-white disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
-            >
-              Tiếp Theo
-              <ChevronRight size={18} />
-            </button>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
-  if (step === "details")
-    return (
-      <div className="flex min-h-screen flex-col bg-gray-50">
-        <Header />
-        <main className="flex-1 px-4 pb-16 pt-24">
-          <div className="mx-auto max-w-2xl">
-            <DepositPageHeader />
-            <DepositProgress current="details" />
-            <section className="mb-5 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-              <h2 className="mb-4 flex items-center gap-2 text-sm font-bold text-gray-700">
-                <CreditCard size={16} className="text-amber-500" />
-                Phương Thức Thanh Toán
-              </h2>
-              <div className="flex flex-col gap-3">
-                {PAYMENT_OPTIONS.map((option) => (
-                  <button
-                    type="button"
-                    key={option.id}
-                    onClick={() => setMethod(option.id)}
-                    className={`flex items-center gap-4 rounded-xl border-2 p-4 text-left transition-all ${method === option.id ? "border-amber-500 bg-amber-50" : "border-gray-100 hover:border-gray-200 hover:bg-gray-50"}`}
-                  >
-                    <div
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${option.bg}`}
-                    >
-                      {option.icon}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-gray-800">
-                        {option.label}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {option.description}
-                      </p>
-                    </div>
-                    <span
-                      className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${method === option.id ? "border-amber-500 bg-amber-500" : "border-gray-300"}`}
-                    >
-                      {method === option.id && (
-                        <span className="h-2 w-2 rounded-full bg-white" />
-                      )}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </section>
-            {method === "bank" && (
-              <section className="mb-5 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-                <h2 className="mb-4 flex items-center gap-2 text-sm font-bold text-gray-700">
-                  <Building2 size={16} className="text-emerald-500" />
-                  Thông Tin Chuyển Khoản
-                </h2>
-                <div className="space-y-3">
-                  {[
-                    ["Ngân hàng", "Vietcombank", "bank"],
-                    ["Số tài khoản", "1234567890", "account"],
-                    ["Chủ tài khoản", "NGUYEN VAN A", "owner"],
-                    ["Chi nhánh", "Chi nhánh TP.HCM", "branch"],
-                    ["Nội dung CK", `NAP ${txId}`, "note"],
-                  ].map(([label, value, key]) => (
-                    <div
-                      key={key}
-                      className="flex items-center justify-between border-b border-gray-50 py-2 last:border-0"
-                    >
-                      <span className="text-xs text-gray-500">{label}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-gray-800">
-                          {value}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => copy(value, key)}
-                          className="rounded-md p-1 hover:bg-gray-100"
-                        >
-                          {copied === key ? (
-                            <CheckCircle size={13} className="text-green-500" />
-                          ) : (
-                            <Copy size={13} className="text-gray-400" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-            <section className="mb-5 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-              <label className="mb-3 block text-sm font-bold text-gray-700">
-                Ghi Chú Giao Dịch{" "}
-                <span className="font-normal text-gray-400">(tùy chọn)</span>
-              </label>
-              <textarea
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                placeholder="Nhập ghi chú nếu cần..."
-                rows={3}
-                className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-800 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-300"
-              />
-            </section>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setStep("select")}
-                className="flex items-center gap-2 rounded-xl border border-gray-200 px-5 py-3.5 text-sm font-semibold text-gray-600 hover:bg-gray-50"
-              >
-                <ArrowLeft size={16} />
-                Quay lại
-              </button>
-              <button
-                type="button"
-                onClick={() => setStep("confirm")}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 py-3.5 font-bold text-white hover:bg-amber-600"
-              >
-                Xem Xác Nhận
-                <ChevronRight size={18} />
-              </button>
-            </div>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
-  if (step === "confirm") {
-    const selected = PAYMENT_OPTIONS.find((option) => option.id === method)!;
-    return (
-      <div className="flex min-h-screen flex-col bg-gray-50">
-        <Header />
-        <main className="flex-1 px-4 pb-16 pt-24">
-          <div className="mx-auto max-w-2xl">
-            <DepositPageHeader />
-            <DepositProgress current="confirm" />
-            <section className="mb-5 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-              <h2 className="mb-5 flex items-center gap-2 text-sm font-bold text-gray-700">
-                <ShieldCheck size={16} className="text-amber-500" />
-                Xác Nhận Giao Dịch
-              </h2>
-              <div className="space-y-3">
-                {[
-                  ["Mã giao dịch", txId],
-                  ["Số tiền nạp", formatVnd(amount)],
-                  ["Coin nhận được", `${amount.toLocaleString("vi-VN")} Coin`],
-                  ...(bonus
-                    ? [["Coin bonus", `+${bonus.toLocaleString("vi-VN")} Coin`]]
-                    : []),
-                  ["Tổng Coin", `${total.toLocaleString("vi-VN")} Coin`],
-                  ["Phương thức", selected.label],
-                  ...(note ? [["Ghi chú", note]] : []),
-                ].map(([label, value]) => (
-                  <div
-                    key={label}
-                    className="flex items-center justify-between border-b border-gray-50 py-2.5 last:border-0"
-                  >
-                    <span className="text-sm text-gray-500">{label}</span>
-                    <span
-                      className={`text-sm font-semibold ${label === "Số tiền nạp" ? "text-base text-amber-600" : label === "Coin bonus" ? "text-green-600" : "text-gray-800"}`}
-                    >
-                      {value}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
-            <div className="mb-5 flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
-              <Clock size={16} className="mt-0.5 shrink-0 text-blue-500" />
-              <div>
-                <p className="text-sm font-semibold text-blue-800">
-                  Thời gian xử lý
-                </p>
-                <p className="mt-0.5 text-xs text-blue-600">
-                  Giao dịch sẽ được xử lý trong vòng <strong>5-15 phút</strong>.
-                  Nếu sau 30 phút chưa nhận được coin, vui lòng liên hệ hỗ trợ.
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setStep("details")}
-                disabled={loading}
-                className="flex items-center gap-2 rounded-xl border border-gray-200 px-5 py-3.5 text-sm font-semibold text-gray-600"
-              >
-                <ArrowLeft size={16} />
-                Quay lại
-              </button>
-              <button
-                type="button"
-                onClick={confirm}
-                disabled={loading}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 py-3.5 font-bold text-white disabled:bg-amber-300"
-              >
-                {loading ? (
-                  <>
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                    Đang xử lý...
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck size={18} />
-                    Xác Nhận Nạp Tiền
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
+  function scheduleGenerateQr(nextAmount: number) {
+    if (debounceTimerRef.current) {
+      window.clearTimeout(debounceTimerRef.current);
+    }
+
+    if (nextAmount < MIN_DEPOSIT_AMOUNT || nextAmount > MAX_DEPOSIT_AMOUNT) {
+      return;
+    }
+
+    setStatusText("Đang chuẩn bị mã QR...");
+    debounceTimerRef.current = window.setTimeout(() => {
+      void generatePayosQr(nextAmount);
+    }, QR_CREATE_DEBOUNCE_MS);
+  }
+
+  function changeAmount(event: React.ChangeEvent<HTMLInputElement>) {
+    const formatted = formatAmountInput(event.target.value);
+    const nextAmount = parseAmount(formatted);
+    setAmountInput(formatted);
+    setError("");
+    resetQrIfAmountChanged(nextAmount);
+    scheduleGenerateQr(nextAmount);
+  }
+
+  function choosePreset(value: number) {
+    setAmountInput(formatNumber(value));
+    setError("");
+    resetQrIfAmountChanged(value);
+    scheduleGenerateQr(value);
+  }
+
+  function resetDeposit() {
+    setAmountInput("");
+    setPayment(null);
+    setError("");
+    setStatusText("");
+    setCopied(null);
+    setPaymentState("Chưa tạo mã");
+    generatedAmountRef.current = null;
+    activeOrderCodeRef.current = "";
+    statusAttemptsRef.current = 0;
+    clearStatusTimer();
   }
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
       <Header />
       <main className="flex-1 px-4 pb-16 pt-24">
-        <div className="mx-auto max-w-2xl">
-          <section className="rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
-            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
-              <CheckCircle size={40} className="text-green-500" />
-            </div>
-            <h2 className="mb-2 text-xl font-bold text-gray-800">
-              Yêu Cầu Đã Gửi!
-            </h2>
-            <p className="mb-6 text-sm text-gray-500">
-              Giao dịch{" "}
-              <span className="font-semibold text-gray-700">{txId}</span> đang
-              được xử lý. Coin sẽ được cộng vào ví trong vòng 5-15 phút.
-            </p>
-            <div className="mb-6 space-y-2 rounded-xl bg-gray-50 p-4 text-left">
-              {[
-                ["Số tiền nạp", formatVnd(amount)],
-                ["Coin nhận được", `${total.toLocaleString("vi-VN")} Coin`],
-                [
-                  "Phương thức",
-                  PAYMENT_OPTIONS.find((option) => option.id === method)
-                    ?.label ?? "ATM",
-                ],
-              ].map(([label, value]) => (
-                <div key={label} className="flex justify-between text-sm">
-                  <span className="text-gray-500">{label}</span>
-                  <span className="font-bold text-gray-800">{value}</span>
+        <div className="mx-auto max-w-5xl">
+          <DepositPageHeader />
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)]">
+            <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="flex items-center gap-2 text-sm font-bold text-gray-700">
+                  <Banknote size={16} className="text-amber-500" />
+                  Chọn hoặc nhập số tiền cần nạp
+                </h2>
+                <span className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-bold text-teal-700">
+                  PayOS QR
+                </span>
+              </div>
+
+              <div className="mt-5 rounded-xl border border-amber-100 bg-gradient-to-br from-amber-50 to-white p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-sm">
+                    <Wallet size={24} />
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-800">Gói nạp Coin</p>
+                    <p className="text-xs text-gray-500">
+                      Coin được cộng sau khi PayOS xác nhận giao dịch thành công.
+                    </p>
+                  </div>
                 </div>
-              ))}
-            </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
+              </div>
+
+              <label className="mb-1.5 mt-5 block text-xs font-semibold text-gray-600">
+                Số tiền muốn nạp
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9.,]*"
+                  value={amountInput}
+                  onChange={changeAmount}
+                  placeholder="Nhập số tiền..."
+                  autoComplete="off"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-14 text-sm font-semibold text-gray-800 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">
+                  VND
+                </span>
+              </div>
+              <p className="mt-2 min-h-5 text-xs text-gray-400">
+                Tối thiểu {formatVnd(MIN_DEPOSIT_AMOUNT)}. QR sẽ tự tạo sau khi bạn chọn hoặc nhập số tiền hợp lệ.
+              </p>
+
+              <div className="mt-5">
+                <p className="mb-3 text-sm font-bold text-gray-700">Chọn mệnh giá</p>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {DEPOSIT_PRESETS.map((preset) => (
+                    <button
+                      type="button"
+                      key={preset}
+                      onClick={() => choosePreset(preset)}
+                      className={
+                        "rounded-xl border p-3 text-left transition-all active:translate-y-px " +
+                        (amount === preset
+                          ? "border-amber-500 bg-amber-50 text-amber-700"
+                          : "border-gray-100 bg-gray-50 text-gray-600 hover:border-amber-200 hover:text-amber-600")
+                      }
+                    >
+                      <span className="block text-sm font-black leading-tight">
+                        {formatVnd(preset)}
+                      </span>
+                      <span className="mt-1 block text-xs font-semibold text-gray-400">
+                        {formatNumber(preset)} Coin
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-xl bg-gray-50 p-4">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3 text-sm">
+                  <span className="font-semibold text-gray-500">Gói nạp</span>
+                  <span className="font-bold text-gray-800">
+                    {amount > 0 ? formatVnd(amount) : "Chưa chọn"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-b border-gray-100 py-3 text-sm">
+                  <span className="font-semibold text-gray-500">Phương thức</span>
+                  <span className="font-bold text-gray-800">PayOS QR</span>
+                </div>
+                <div className="flex items-center justify-between py-3 text-sm">
+                  <span className="font-semibold text-gray-500">Trạng thái</span>
+                  <span className="font-bold text-amber-600">{paymentState}</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-gray-100 pt-3">
+                  <span className="text-sm font-semibold text-gray-500">Tổng thanh toán</span>
+                  <span className="text-xl font-black text-amber-600">
+                    {amount > 0 ? formatVnd(amount) : "0 đ"}
+                  </span>
+                </div>
+              </div>
+
+              {error && (
+                <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+                  {error}
+                </div>
+              )}
+
+              {statusText && !error && (
+                <div className="mt-4 flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                  <Clock size={16} className="mt-0.5 shrink-0" />
+                  <span>{statusText}</span>
+                </div>
+              )}
+
               <button
                 type="button"
-                onClick={() => {
-                  setStep("select");
-                  setSelectedAmount(null);
-                  setCustomAmount("");
-                  setMethod("atm");
-                  setNote("");
-                }}
-                className="flex-1 rounded-xl border border-amber-300 py-3 text-sm font-semibold text-amber-600 hover:bg-amber-50"
+                onClick={() => void generatePayosQr(amount, true)}
+                disabled={!canCreateQr || loading}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-3.5 font-bold text-white transition-all hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 active:translate-y-px"
               >
-                Nạp Thêm
+                {loading ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Đang tạo QR...
+                  </>
+                ) : isSameGeneratedAmount ? (
+                  <>
+                    <RefreshCw size={18} />
+                    Tạo lại QR
+                  </>
+                ) : (
+                  <>
+                    <QrCode size={18} />
+                    Tạo QR
+                  </>
+                )}
               </button>
-              <Link
-                to="/user-account"
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 py-3 text-sm font-bold text-white hover:bg-amber-600"
-              >
-                <Wallet size={16} />
-                Xem Ví Của Tôi
-              </Link>
-            </div>
-          </section>
+            </section>
+
+            <section ref={qrContainerRef} className="scroll-mt-24 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="flex items-center gap-2 text-sm font-bold text-gray-700">
+                  <QrCode size={16} className="text-amber-500" />
+                  QR thanh toán
+                </h2>
+                <span
+                  className={
+                    "rounded-full border px-3 py-1 text-xs font-bold " +
+                    (payment
+                      ? "border-amber-200 bg-amber-50 text-amber-700"
+                      : "border-teal-200 bg-teal-50 text-teal-700")
+                  }
+                >
+                  {payment ? paymentState : "Sẵn sàng"}
+                </span>
+              </div>
+
+              {!payment ? (
+                <div className="flex min-h-[360px] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center">
+                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-gray-200 bg-white text-amber-500">
+                    <QrCode size={30} />
+                  </div>
+                  <h3 className="mb-1 text-base font-bold text-gray-800">
+                    Mã thanh toán sẽ hiển thị tại đây
+                  </h3>
+                  <p className="max-w-xs text-sm leading-relaxed text-gray-500">
+                    Chọn mệnh giá hoặc nhập số tiền để hệ thống tự tạo QR PayOS cho tài khoản của bạn.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-gray-100 bg-white p-4 text-center">
+                  <div className="mb-4 flex min-h-[292px] items-center justify-center rounded-2xl border border-gray-100 bg-white p-4">
+                    {payment.qr_image_url ? (
+                      <img
+                        src={payment.qr_image_url}
+                        alt="QR PayOS nạp Coin"
+                        className="w-full max-w-[280px] rounded-xl"
+                      />
+                    ) : (
+                      <div className="flex h-64 w-full items-center justify-center rounded-xl bg-gray-50 text-sm text-gray-400">
+                        Chưa nhận được ảnh QR từ PayOS
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mb-4 grid gap-2 text-left">
+                    {[
+                      ["Số tiền", formatVnd(payment.amount || amount), "amount"],
+                      ["Nội dung", payment.description, "description"],
+                      ["Mã đơn", payment.order_code, "order"],
+                    ].map(([label, value, key]) => (
+                      <div
+                        key={key}
+                        className="grid grid-cols-[96px_minmax(0,1fr)_auto] items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 max-sm:grid-cols-1"
+                      >
+                        <span className="text-xs font-bold text-gray-400">{label}</span>
+                        <span className="min-w-0 break-words text-sm font-bold text-gray-800">
+                          {value}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void copy(String(value), String(key))}
+                          className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-600 transition-all hover:border-amber-200 hover:text-amber-600 active:translate-y-px max-sm:w-full"
+                        >
+                          {copied === key ? "Đã chép" : <Copy size={13} />}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <a
+                      href={payment.checkout_url || "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 py-3 text-sm font-bold text-white transition-all hover:bg-amber-600 active:translate-y-px"
+                    >
+                      Mở cổng thanh toán
+                      <ExternalLink size={16} />
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => void checkPaymentStatus(payment.order_code, false)}
+                      disabled={checkingStatus}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-amber-300 py-3 text-sm font-bold text-amber-600 transition-all hover:bg-amber-50 disabled:opacity-60 active:translate-y-px"
+                    >
+                      {checkingStatus ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
+                      Kiểm tra thanh toán
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-5 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <CheckCircle size={16} className="mt-0.5 shrink-0 text-amber-600" />
+                <div>
+                  <p className="text-sm font-bold text-amber-800">
+                    Lưu ý khi thanh toán
+                  </p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-amber-700">
+                    Vui lòng giữ nguyên nội dung chuyển khoản do PayOS tạo. Sau khi giao dịch thành công, hệ thống sẽ tự xác nhận và cộng Coin.
+                  </p>
+                </div>
+              </div>
+
+              {payment && (
+                <button
+                  type="button"
+                  onClick={resetDeposit}
+                  className="mt-4 w-full rounded-xl border border-gray-200 py-3 text-sm font-bold text-gray-600 transition-all hover:bg-gray-50 active:translate-y-px"
+                >
+                  Nạp thêm giao dịch khác
+                </button>
+              )}
+            </section>
+          </div>
+
+          <div className="mt-6 flex justify-center">
+            <Link
+              to="/user-account"
+              className="inline-flex items-center gap-2 text-sm font-bold text-amber-600 hover:text-amber-700"
+            >
+              <Wallet size={16} />
+              Xem ví của tôi
+            </Link>
+          </div>
         </div>
       </main>
       <Footer />
