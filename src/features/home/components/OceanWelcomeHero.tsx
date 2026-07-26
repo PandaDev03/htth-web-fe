@@ -1,34 +1,34 @@
-import { Users, Ship, Sword, Download } from "lucide-react";
+import { Download, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const OceanWelcomeHero = () => {
-  const stats = [
-    {
-      icon: <Users size={20} />,
-      value: "48,291",
-      label: "Tài Khoản",
-      color: "text-teal-600",
-    },
-    {
-      icon: <Ship size={20} />,
-      value: "1,247",
-      label: "Online Ngay",
-      color: "text-amber-600",
-    },
-    {
-      icon: <Sword size={20} />,
-      value: "312",
-      label: "Guild Hoạt Động",
-      color: "text-red-500",
-    },
-    {
-      icon: <Download size={20} />,
-      value: "1.4.2",
-      label: "Phiên Bản",
-      color: "text-gray-500",
-    },
-  ];
+// const stats = [
+//   {
+//     icon: <Users size={20} />,
+//     value: "48,291",
+//     label: "Tài Khoản",
+//     color: "text-teal-600",
+//   },
+//   {
+//     icon: <Ship size={20} />,
+//     value: "1,247",
+//     label: "Online Ngay",
+//     color: "text-amber-600",
+//   },
+//   {
+//     icon: <Sword size={20} />,
+//     value: "312",
+//     label: "Guild Hoạt Động",
+//     color: "text-red-500",
+//   },
+//   {
+//     icon: <Download size={20} />,
+//     value: "1.4.2",
+//     label: "Phiên Bản",
+//     color: "text-gray-500",
+//   },
+// ];
 
+const OceanWelcomeHero = () => {
   return (
     <section className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-gradient-to-br from-amber-50 via-white to-orange-50 pt-16">
       <div className="pointer-events-none absolute inset-0">
@@ -81,7 +81,7 @@ const OceanWelcomeHero = () => {
             Đăng Ký Tài Khoản
           </Link>
         </div>
-        <div className="mx-auto grid max-w-3xl grid-cols-2 gap-4 sm:grid-cols-4">
+        {/* <div className="mx-auto grid max-w-3xl grid-cols-2 gap-4 sm:grid-cols-4">
           {stats.map((stat) => (
             <div
               key={stat.label}
@@ -96,7 +96,7 @@ const OceanWelcomeHero = () => {
               </span>
             </div>
           ))}
-        </div>
+        </div> */}
       </div>
       <div className="absolute bottom-8 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2 opacity-30">
         <div className="h-8 w-px bg-gradient-to-b from-transparent to-amber-500" />

@@ -4,8 +4,9 @@ import { Link } from "react-router-dom";
 
 import { ZaloLogoArc } from "@/assets/images";
 import { PirateBrandMark } from "@/shared/components/site/BrandMark";
+import { env } from "@/shared/config/env";
 
-export function PublicFooter() {
+export function Footer() {
   const links = [
     { label: "Trang Chủ", href: "/", icon: <Home size={13} /> },
     {
@@ -29,7 +30,7 @@ export function PublicFooter() {
             <PirateBrandMark size={32} />
             <p className="text-sm leading-relaxed text-gray-500">
               Hải tặc vui vẻ là game nhập vai 2D hải tặc trực tuyến. Xây dựng
-              nhân vật, trang bị, PK và giải trí cùng bạn bè mỗi ngày.
+              nhân vật, PK và giải trí cùng bạn bè mỗi ngày.
             </p>
             <div className="mt-1 h-0.5 w-24 bg-gradient-to-r from-amber-400 to-amber-200" />
           </div>
@@ -75,6 +76,12 @@ export function PublicFooter() {
               Zalo Community
             </a>
           </div>
+        </div>
+        <div className="mt-8 flex flex-col justify-end items-center gap-3 border-t border-gray-100 pt-6 sm:flex-row">
+          <p className="text-xs text-gray-400">
+            Version {env?.downloads?.windows?.version} - Cập nhật{" "}
+            {env?.downloads?.windows?.updatedAt}
+          </p>
         </div>
       </div>
     </footer>

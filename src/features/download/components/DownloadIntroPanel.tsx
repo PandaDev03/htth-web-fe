@@ -1,3 +1,4 @@
+import { env } from "@/shared/config/env";
 import { Clock, Download, Shield, Zap } from "lucide-react";
 
 const DownloadIntroPanel = () => {
@@ -23,7 +24,7 @@ const DownloadIntroPanel = () => {
       <div className="relative z-10 mx-auto max-w-screen-2xl px-4 text-center sm:px-6 lg:px-8 xl:px-10">
         <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-4 py-1.5 text-sm font-600 text-amber-700">
           <Download size={14} />
-          Phiên bản mới nhất - v1.4.2
+          Phiên bản mới nhất - {env?.downloads?.windows?.version}
         </div>
         <h1 className="text-hero-md mb-4 text-gray-800 capitalize">
           Tải <span className="text-amber-600">Hải tặc vui vẻ</span>
@@ -35,7 +36,10 @@ const DownloadIntroPanel = () => {
         <div className="flex flex-wrap items-center justify-center gap-4">
           {[
             { icon: <Shield size={15} />, label: "Không virus - đã quét" },
-            { icon: <Zap size={15} />, label: "Cập nhật 22/07/2026" },
+            {
+              icon: <Zap size={15} />,
+              label: `Cập nhật ${env?.downloads?.windows?.updatedAt}`,
+            },
             { icon: <Clock size={15} />, label: "Tải trong vài giây" },
           ].map((badge) => (
             <div

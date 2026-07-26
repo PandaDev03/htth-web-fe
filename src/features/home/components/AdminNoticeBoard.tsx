@@ -56,8 +56,8 @@ const AdminNoticeBoard = () => {
               Chưa có bài đăng nào
             </h3>
             <p className="mb-5 max-w-sm text-center text-sm text-gray-400">
-              Khu vực này dành cho thông báo và tin tức từ đội ngũ quản trị
-              Hải tặc vui vẻ. H?y theo d?i ?? nh?n th?ng tin m?i nh?t.
+              Khu vực này dành cho thông báo và tin tức từ đội ngũ quản trị Hải
+              tặc vui vẻ. Hãy theo dõi để nhận được những thông tin mới nhất.
             </p>
             <div className="flex items-center gap-2 text-xs text-gray-400">
               <Plus size={14} />

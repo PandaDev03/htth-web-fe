@@ -1,7 +1,8 @@
-import { PublicFooter } from "@/shared/components/site/PublicFooter";
-import { PublicTopbar } from "@/shared/components/site/PublicHeader";
 import { scrollToTop } from "@/shared/utils/utils";
 import { useEffect } from "react";
+
+import { Footer } from "@/shared/components/site/Footer";
+import { Header } from "@/shared/components/site/Header";
 
 import DownloadIntroPanel from "../components/DownloadIntroPanel";
 import PlatformDownloadGrid from "../components/PlatformDownloadGrid";
@@ -14,13 +15,13 @@ const GameDownloadPage = () => {
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
-      <PublicTopbar />
+      <Header />
       <main className="flex-1 pt-16">
         <DownloadIntroPanel />
         <PlatformDownloadGrid />
         {/* <ReleaseHistory /> */}
       </main>
-      <PublicFooter />
+      <Footer />
     </div>
   );
 };

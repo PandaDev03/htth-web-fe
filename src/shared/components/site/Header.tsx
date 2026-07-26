@@ -10,7 +10,7 @@ const PUBLIC_NAV_ITEMS = [
   { label: "Nạp Tiền", href: "/nap-tien" },
 ];
 
-export function PublicTopbar() {
+export function Header() {
   const { pathname } = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);

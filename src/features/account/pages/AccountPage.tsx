@@ -1,32 +1,287 @@
-import type { ReactNode } from 'react';
-import { Calendar, Camera, Lock, LogOut, Pencil, Shield, Star, User, Wallet } from 'lucide-react';
-import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAppDispatch } from '@/app/store/hooks';
-import { logout } from '@/features/auth/model/authSlice';
-import { AccountPasswordModal } from '@/features/account/components/PasswordModal';
-import { PublicFooter } from '@/shared/components/site/PublicFooter';
-import { PublicTopbar } from '@/shared/components/site/PublicHeader';
+import {
+  Calendar,
+  Camera,
+  Lock,
+  LogOut,
+  Pencil,
+  Shield,
+  Star,
+  User,
+  Wallet,
+} from "lucide-react";
+import type { ReactNode } from "react";
+import { useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-const PREVIEW_ACCOUNT = { username: 'pirate_demo', coin: 12_500, tongnap: 3_200, status: 1, joinDate: new Date('2024-03-15T08:30:00'), avatar: null as string | null };
+import { useAppDispatch } from "@/app/store/hooks";
+import { AccountPasswordModal } from "@/features/account/components/PasswordModal";
+import { logout } from "@/features/auth/model/authSlice";
+import { Footer } from "@/shared/components/site/Footer";
+import { Header } from "@/shared/components/site/Header";
 
-function AccountInfoRow({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) { return <div className='flex items-center justify-between border-b border-gray-100 py-3.5 last:border-0'><div className='flex min-w-0 items-center gap-2.5 text-gray-500'><span className='text-gray-400'>{icon}</span><span className='whitespace-nowrap text-sm font-medium text-gray-600'>{label}</span></div><div className='ml-4 text-right text-sm font-semibold text-gray-800'>{value}</div></div>; }
+const PREVIEW_ACCOUNT = {
+  username: "pirate_demo",
+  coin: 12_500,
+  tongnap: 3_200,
+  status: 1,
+  joinDate: new Date("2024-03-15T08:30:00"),
+  avatar: null as string | null,
+};
 
-function SecurityPasswordRow({ label, hint, onChange }: { label: string; hint?: string; onChange: () => void }) { return <div className='flex items-center justify-between border-b border-gray-100 py-3.5 last:border-0'><div className='flex items-center gap-2.5'><Lock size={16} className='text-gray-400' /><div><p className='text-sm font-medium text-gray-600'>{label}</p>{hint && <p className='mt-0.5 text-xs text-gray-400'>{hint}</p>}</div></div><div className='flex items-center gap-3'><span className='select-none text-base tracking-widest text-gray-400'>••••••••</span><button type='button' onClick={onChange} className='flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-600 hover:bg-amber-100'><Pencil size={12} />Đổi</button></div></div>; }
+function AccountInfoRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between border-b border-gray-100 py-3.5 last:border-0">
+      <div className="flex min-w-0 items-center gap-2.5 text-gray-500">
+        <span className="text-gray-400">{icon}</span>
+        <span className="whitespace-nowrap text-sm font-medium text-gray-600">
+          {label}
+        </span>
+      </div>
+      <div className="ml-4 text-right text-sm font-semibold text-gray-800">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function SecurityPasswordRow({
+  label,
+  hint,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  onChange: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between border-b border-gray-100 py-3.5 last:border-0">
+      <div className="flex items-center gap-2.5">
+        <Lock size={16} className="text-gray-400" />
+        <div>
+          <p className="text-sm font-medium text-gray-600">{label}</p>
+          {hint && <p className="mt-0.5 text-xs text-gray-400">{hint}</p>}
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="select-none text-base tracking-widest text-gray-400">
+          ••••••••
+        </span>
+        <button
+          type="button"
+          onClick={onChange}
+          className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-600 hover:bg-amber-100"
+        >
+          <Pencil size={12} />
+          Đổi
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function PlayerAccountPage() {
   const account = PREVIEW_ACCOUNT;
   const [avatar, setAvatar] = useState<string | null>(account.avatar);
-  const [modal, setModal] = useState<null | 'pass' | 'pass2'>(null);
+  const [modal, setModal] = useState<null | "pass" | "pass2">(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  function upload(event: React.ChangeEvent<HTMLInputElement>) { const file = event.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (result) => setAvatar(result.target?.result as string); reader.readAsDataURL(file); }
-  function signOut() { dispatch(logout()); navigate('/sign-up-login-screen'); }
+  function upload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (result) => setAvatar(result.target?.result as string);
+    reader.readAsDataURL(file);
+  }
+  function signOut() {
+    dispatch(logout());
+    navigate("/sign-up-login-screen");
+  }
   const active = account.status === 1;
-  const joined = account.joinDate.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
-  return <div className='flex min-h-screen flex-col bg-gray-50'><PublicTopbar /><main className='flex-1 px-4 pb-16 pt-24'><div className='mx-auto max-w-2xl'><div className='mb-6'><h1 className='text-2xl font-bold text-gray-800'>Tài Khoản Của Tôi</h1><p className='mt-1 text-sm text-gray-500'>Quản lý thông tin và bảo mật tài khoản</p></div><div className='mb-4 flex items-center gap-5 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm'><div className='relative shrink-0'><div className='flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-amber-400 to-amber-600 ring-4 ring-amber-100'>{avatar ? <img src={avatar} alt='Avatar' className='h-full w-full object-cover' /> : <User size={36} className='text-white' />}</div><button type='button' onClick={() => fileInput.current?.click()} className='absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-amber-500 shadow-md hover:bg-amber-600' title='Đổi ảnh đại diện'><Camera size={13} className='text-white' /></button><input ref={fileInput} type='file' accept='image/*' className='hidden' onChange={upload} /></div><div className='min-w-0 flex-1'><p className='truncate text-lg font-bold text-gray-800'>{account.username}</p><span className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${active ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-600'}`}><span className={`h-1.5 w-1.5 rounded-full ${active ? 'bg-green-500' : 'bg-red-500'}`} />{active ? 'Đang hoạt động' : 'Bị khóa'}</span><p className='mt-1.5 text-xs text-gray-400'>Nhấn vào biểu tượng máy ảnh để đổi ảnh đại diện</p></div></div><div className='mb-4 grid grid-cols-2 gap-4'>{[[<Wallet size={16} />, 'Số Dư Ví', account.coin, 'Coin', 'amber'], [<Star size={16} />, 'Điểm Tích Nạp', account.tongnap, 'Điểm', 'purple']].map(([icon, label, value, unit, color]) => <div key={label as string} className='rounded-2xl border border-gray-100 bg-white p-5 shadow-sm'><div className='mb-2 flex items-center gap-2'><div className={`flex h-8 w-8 items-center justify-center rounded-lg ${color === 'amber' ? 'bg-amber-50 text-amber-500' : 'bg-purple-50 text-purple-500'}`}>{icon as ReactNode}</div><span className='text-xs font-medium text-gray-500'>{label}</span></div><p className={`text-2xl font-bold ${color === 'amber' ? 'text-amber-600' : 'text-purple-600'}`}>{(value as number).toLocaleString('vi-VN')}</p><p className='mt-0.5 text-xs text-gray-400'>{unit}</p></div>)}</div>
-<section className='mb-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm'><h2 className='mb-1 flex items-center gap-2 text-sm font-bold text-gray-700'><Shield size={15} className='text-gray-400' />Thông Tin Tài Khoản</h2><div className='mt-3'><AccountInfoRow icon={<User size={15} />} label='Tên tài khoản' value={account.username} /><AccountInfoRow icon={<Shield size={15} />} label='Trạng thái' value={<span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${active ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}><span className={`h-1.5 w-1.5 rounded-full ${active ? 'bg-green-500' : 'bg-red-500'}`} />{active ? 'Hoạt động' : 'Bị khóa'}</span>} /><AccountInfoRow icon={<Calendar size={15} />} label='Ngày tham gia' value={joined} /></div></section><section className='mb-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm'><h2 className='mb-1 flex items-center gap-2 text-sm font-bold text-gray-700'><Lock size={15} className='text-gray-400' />Bảo Mật</h2><div className='mt-3'><SecurityPasswordRow label='Mật khẩu đăng nhập' onChange={() => setModal('pass')} /><SecurityPasswordRow label='Mật khẩu cấp 2 (Pass2)' hint='Mã hóa MD5' onChange={() => setModal('pass2')} /></div></section><button type='button' onClick={signOut} className='flex w-full items-center justify-center gap-2.5 rounded-2xl border border-red-200 bg-white py-4 text-sm font-bold text-red-600 shadow-sm transition-all hover:border-red-300 hover:bg-red-50'><LogOut size={17} />Đăng Xuất</button></div></main><PublicFooter />{modal === 'pass' && <AccountPasswordModal title='Đổi Mật Khẩu Đăng Nhập' onClose={() => setModal(null)} />}{modal === 'pass2' && <AccountPasswordModal title='Đổi Mật Khẩu Cấp 2 (Pass2)' md5 onClose={() => setModal(null)} />}</div>;
+  const joined = account.joinDate.toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return (
+    <div className="flex min-h-screen flex-col bg-gray-50">
+      <Header />
+      <main className="flex-1 px-4 pb-16 pt-24">
+        <div className="mx-auto max-w-2xl">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-800">
+              Tài Khoản Của Tôi
+            </h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Quản lý thông tin và bảo mật tài khoản
+            </p>
+          </div>
+          <div className="mb-4 flex items-center gap-5 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="relative shrink-0">
+              <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-amber-400 to-amber-600 ring-4 ring-amber-100">
+                {avatar ? (
+                  <img
+                    src={avatar}
+                    alt="Avatar"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <User size={36} className="text-white" />
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => fileInput.current?.click()}
+                className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-amber-500 shadow-md hover:bg-amber-600"
+                title="Đổi ảnh đại diện"
+              >
+                <Camera size={13} className="text-white" />
+              </button>
+              <input
+                ref={fileInput}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={upload}
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-lg font-bold text-gray-800">
+                {account.username}
+              </p>
+              <span
+                className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${active ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-600"}`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${active ? "bg-green-500" : "bg-red-500"}`}
+                />
+                {active ? "Đang hoạt động" : "Bị khóa"}
+              </span>
+              <p className="mt-1.5 text-xs text-gray-400">
+                Nhấn vào biểu tượng máy ảnh để đổi ảnh đại diện
+              </p>
+            </div>
+          </div>
+          <div className="mb-4 grid grid-cols-2 gap-4">
+            {[
+              [<Wallet size={16} />, "Số Dư Ví", account.coin, "Coin", "amber"],
+              [
+                <Star size={16} />,
+                "Điểm Tích Nạp",
+                account.tongnap,
+                "Điểm",
+                "purple",
+              ],
+            ].map(([icon, label, value, unit, color]) => (
+              <div
+                key={label as string}
+                className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm"
+              >
+                <div className="mb-2 flex items-center gap-2">
+                  <div
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg ${color === "amber" ? "bg-amber-50 text-amber-500" : "bg-purple-50 text-purple-500"}`}
+                  >
+                    {icon as ReactNode}
+                  </div>
+                  <span className="text-xs font-medium text-gray-500">
+                    {label}
+                  </span>
+                </div>
+                <p
+                  className={`text-2xl font-bold ${color === "amber" ? "text-amber-600" : "text-purple-600"}`}
+                >
+                  {(value as number).toLocaleString("vi-VN")}
+                </p>
+                <p className="mt-0.5 text-xs text-gray-400">{unit}</p>
+              </div>
+            ))}
+          </div>
+          <section className="mb-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <h2 className="mb-1 flex items-center gap-2 text-sm font-bold text-gray-700">
+              <Shield size={15} className="text-gray-400" />
+              Thông Tin Tài Khoản
+            </h2>
+            <div className="mt-3">
+              <AccountInfoRow
+                icon={<User size={15} />}
+                label="Tên tài khoản"
+                value={account.username}
+              />
+              <AccountInfoRow
+                icon={<Shield size={15} />}
+                label="Trạng thái"
+                value={
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${active ? "bg-green-500" : "bg-red-500"}`}
+                    />
+                    {active ? "Hoạt động" : "Bị khóa"}
+                  </span>
+                }
+              />
+              <AccountInfoRow
+                icon={<Calendar size={15} />}
+                label="Ngày tham gia"
+                value={joined}
+              />
+            </div>
+          </section>
+          <section className="mb-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <h2 className="mb-1 flex items-center gap-2 text-sm font-bold text-gray-700">
+              <Lock size={15} className="text-gray-400" />
+              Bảo Mật
+            </h2>
+            <div className="mt-3">
+              <SecurityPasswordRow
+                label="Mật khẩu đăng nhập"
+                onChange={() => setModal("pass")}
+              />
+              <SecurityPasswordRow
+                label="Mật khẩu cấp 2 (Pass2)"
+                hint="Mã hóa MD5"
+                onChange={() => setModal("pass2")}
+              />
+            </div>
+          </section>
+          <button
+            type="button"
+            onClick={signOut}
+            className="flex w-full items-center justify-center gap-2.5 rounded-2xl border border-red-200 bg-white py-4 text-sm font-bold text-red-600 shadow-sm transition-all hover:border-red-300 hover:bg-red-50"
+          >
+            <LogOut size={17} />
+            Đăng Xuất
+          </button>
+        </div>
+      </main>
+      <Footer />
+      {modal === "pass" && (
+        <AccountPasswordModal
+          title="Đổi Mật Khẩu Đăng Nhập"
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal === "pass2" && (
+        <AccountPasswordModal
+          title="Đổi Mật Khẩu Cấp 2 (Pass2)"
+          md5
+          onClose={() => setModal(null)}
+        />
+      )}
+    </div>
+  );
 }
 
 export default PlayerAccountPage;

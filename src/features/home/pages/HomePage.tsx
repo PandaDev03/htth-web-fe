@@ -1,7 +1,8 @@
-import { PublicFooter } from "@/shared/components/site/PublicFooter";
-import { PublicTopbar } from "@/shared/components/site/PublicHeader";
-import { scrollToTop } from "@/shared/utils/utils";
 import { useEffect } from "react";
+
+import { Footer } from "@/shared/components/site/Footer";
+import { Header } from "@/shared/components/site/Header";
+import { scrollToTop } from "@/shared/utils/utils";
 
 import AdminNoticeBoard from "../components/AdminNoticeBoard";
 import CompactDownloadShowcase from "../components/CompactDownloadShowcase";
@@ -15,14 +16,14 @@ function PirateLandingPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-white">
-      <PublicTopbar />
+      <Header />
       <main className="flex-1">
         <OceanWelcomeHero />
         <ZaloCommunityBanner />
         <AdminNoticeBoard />
         <CompactDownloadShowcase />
       </main>
-      <PublicFooter />
+      <Footer />
     </div>
   );
 }

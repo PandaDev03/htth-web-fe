@@ -1,5 +1,3 @@
-import { PublicFooter } from "@/shared/components/site/PublicFooter";
-import { PublicTopbar } from "@/shared/components/site/PublicHeader";
 import {
   ArrowLeft,
   Banknote,
@@ -15,6 +13,10 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+
+import { Footer } from "@/shared/components/site/Footer";
+import { Header } from "@/shared/components/site/Header";
+
 import DepositProgress, { DepositStep } from "../components/DepositProgress";
 
 const DEPOSIT_PRESETS = [
@@ -115,7 +117,7 @@ function WalletDepositPage() {
   if (step === "select")
     return (
       <div className="flex min-h-screen flex-col bg-gray-50">
-        <PublicTopbar />
+        <Header />
         <main className="flex-1 px-4 pb-16 pt-24">
           <div className="mx-auto max-w-2xl">
             <DepositPageHeader />
@@ -209,13 +211,13 @@ function WalletDepositPage() {
             </button>
           </div>
         </main>
-        <PublicFooter />
+        <Footer />
       </div>
     );
   if (step === "details")
     return (
       <div className="flex min-h-screen flex-col bg-gray-50">
-        <PublicTopbar />
+        <Header />
         <main className="flex-1 px-4 pb-16 pt-24">
           <div className="mx-auto max-w-2xl">
             <DepositPageHeader />
@@ -330,14 +332,14 @@ function WalletDepositPage() {
             </div>
           </div>
         </main>
-        <PublicFooter />
+        <Footer />
       </div>
     );
   if (step === "confirm") {
     const selected = PAYMENT_OPTIONS.find((option) => option.id === method)!;
     return (
       <div className="flex min-h-screen flex-col bg-gray-50">
-        <PublicTopbar />
+        <Header />
         <main className="flex-1 px-4 pb-16 pt-24">
           <div className="mx-auto max-w-2xl">
             <DepositPageHeader />
@@ -416,14 +418,14 @@ function WalletDepositPage() {
             </div>
           </div>
         </main>
-        <PublicFooter />
+        <Footer />
       </div>
     );
   }
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
-      <PublicTopbar />
+      <Header />
       <main className="flex-1 px-4 pb-16 pt-24">
         <div className="mx-auto max-w-2xl">
           <section className="rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
@@ -479,7 +481,7 @@ function WalletDepositPage() {
           </section>
         </div>
       </main>
-      <PublicFooter />
+      <Footer />
     </div>
   );
 }

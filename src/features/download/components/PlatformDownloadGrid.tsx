@@ -9,68 +9,33 @@ import {
   Monitor,
   Smartphone,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-interface DownloadPlatform {
-  id: string;
-  icon: React.ReactNode;
-  label: string;
-  type: string;
-  version: string;
-  // size: string;
-  date: string;
-  available: boolean;
-  description: string;
+import {
+  downloadPlatforms,
+  type DownloadPlatformConfig,
+  type DownloadPlatformId,
+} from "@/shared/config/downloads";
+
+interface DownloadPlatform extends DownloadPlatformConfig {
+  icon: ReactNode;
 }
 
-const DOWNLOAD_PLATFORMS: DownloadPlatform[] = [
-  {
-    id: "testflight",
-    icon: <Apple size={28} />,
-    label: "TestFlight",
-    type: "TestFlight",
-    version: "v1.4.2",
-    // size: "38.2 MB",
-    date: "22/07/2026",
-    available: true,
-    description:
-      "Dành cho iPhone và iPad thông, phù hợp để trải nghiệm bản iOS.",
-  },
-  {
-    id: "apk",
-    icon: <Smartphone size={28} />,
-    label: "APK",
-    type: "APK",
-    version: "v1.4.2",
-    // size: "38.2 MB",
-    date: "22/07/2026",
-    available: true,
-    description: "Dành cho điện thoại và máy tính bảng Android.",
-  },
-  {
-    id: "windows",
-    icon: <Monitor size={28} />,
-    label: "Windows",
-    type: "Windows",
-    version: "v1.4.2",
-    // size: "51.4 MB",
-    date: "22/07/2026",
-    available: true,
-    description: "Gói cài đặt đầy đủ cho Windows 10/11, 64-bit.",
-  },
-  {
-    id: "jar",
-    icon: <FileArchive size={28} />,
-    label: "JAR",
-    type: "JAR",
-    version: "v1.4.2",
-    // size: "24.7 MB",
-    date: "22/07/2026",
-    available: true,
-    description: "Chạy trên PC với phần mềm giả lập J2ME.",
-  },
-];
+const platformIcons: Record<DownloadPlatformId, ReactNode> = {
+  testflight: <Apple size={28} />,
+  apk: <Smartphone size={28} />,
+  windows: <Monitor size={28} />,
+  jar: <FileArchive size={28} />,
+};
+
+const DOWNLOAD_PLATFORMS: DownloadPlatform[] = downloadPlatforms.map(
+  (platform) => ({
+    ...platform,
+    icon: platformIcons[platform.id],
+  }),
+);
 
 const PlatformDownloadGrid = () => {
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -79,18 +44,17 @@ const PlatformDownloadGrid = () => {
     scrollToTop({});
   }, []);
 
-  async function download(platform: DownloadPlatform) {
-    if (!platform.available) return;
+  function download(platform: DownloadPlatform) {
+    if (!platform.available) {
+      toast.info(
+        "Phiên bản này đang chờ cập nhật. Hiện tại bạn vui lòng tải bản phù hợp trong danh sách nhé.",
+      );
+      return;
+    }
 
     setDownloading(platform.id);
-
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    toast.success(
-      "Đang tải " + platform.type + " " + platform.version,
-      // {description: "Kích thước: " + platform.size}
-    );
-
-    setDownloading(null);
+    toast.success("Đang mở link tải " + platform.type + " " + platform.version);
+    window.setTimeout(() => setDownloading(null), 1200);
   }
 
   return (
@@ -139,7 +103,6 @@ const PlatformDownloadGrid = () => {
                 <div className="flex flex-col gap-1.5">
                   {[
                     ["Phiên bản", platform.version],
-                    // ["Kích thước", platform.size],
                     ["Cập nhật", platform.date],
                   ].map(([label, value]) => (
                     <div key={label} className="flex justify-between">
@@ -151,12 +114,13 @@ const PlatformDownloadGrid = () => {
                   ))}
                 </div>
                 <div className="mt-auto">
-                  {platform.available ? (
-                    <button
-                      type="button"
+                  {platform.url ? (
+                    <a
+                      href={platform.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       onClick={() => download(platform)}
-                      disabled={downloading === platform.id}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-white transition-all hover:bg-amber-600 disabled:opacity-60"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-white transition-all hover:bg-amber-600"
                     >
                       {downloading === platform.id ? (
                         <Loader2 size={16} className="animate-spin" />
@@ -166,12 +130,16 @@ const PlatformDownloadGrid = () => {
                           Tải {platform.type}
                         </>
                       )}
-                    </button>
+                    </a>
                   ) : (
-                    <div className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 py-2.5 text-sm text-gray-400">
+                    <button
+                      type="button"
+                      onClick={() => download(platform)}
+                      className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 py-2.5 text-sm text-gray-400"
+                    >
                       <Clock size={15} />
                       Đợi cập nhật
-                    </div>
+                    </button>
                   )}
                 </div>
               </div>
