@@ -1,3 +1,4 @@
+import LoadingOutlined from "@ant-design/icons/lib/icons/LoadingOutlined";
 import { Spin } from "antd";
 import type { ReactNode } from "react";
 import { Suspense } from "react";
@@ -11,7 +12,7 @@ export function PageLoader({ children }: PageLoaderProps) {
     <Suspense
       fallback={
         <div className="grid min-h-screen place-items-center">
-          <Spin size="large" />
+          <Spin size="large" indicator={<LoadingOutlined spin />} style={{}} />
         </div>
       }
     >
