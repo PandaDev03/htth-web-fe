@@ -29,7 +29,7 @@ const CompactDownloadShowcase = () => {
             Chọn Nền Tảng Của Bạn
           </h2>
           <p className="text-sm text-gray-500">
-            Phiên bản ổn định mới nhất · 25/07/2026
+            Phiên bản ổn định mới nhất - 25/07/2026
           </p>
         </div>
         <div className="mx-auto mb-8 grid max-w-3xl grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

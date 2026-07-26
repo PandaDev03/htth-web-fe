@@ -18,7 +18,7 @@ interface DownloadPlatform {
   label: string;
   type: string;
   version: string;
-  size: string;
+  // size: string;
   date: string;
   available: boolean;
   description: string;
@@ -31,11 +31,11 @@ const DOWNLOAD_PLATFORMS: DownloadPlatform[] = [
     label: "TestFlight",
     type: "TestFlight",
     version: "v1.4.2",
-    size: "38.2 MB",
+    // size: "38.2 MB",
     date: "22/07/2026",
     available: true,
     description:
-      "Dành cho iPhone và iPad thông qua TestFlight, phù hợp để trải nghiệm bản iOS.",
+      "Dành cho iPhone và iPad thông, phù hợp để trải nghiệm bản iOS.",
   },
   {
     id: "apk",
@@ -43,10 +43,10 @@ const DOWNLOAD_PLATFORMS: DownloadPlatform[] = [
     label: "APK",
     type: "APK",
     version: "v1.4.2",
-    size: "38.2 MB",
+    // size: "38.2 MB",
     date: "22/07/2026",
     available: true,
-    description: "Dành cho điện thoại thoại và máy tính bảng Android.",
+    description: "Dành cho điện thoại và máy tính bảng Android.",
   },
   {
     id: "windows",
@@ -54,7 +54,7 @@ const DOWNLOAD_PLATFORMS: DownloadPlatform[] = [
     label: "Windows",
     type: "Windows",
     version: "v1.4.2",
-    size: "51.4 MB",
+    // size: "51.4 MB",
     date: "22/07/2026",
     available: true,
     description: "Gói cài đặt đầy đủ cho Windows 10/11, 64-bit.",
@@ -65,10 +65,10 @@ const DOWNLOAD_PLATFORMS: DownloadPlatform[] = [
     label: "JAR",
     type: "JAR",
     version: "v1.4.2",
-    size: "24.7 MB",
+    // size: "24.7 MB",
     date: "22/07/2026",
     available: true,
-    description: "Chạy trên PC với phần mềm giả lập J2ME",
+    description: "Chạy trên PC với phần mềm giả lập J2ME.",
   },
 ];
 
@@ -85,9 +85,10 @@ const PlatformDownloadGrid = () => {
     setDownloading(platform.id);
 
     await new Promise((resolve) => setTimeout(resolve, 1200));
-    toast.success(`Đang tải ${platform.type} ${platform.version}`, {
-      description: `Kích thước: ${platform.size}`,
-    });
+    toast.success(
+      "Đang tải " + platform.type + " " + platform.version,
+      // {description: "Kích thước: " + platform.size}
+    );
 
     setDownloading(null);
   }
@@ -96,10 +97,15 @@ const PlatformDownloadGrid = () => {
     <section className="bg-gray-50 py-16">
       <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 xl:px-10">
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          {DOWNLOAD_PLATFORMS.map((platform, index) => (
+          {DOWNLOAD_PLATFORMS.map((platform) => (
             <article
               key={platform.id}
-              className={`rounded-xl border bg-white shadow-sm transition-all ${platform.available ? "Sẵn sàng" : "Đợi cập nhật"}`}
+              className={
+                "rounded-xl border bg-white shadow-sm transition-all " +
+                (platform.available
+                  ? "border-gray-100 hover:border-amber-200 hover:shadow-md"
+                  : "border-gray-100 opacity-80")
+              }
             >
               <div className="flex h-full flex-col gap-5 p-6">
                 <div className="flex items-start justify-between">
@@ -107,7 +113,12 @@ const PlatformDownloadGrid = () => {
                     {platform.icon}
                   </div>
                   <span
-                    className={`rounded-full border border-teal-200 bg-teal-50 px-2.5 py-0.5 text-xs font-600 text-teal-700 ${platform.available ? "Sẵn sàng" : "Đợi cập nhật"}`}
+                    className={
+                      "rounded-full border px-2.5 py-0.5 text-xs font-600 " +
+                      (platform.available
+                        ? "border-teal-200 bg-teal-50 text-teal-700"
+                        : "border-amber-200 bg-amber-50 text-amber-600")
+                    }
                   >
                     {platform.available ? "Sẵn sàng" : "Đợi cập nhật"}
                   </span>
@@ -128,7 +139,7 @@ const PlatformDownloadGrid = () => {
                 <div className="flex flex-col gap-1.5">
                   {[
                     ["Phiên bản", platform.version],
-                    ["Kích thước", platform.size],
+                    // ["Kích thước", platform.size],
                     ["Cập nhật", platform.date],
                   ].map(([label, value]) => (
                     <div key={label} className="flex justify-between">
@@ -169,10 +180,11 @@ const PlatformDownloadGrid = () => {
         </div>
         <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-400">
           <CheckCircle2 size={13} className="text-teal-500" />
-          Tất cả file đã được kiểm tra tính toàn vẹn MD5 · an toàn để tải.
+          Tất cả file đã được kiểm tra tính toàn vẹn MD5 - an toàn để tải
         </div>
       </div>
     </section>
   );
 };
+
 export default PlatformDownloadGrid;

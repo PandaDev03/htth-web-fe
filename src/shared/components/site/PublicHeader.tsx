@@ -1,28 +1,13 @@
 import { PirateBrandMark } from "@/shared/components/site/BrandMark";
-import {
-  ChevronRight,
-  CreditCard,
-  DollarSign,
-  Download,
-  Home,
-  LogIn,
-  Menu,
-  User,
-  X,
-} from "lucide-react";
+import { ChevronRight, Download, LogIn, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 const PUBLIC_NAV_ITEMS = [
-  { label: "Trang Chủ", href: "/", icon: <Home size={16} /> },
-  { label: "Tải Game", href: "/download-screen", icon: <Download size={16} /> },
-  { label: "Tài Khoản", href: "/user-account", icon: <User size={16} /> },
-  {
-    label: "Đổi Coin",
-    href: "/doi-coin",
-    icon: <DollarSign size={16} />,
-  },
-  { label: "Nạp Tiền", href: "/nap-tien", icon: <CreditCard size={16} /> },
+  { label: "Trang Chủ", href: "/" },
+  { label: "Tải Game", href: "/download-screen" },
+  { label: "Đổi Coin", href: "/doi-coin" },
+  { label: "Nạp Tiền", href: "/nap-tien" },
 ];
 
 export function PublicTopbar() {
@@ -39,7 +24,12 @@ export function PublicTopbar() {
   return (
     <>
       <header
-        className={`fixed inset-x-0 top-0 z-50 border-b transition-all duration-300 ${scrolled ? "border-gray-200 bg-white shadow-sm" : "border-gray-100 bg-white/95"}`}
+        className={
+          "fixed inset-x-0 top-0 z-50 border-b transition-all duration-300 " +
+          (scrolled
+            ? "border-gray-200 bg-white shadow-sm"
+            : "border-gray-100 bg-white/95")
+        }
       >
         <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 xl:px-10">
           <div className="flex h-16 items-center justify-between">
@@ -51,9 +41,13 @@ export function PublicTopbar() {
                 <Link
                   key={item.href}
                   to={item.href}
-                  className={`flex items-center gap-1.5 text-sm transition-colors ${pathname === item.href ? "font-semibold text-amber-600" : "font-medium text-gray-600 hover:text-amber-600"}`}
+                  className={
+                    "flex items-center gap-1.5 text-sm transition-colors " +
+                    (pathname === item.href
+                      ? "font-semibold text-amber-600"
+                      : "font-medium text-gray-600 hover:text-amber-600")
+                  }
                 >
-                  {item.icon}
                   {item.label}
                 </Link>
               ))}
@@ -94,7 +88,10 @@ export function PublicTopbar() {
         />
       )}
       <aside
-        className={`fixed right-0 top-0 z-50 h-full w-72 border-l border-gray-200 bg-white shadow-xl transition-transform duration-300 md:hidden ${mobileOpen ? "translate-x-0" : "translate-x-full"}`}
+        className={
+          "fixed right-0 top-0 z-50 h-full w-72 border-l border-gray-200 bg-white shadow-xl transition-transform duration-300 md:hidden " +
+          (mobileOpen ? "translate-x-0" : "translate-x-full")
+        }
       >
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <PirateBrandMark size={32} />
@@ -112,9 +109,13 @@ export function PublicTopbar() {
               key={item.href}
               to={item.href}
               onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 rounded-lg px-3 py-3 ${pathname === item.href ? "bg-amber-50 text-amber-600" : "text-gray-600 hover:bg-gray-50"}`}
+              className={
+                "flex items-center gap-3 rounded-lg px-3 py-3 " +
+                (pathname === item.href
+                  ? "bg-amber-50 text-amber-600"
+                  : "text-gray-600 hover:bg-gray-50")
+              }
             >
-              {item.icon}
               <span className="text-sm font-medium">{item.label}</span>
               <ChevronRight size={14} className="ml-auto opacity-40" />
             </Link>

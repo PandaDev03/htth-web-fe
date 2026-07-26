@@ -6,7 +6,7 @@ import { useAppDispatch } from '@/app/store/hooks';
 import { logout } from '@/features/auth/model/authSlice';
 import { AccountPasswordModal } from '@/features/account/components/PasswordModal';
 import { PublicFooter } from '@/shared/components/site/PublicFooter';
-import { PublicTopbar } from '@/shared/components/site/PublicTopbar';
+import { PublicTopbar } from '@/shared/components/site/PublicHeader';
 
 const PREVIEW_ACCOUNT = { username: 'pirate_demo', coin: 12_500, tongnap: 3_200, status: 1, joinDate: new Date('2024-03-15T08:30:00'), avatar: null as string | null };
 

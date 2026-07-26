@@ -21,7 +21,7 @@ function LoginPage() {
         user: {
           id: "1",
           email: values.email,
-          name: "Admin HTTH",
+          name: "Admin Hải tặc vui vẻ",
           role: "admin",
         },
       }),
@@ -33,7 +33,7 @@ function LoginPage() {
     <main className="grid min-h-screen place-items-center bg-slate-100 px-4">
       <section className="w-full max-w-[420px] rounded-lg bg-white p-6 shadow-sm ring-1 ring-slate-200">
         <Typography.Title level={2} className="!mb-1">
-          HTTH Admin
+          Hải tặc vui vẻ Admin
         </Typography.Title>
         <Typography.Paragraph className="!mb-6 text-slate-500">
           Dang nhap de quan ly he thong web.

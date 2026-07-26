@@ -57,7 +57,7 @@ const AdminNoticeBoard = () => {
             </h3>
             <p className="mb-5 max-w-sm text-center text-sm text-gray-400">
               Khu vực này dành cho thông báo và tin tức từ đội ngũ quản trị
-              PirateMMO. Hãy theo dõi để nhận thông tin mới nhất.
+              Hải tặc vui vẻ. H?y theo d?i ?? nh?n th?ng tin m?i nh?t.
             </p>
             <div className="flex items-center gap-2 text-xs text-gray-400">
               <Plus size={14} />
@@ -71,5 +71,3 @@ const AdminNoticeBoard = () => {
 };
 
 export default AdminNoticeBoard;
-
-

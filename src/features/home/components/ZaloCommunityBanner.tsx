@@ -1,14 +1,13 @@
 import { ZaloLogoArc } from "@/assets/images";
-import {Image} from 'antd'
+import { Image } from "antd";
 import { Bell, Send, Shield } from "lucide-react";
 
 const ZaloCommunityBanner = () => {
   const pills = [
     { icon: <Bell size={12} />, label: "Thông báo sự kiện" },
-    // { icon: <Users size={12} />, label: "3,800+ thành viên" },
     { icon: <Shield size={12} />, label: "Hỗ trợ 24/7" },
   ];
-  
+
   return (
     <section className="bg-white py-16">
       <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 xl:px-10">
@@ -16,7 +15,7 @@ const ZaloCommunityBanner = () => {
           <div className="relative z-10 flex flex-col items-center gap-8 px-6 py-10 sm:px-10 lg:flex-row">
             <div className="flex flex-1 flex-col items-center gap-5 sm:flex-row sm:items-start">
               <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-700 to-blue-500">
-                <Image src={ZaloLogoArc} alt="Zalo Logo" />
+                <Image src={ZaloLogoArc} alt="Zalo Logo" preview={false} />
               </div>
               <div>
                 <div className="mb-2 flex items-center gap-2">
@@ -60,6 +59,6 @@ const ZaloCommunityBanner = () => {
       </div>
     </section>
   );
-}
+};
 
 export default ZaloCommunityBanner;

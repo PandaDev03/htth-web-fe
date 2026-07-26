@@ -1,7 +1,7 @@
 import { AlertCircle, ArrowRight, CheckCircle, Clock, Coins, Info, RefreshCw, TrendingUp, Wallet } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { PublicFooter } from '@/shared/components/site/PublicFooter';
-import { PublicTopbar } from '@/shared/components/site/PublicTopbar';
+import { PublicTopbar } from '@/shared/components/site/PublicHeader';
 
 const USER_COIN_BALANCE = 12_500;
 const EXCHANGE_RATE = { coinPer1k: 10_000, minCoins: 1_000, maxCoins: 50_000 };

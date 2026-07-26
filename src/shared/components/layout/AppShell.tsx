@@ -35,7 +35,7 @@ export function AppShell() {
       <Sider breakpoint="lg" collapsedWidth={0} width={248}>
         <div className="flex h-16 items-center px-5">
           <Typography.Text className="text-base font-semibold text-white">
-            HTTH Admin
+            Hải tặc vui vẻ Admin
           </Typography.Text>
         </div>
         <Menu

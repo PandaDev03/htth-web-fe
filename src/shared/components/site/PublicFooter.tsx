@@ -1,5 +1,5 @@
 import { Image } from "antd";
-import { DollarSign, Download, Home, User } from "lucide-react";
+import { CircleDollarSign, Download, Home, User } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { ZaloLogoArc } from "@/assets/images";
@@ -14,7 +14,11 @@ export function PublicFooter() {
       icon: <Download size={13} />,
     },
     { label: "Tài Khoản", href: "/user-account", icon: <User size={13} /> },
-    { label: "Đổi Coin", href: "/doi-coin", icon: <DollarSign size={13} /> },
+    {
+      label: "Đổi Coin",
+      href: "/doi-coin",
+      icon: <CircleDollarSign size={13} />,
+    },
   ];
 
   return (
@@ -24,8 +28,8 @@ export function PublicFooter() {
           <div className="flex flex-col gap-3">
             <PirateBrandMark size={32} />
             <p className="text-sm leading-relaxed text-gray-500">
-              Game nhập vai 2D hải tặc trực tuyến. Xây dựng nhân vật, tranh đấu
-              cùng hàng nghìn người chơi.
+              Hải tặc vui vẻ là game nhập vai 2D hải tặc trực tuyến. Xây dựng
+              nhân vật, trang bị, PK và giải trí cùng bạn bè mỗi ngày.
             </p>
             <div className="mt-1 h-0.5 w-24 bg-gradient-to-r from-amber-400 to-amber-200" />
           </div>
@@ -61,15 +65,16 @@ export function PublicFooter() {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-600"
             >
-              <Image src={ZaloLogoArc} alt="Zalo Logo" height={16} width={16} />
+              <Image
+                height={16}
+                width={16}
+                preview={false}
+                alt="Zalo Logo"
+                src={ZaloLogoArc}
+              />
               Zalo Community
             </a>
           </div>
-        </div>
-        <div className="mt-8 flex flex-col justify-end items-center gap-3 border-t border-gray-100 pt-6 sm:flex-row">
-          <p className="text-xs text-gray-400">
-            Version 1.4.2 · Cập nhật 26/07/2026
-          </p>
         </div>
       </div>
     </footer>

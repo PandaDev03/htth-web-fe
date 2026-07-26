@@ -1,5 +1,5 @@
 import { PublicFooter } from "@/shared/components/site/PublicFooter";
-import { PublicTopbar } from "@/shared/components/site/PublicTopbar";
+import { PublicTopbar } from "@/shared/components/site/PublicHeader";
 import { scrollToTop } from "@/shared/utils/utils";
 import { useEffect } from "react";
 
