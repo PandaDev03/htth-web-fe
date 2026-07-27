@@ -76,14 +76,16 @@ export function PlayerRegisterPanel({ onLogin }: RegisterPanelProps) {
       });
 
       dispatch(setCredentials(session));
-      toast.success("ÄÄƒng kÃ½ thÃ nh cÃ´ng! TÃ i khoáº£n Ä‘Ã£ sáºµn sÃ ng vÃ o game.");
+      toast.success(
+        "Đăng ký tài khoản thành công! Tài khoản đã sẵn sàng để vào game.",
+      );
 
       navigate(PATH.ACCOUNT, { replace: true });
     } catch (error) {
       setAuthError(
         error instanceof Error
           ? error.message
-          : "KhÃ´ng thá»ƒ táº¡o tÃ i khoáº£n, vui lÃ²ng thá»­ láº¡i.",
+          : "Không thể tạo tài khoản, vui lòng thử lại.",
       );
     } finally {
       setLoading(false);
@@ -101,10 +103,10 @@ export function PlayerRegisterPanel({ onLogin }: RegisterPanelProps) {
           <UserPlus size={24} strokeWidth={1.8} />
         </span>
         <h1 className="text-2xl font-800 tracking-tight text-gray-900">
-          Táº¡o tÃ i khoáº£n má»›i
+          Tạo tài khoản mới
         </h1>
         <p className="mt-1.5 text-sm leading-relaxed text-gray-500">
-          Má»™t tÃ i khoáº£n dÃ¹ng chung cho website vÃ  game
+          Một tài khoản dùng chung cho website và game
         </p>
       </header>
 
@@ -123,7 +125,7 @@ export function PlayerRegisterPanel({ onLogin }: RegisterPanelProps) {
           htmlFor="register-username"
           className="block text-sm font-600 text-gray-700"
         >
-          TÃªn tÃ i khoáº£n
+          Tên tài khoản
         </label>
         <div className="relative">
           <UserRound
@@ -133,7 +135,7 @@ export function PlayerRegisterPanel({ onLogin }: RegisterPanelProps) {
           <input
             id="register-username"
             type="text"
-            placeholder="VÃ­ dá»¥: haitac.vuive"
+            placeholder="Ví dụ: haitac.vuive"
             autoComplete="username"
             spellCheck={false}
             autoCapitalize="none"
@@ -142,18 +144,18 @@ export function PlayerRegisterPanel({ onLogin }: RegisterPanelProps) {
             aria-invalid={Boolean(errors.username)}
             className={getInputClassName(Boolean(errors.username))}
             {...register("username", {
-              required: "Vui lÃ²ng nháº­p tÃªn tÃ i khoáº£n",
+              required: "Vui lòng nhập tên tài khoản",
               minLength: {
                 value: GAME_ACCOUNT_MIN_LENGTH,
-                message: "Tá»‘i thiá»ƒu 6 kÃ½ tá»±",
+                message: "Tối thiểu 6 ký tự",
               },
               maxLength: {
                 value: GAME_ACCOUNT_MAX_LENGTH,
-                message: "Tá»‘i Ä‘a 30 kÃ½ tá»±",
+                message: "Tối đa 30 ký tự",
               },
               pattern: {
                 value: GAME_ACCOUNT_USERNAME_PATTERN,
-                message: "Chá»‰ cháº¥p nháº­n chá»¯ cÃ¡i vÃ  sá»‘",
+                message: "Chỉ chấp nhận chữ cái và số",
               },
               setValueAs: normalizeUsername,
             })}
@@ -179,7 +181,7 @@ export function PlayerRegisterPanel({ onLogin }: RegisterPanelProps) {
           htmlFor="register-password"
           className="block text-sm font-600 text-gray-700"
         >
-          Máº­t kháº©u
+          Mật khẩu
         </label>
         <div className="relative">
           <KeyRound
@@ -189,20 +191,20 @@ export function PlayerRegisterPanel({ onLogin }: RegisterPanelProps) {
           <input
             id="register-password"
             type={showPassword ? "text" : "password"}
-            placeholder="Nháº­p máº­t kháº©u"
+            placeholder="Nhập mật khẩu"
             autoComplete="new-password"
             aria-describedby="register-password-hint"
             aria-invalid={Boolean(errors.password)}
             className={getInputClassName(Boolean(errors.password), true)}
             {...register("password", {
-              required: "Vui lÃ²ng nháº­p máº­t kháº©u",
+              required: "Vui lòng nhập mật khẩu",
               minLength: {
                 value: GAME_ACCOUNT_MIN_LENGTH,
-                message: "Tá»‘i thiá»ƒu 6 kÃ½ tá»±",
+                message: "Tối thiểu 6 ký tự",
               },
               maxLength: {
                 value: GAME_ACCOUNT_MAX_LENGTH,
-                message: "Tá»‘i Ä‘a 30 kÃ½ tá»±",
+                message: "Tối đa 30 ký tự",
               },
               pattern: {
                 value: GAME_ACCOUNT_PASSWORD_PATTERN,
@@ -214,7 +216,7 @@ export function PlayerRegisterPanel({ onLogin }: RegisterPanelProps) {
             type="button"
             onClick={() => setShowPassword((value) => !value)}
             className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 motion-reduce:transition-none"
-            aria-label={showPassword ? "áº¨n máº­t kháº©u" : "Hiá»‡n máº­t kháº©u"}
+            aria-label={showPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"}
           >
             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
@@ -245,21 +247,21 @@ export function PlayerRegisterPanel({ onLogin }: RegisterPanelProps) {
               size={18}
               className="animate-spin motion-reduce:animate-none"
             />
-            Äang táº¡o tÃ i khoáº£n
+            Đang tạo tài khoản
           </>
         ) : (
-          "Táº¡o tÃ i khoáº£n"
+          "Tạo tài khoản"
         )}
       </button>
 
       <p className="pt-1 text-center text-sm text-gray-500">
-        ÄÃ£ cÃ³ tÃ i khoáº£n?{" "}
+        Đã có tài khoản?{" "}
         <button
           type="button"
           onClick={onLogin}
           className="font-700 text-amber-700 underline-offset-4 hover:underline focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
         >
-          ÄÄƒng nháº­p
+          Đăng nhập
         </button>
       </p>
     </form>
