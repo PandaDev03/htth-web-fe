@@ -1,6 +1,9 @@
-import { AlertCircle, CheckCircle, Eye, EyeOff, XCircle } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { AlertCircle, CheckCircle, Eye, EyeOff, Loader2, XCircle } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
+import { changeAccountPassword } from "@/features/account/api/accountApi";
 import {
   GAME_ACCOUNT_MAX_LENGTH,
   GAME_ACCOUNT_MIN_LENGTH,
@@ -40,15 +43,46 @@ export function AccountPasswordModal({ title, onClose }: PasswordModalProps) {
   const [showNext, setShowNext] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const changePasswordMutation = useMutation({
+    mutationFn: changeAccountPassword,
+    onSuccess: (result) => {
+      setSaved(true);
+      toast.success(result.message || "Đổi mật khẩu thành công.");
+      window.setTimeout(onClose, 1200);
+    },
+  });
+
   const nextPasswordError = getPasswordError(next);
-  const confirmError = confirm && next !== confirm ? "Mật khẩu xác nhận không khớp" : null;
-  const canSave = Boolean(current && next && confirm && !nextPasswordError && !confirmError);
+  const confirmError =
+    confirm.length > 0 && next !== confirm
+      ? "Mật khẩu xác nhận không khớp"
+      : null;
+  const requestError =
+    changePasswordMutation.error instanceof Error
+      ? changePasswordMutation.error.message
+      : null;
+  const canSave = Boolean(
+    current &&
+      next &&
+      confirm &&
+      !nextPasswordError &&
+      !confirmError &&
+      !changePasswordMutation.isPending,
+  );
+
+  const resetRequestError = () => {
+    if (changePasswordMutation.isError) {
+      changePasswordMutation.reset();
+    }
+  };
 
   const save = () => {
     if (!canSave) return;
 
-    setSaved(true);
-    setTimeout(onClose, 1200);
+    changePasswordMutation.mutate({
+      currentPassword: current,
+      newPassword: next,
+    });
   };
 
   return (
@@ -59,7 +93,8 @@ export function AccountPasswordModal({ title, onClose }: PasswordModalProps) {
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            disabled={changePasswordMutation.isPending}
+            className="text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <XCircle size={20} />
           </button>
@@ -73,6 +108,15 @@ export function AccountPasswordModal({ title, onClose }: PasswordModalProps) {
           </div>
         ) : (
           <div className="flex flex-col gap-4">
+            {requestError && (
+              <div
+                role="alert"
+                className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-red-700"
+              >
+                <AlertCircle size={17} className="mt-0.5 shrink-0" />
+                <p className="text-sm leading-relaxed">{requestError}</p>
+              </div>
+            )}
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-gray-600">
                 Mật khẩu hiện tại
@@ -81,9 +125,13 @@ export function AccountPasswordModal({ title, onClose }: PasswordModalProps) {
                 <input
                   type={showCurrent ? "text" : "password"}
                   value={current}
-                  onChange={(event) => setCurrent(event.target.value)}
+                  onChange={(event) => {
+                    setCurrent(event.target.value);
+                    resetRequestError();
+                  }}
                   placeholder="Nhập mật khẩu hiện tại..."
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2.5 pr-10 text-sm text-gray-800 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                  disabled={changePasswordMutation.isPending}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2.5 pr-10 text-sm text-gray-800 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100 disabled:cursor-not-allowed disabled:bg-gray-50"
                 />
                 <button
                   type="button"
@@ -102,11 +150,15 @@ export function AccountPasswordModal({ title, onClose }: PasswordModalProps) {
                 <input
                   type={showNext ? "text" : "password"}
                   value={next}
-                  onChange={(event) => setNext(event.target.value)}
+                  onChange={(event) => {
+                    setNext(event.target.value);
+                    resetRequestError();
+                  }}
                   placeholder="Nhập mật khẩu mới..."
                   aria-describedby="account-next-password-hint"
                   aria-invalid={Boolean(nextPasswordError)}
-                  className={`w-full rounded-lg border px-3 py-2.5 pr-10 text-sm text-gray-800 focus:outline-none focus:ring-2 ${
+                  disabled={changePasswordMutation.isPending}
+                  className={`w-full rounded-lg border px-3 py-2.5 pr-10 text-sm text-gray-800 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-gray-50 ${
                     nextPasswordError
                       ? "border-red-300 focus:border-red-400 focus:ring-red-100"
                       : "border-gray-200 focus:border-amber-400 focus:ring-amber-100"
@@ -141,10 +193,14 @@ export function AccountPasswordModal({ title, onClose }: PasswordModalProps) {
               <input
                 type="password"
                 value={confirm}
-                onChange={(event) => setConfirm(event.target.value)}
+                onChange={(event) => {
+                  setConfirm(event.target.value);
+                  resetRequestError();
+                }}
                 placeholder="Nhập lại mật khẩu mới..."
                 aria-invalid={Boolean(confirmError)}
-                className={`w-full rounded-lg border px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 ${
+                disabled={changePasswordMutation.isPending}
+                className={`w-full rounded-lg border px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-gray-50 ${
                   confirmError
                     ? "border-red-300 focus:border-red-400 focus:ring-red-100"
                     : "border-gray-200 focus:border-amber-400 focus:ring-amber-100"
@@ -161,7 +217,8 @@ export function AccountPasswordModal({ title, onClose }: PasswordModalProps) {
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+                disabled={changePasswordMutation.isPending}
+                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Hủy
               </button>
@@ -171,7 +228,14 @@ export function AccountPasswordModal({ title, onClose }: PasswordModalProps) {
                 disabled={!canSave}
                 className="flex-1 rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Lưu thay đổi
+                {changePasswordMutation.isPending ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 size={16} className="animate-spin" />
+                    Đang lưu
+                  </span>
+                ) : (
+                  "Lưu thay đổi"
+                )}
               </button>
             </div>
           </div>
