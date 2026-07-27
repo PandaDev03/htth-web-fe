@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Modal } from "antd";
+import { App as AntdApp } from "antd";
 import {
   Banknote,
   CheckCircle,
@@ -75,12 +75,14 @@ function WalletDepositPage() {
   const dispatch = useAppDispatch();
   const refreshToken = useAppSelector((state) => state.auth.refreshToken);
   const queryClient = useQueryClient();
+  const { modal } = AntdApp.useApp();
   const qrContainerRef = useRef<HTMLDivElement | null>(null);
   const debounceTimerRef = useRef<number | null>(null);
   const statusTimerRef = useRef<number | null>(null);
   const statusAttemptsRef = useRef(0);
   const activeOrderCodeRef = useRef("");
   const handledOrderCodeRef = useRef("");
+  const bankSuccessOrderCodeRef = useRef("");
   const generatedAmountRef = useRef<number | null>(null);
 
   const [amountInput, setAmountInput] = useState("");
@@ -106,6 +108,7 @@ function WalletDepositPage() {
       generatedAmountRef.current = Number(result.data.amount || nextAmount);
       activeOrderCodeRef.current = result.data.order_code || "";
       handledOrderCodeRef.current = "";
+      bankSuccessOrderCodeRef.current = "";
       statusAttemptsRef.current = 0;
 
       setPayment(result.data);
@@ -143,12 +146,34 @@ function WalletDepositPage() {
 
       const data = result.data;
 
+      if (data.state === "queued") {
+        if (bankSuccessOrderCodeRef.current !== orderCode) {
+          bankSuccessOrderCodeRef.current = orderCode;
+          showPaymentReceivedModal(
+            result.message ||
+              "PayOS đã xác nhận thanh toán thành công. Hệ thống đang cập nhật ví web.",
+          );
+          clearPaymentAfterBankSuccess();
+        }
+
+        setPaymentState("Đang cộng Coin");
+        setStatusText(
+          result.message || "Đã thanh toán, server game đang cộng Coin vào ví.",
+        );
+        schedulePaymentStatusCheck(1_500);
+        return;
+      }
+
       if (data.paid) {
         if (handledOrderCodeRef.current === orderCode) return;
         handledOrderCodeRef.current = orderCode;
 
-        const successMessage =
-          result.message || "Giao dịch thành công. Coin đã được cộng vào ví.";
+        if (bankSuccessOrderCodeRef.current !== orderCode) {
+          bankSuccessOrderCodeRef.current = orderCode;
+          showPaymentReceivedModal(
+            "PayOS đã xác nhận thanh toán thành công. Hệ thống đang cập nhật ví web.",
+          );
+        }
 
         void queryClient.invalidateQueries({ queryKey: ["deposit-history"] });
         void queryClient.invalidateQueries({
@@ -156,21 +181,6 @@ function WalletDepositPage() {
         });
         void refreshAccountSnapshot();
         resetDeposit();
-        Modal.success({
-          centered: true,
-          title: "Thanh toán thành công",
-          content: successMessage,
-          okText: "OK",
-        });
-        return;
-      }
-
-      if (data.state === "queued") {
-        setPaymentState("Đang cộng Coin");
-        setStatusText(
-          result.message || "Đã thanh toán, server game đang cộng Coin vào ví.",
-        );
-        schedulePaymentStatusCheck(1_500);
         return;
       }
 
@@ -280,6 +290,26 @@ function WalletDepositPage() {
     }, delay);
   }
 
+  function showPaymentReceivedModal(message: string) {
+    window.setTimeout(() => {
+      modal.success({
+        centered: true,
+        title: "Thanh toán thành công",
+        content: message,
+        okText: "OK",
+      });
+    }, 0);
+  }
+
+  function clearPaymentAfterBankSuccess() {
+    setAmountInput("");
+    setPayment(null);
+    setError("");
+    setCopied(null);
+    generatedAmountRef.current = null;
+    clearDebounceTimer();
+  }
+
   function generatePayosQr(nextAmount = amount, force = false) {
     if (nextAmount < MIN_DEPOSIT_AMOUNT) {
       setError(nextAmount > 0 ? "Số tiền nạp tối thiểu là 1.000 đ." : "");
@@ -337,8 +367,11 @@ function WalletDepositPage() {
     try {
       const session = await refreshSession(refreshToken);
       dispatch(setCredentials(session));
+      toast.success("Ví web đã được cộng Coin thành công.");
     } catch {
-      toast.warning("Chưa thể làm mới số dư ví. Vui lòng tải lại trang tài khoản.");
+      toast.warning(
+        "Chưa thể làm mới số dư ví. Vui lòng tải lại trang tài khoản.",
+      );
     }
   }
 

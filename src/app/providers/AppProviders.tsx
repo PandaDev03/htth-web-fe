@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { ConfigProvider } from "antd";
+import { App as AntdApp, ConfigProvider } from "antd";
 import viVN from "antd/locale/vi_VN";
 import { Provider } from "react-redux";
 import { RouterProvider } from "react-router-dom";
@@ -24,9 +24,11 @@ export function AppProviders() {
             },
           }}
         >
-          <AuthSessionBootstrap />
-          <RouterProvider router={router} />
-          <Toaster position="top-right" richColors />
+          <AntdApp>
+            <AuthSessionBootstrap />
+            <RouterProvider router={router} />
+            <Toaster position="top-right" richColors />
+          </AntdApp>
         </ConfigProvider>
       </QueryClientProvider>
     </Provider>

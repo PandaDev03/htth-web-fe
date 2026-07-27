@@ -139,7 +139,7 @@ function PlayerAccountPage() {
     <div className="flex min-h-screen flex-col bg-gray-50">
       <Header />
       <main className="flex-1 px-4 pb-16 pt-24">
-        <div className="mx-auto max-w-2xl">
+        <div className="mx-auto max-w-[44rem]">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-800">
               Tài Khoản Của Tôi
