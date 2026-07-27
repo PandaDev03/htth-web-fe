@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { useAppDispatch } from "@/app/store/hooks";
 import { setCredentials } from "@/features/auth/model/authSlice";
+import { PATH } from "@/shared/config/path";
 
 type LoginFormValues = {
   email: string;
@@ -28,7 +29,7 @@ function LoginPage() {
         },
       }),
     );
-    navigate("/");
+    navigate(PATH.HOME);
   }
 
   return (

@@ -24,7 +24,7 @@ export function GuardedRoute({ route, children }: GuardedRouteProps) {
   }
 
   if (!hasAllowedRole(user?.role, route.allowedRoles)) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={PATH.HOME} replace />;
   }
 
   return children;

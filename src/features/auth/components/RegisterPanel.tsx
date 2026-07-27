@@ -12,8 +12,7 @@ import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { useAppDispatch } from "@/app/store/hooks";
-import { registerAccount } from "@/features/auth/api/authApi";
+import { useAppDispatch, useAppSelector } from "@/app/store/hooks";
 import {
   GAME_ACCOUNT_MAX_LENGTH,
   GAME_ACCOUNT_MIN_LENGTH,
@@ -22,7 +21,8 @@ import {
   GAME_ACCOUNT_USERNAME_HINT,
   GAME_ACCOUNT_USERNAME_PATTERN,
 } from "@/features/auth/model/accountRules";
-import { setCredentials } from "@/features/auth/model/authSlice";
+import { clearAuthError } from "@/features/auth/model/authSlice";
+import { registerUser } from "@/features/auth/model/authThunks";
 
 interface RegisterFields {
   username: string;
@@ -51,11 +51,10 @@ function getInputClassName(hasError: boolean, hasTrailingAction = false) {
 
 export function PlayerRegisterPanel({ onLogin, redirectTo }: RegisterPanelProps) {
   const dispatch = useAppDispatch();
+  const { error: authError, loading } = useAppSelector((state) => state.auth);
   const navigate = useNavigate();
 
-  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
 
   const {
     register,
@@ -66,29 +65,22 @@ export function PlayerRegisterPanel({ onLogin, redirectTo }: RegisterPanelProps)
   });
 
   async function submit(data: RegisterFields) {
-    setAuthError(null);
-    setLoading(true);
+    dispatch(clearAuthError());
 
     try {
-      const session = await registerAccount({
-        username: data.username.trim().toLowerCase(),
-        password: data.password,
-      });
-
-      dispatch(setCredentials(session));
+      await dispatch(
+        registerUser({
+          username: data.username.trim().toLowerCase(),
+          password: data.password,
+        }),
+      ).unwrap();
       toast.success(
         "Đăng ký tài khoản thành công! Tài khoản đã sẵn sàng để vào game.",
       );
 
       navigate(redirectTo, { replace: true });
-    } catch (error) {
-      setAuthError(
-        error instanceof Error
-          ? error.message
-          : "Không thể tạo tài khoản, vui lòng thử lại.",
-      );
-    } finally {
-      setLoading(false);
+    } catch {
+      return;
     }
   }
 
@@ -258,7 +250,10 @@ export function PlayerRegisterPanel({ onLogin, redirectTo }: RegisterPanelProps)
         Đã có tài khoản?{" "}
         <button
           type="button"
-          onClick={onLogin}
+          onClick={() => {
+            dispatch(clearAuthError());
+            onLogin();
+          }}
           className="font-700 text-amber-700 underline-offset-4 hover:underline focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
         >
           Đăng nhập

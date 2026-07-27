@@ -18,18 +18,21 @@ export function AppShell() {
   const { user } = useAppSelector((state) => state.auth);
 
   const menuItems = useMemo(() => {
-    const protectedRoot = appRoutes.find((route) => route.path === "/");
+    const protectedRoot = appRoutes.find((route) => route.path === PATH.HOME);
 
     return protectedRoot?.children
       ?.filter((route) => route.showInMenu && hasAllowedRole(user?.role, route.allowedRoles))
       .map((route) => ({
-        key: route.index ? "/" : `/${route.path ?? ""}`,
+        key: route.index ? PATH.HOME : `/${route.path ?? ""}`,
         icon: route.icon,
         label: route.title,
       }));
   }, [user?.role]);
 
-  const selectedKey = location.pathname === "/" ? "/" : `/${location.pathname.split("/")[1]}`;
+  const selectedKey =
+    location.pathname === PATH.HOME
+      ? PATH.HOME
+      : `/${location.pathname.split("/")[1]}`;
 
   return (
     <Layout className="min-h-screen">

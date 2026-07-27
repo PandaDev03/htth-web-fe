@@ -1,3 +1,4 @@
+import { useMutation } from "@tanstack/react-query";
 import {
   AlertCircle,
   ArrowRight,
@@ -9,50 +10,65 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Footer } from "@/shared/components/site/Footer";
 import { Header } from "@/shared/components/site/Header";
+import { scrollToTop } from "@/shared/utils/utils";
 
 const USER_COIN_BALANCE = 12_500;
 const EXCHANGE_RATE = { coinPer1k: 10_000, minCoins: 1_000, maxCoins: 50_000 };
 const COIN_PRESETS = [1_000, 5_000, 10_000, 20_000, 50_000];
+
 const formatVnd = (amount: number) => amount.toLocaleString("vi-VN") + " ₫";
 const formatCoin = (amount: number) => amount.toLocaleString("vi-VN") + " Coin";
 
+async function simulateExchangeRequest() {
+  await new Promise((resolve) => window.setTimeout(resolve, 1200));
+}
+
 function CoinExchangePage() {
   const [coinInput, setCoinInput] = useState("");
-  const [loading, setLoading] = useState(false);
+
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [submitted, setSubmitted] = useState(false);
+
+  const refreshMutation = useMutation({
+    mutationFn: simulateExchangeRequest,
+    onSuccess: () => setLastUpdated(new Date()),
+  });
+
+  const exchangeMutation = useMutation({
+    mutationFn: simulateExchangeRequest,
+    onSuccess: () => setSubmitted(true),
+  });
+
   const coinAmount = Number.parseInt(coinInput.replace(/\D/g, ""), 10) || 0;
   const vndAmount = Math.floor((coinAmount / 1000) * EXCHANGE_RATE.coinPer1k);
   const valid =
     coinAmount >= EXCHANGE_RATE.minCoins &&
     coinAmount <= EXCHANGE_RATE.maxCoins &&
     coinAmount <= USER_COIN_BALANCE;
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    setLastUpdated(new Date());
-    setLoading(false);
+
+  useEffect(() => {
+    scrollToTop({ behavior: "smooth" });
   }, []);
-  function choose(amount: number) {
+
+  const choose = (amount: number) => {
     setCoinInput(amount.toLocaleString("vi-VN"));
     setSubmitted(false);
-  }
-  function change(event: React.ChangeEvent<HTMLInputElement>) {
+  };
+
+  const change = (event: React.ChangeEvent<HTMLInputElement>) => {
     const raw = event.target.value.replace(/\D/g, "");
     setCoinInput(raw ? Number.parseInt(raw, 10).toLocaleString("vi-VN") : "");
     setSubmitted(false);
-  }
-  async function submit() {
+  };
+
+  const submit = () => {
     if (!valid) return;
-    setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    setLoading(false);
-    setSubmitted(true);
-  }
+    exchangeMutation.mutate();
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
@@ -111,13 +127,13 @@ function CoinExchangePage() {
               </div>
               <button
                 type="button"
-                onClick={refresh}
-                disabled={loading}
+                onClick={() => refreshMutation.mutate()}
+                disabled={refreshMutation.isPending}
                 className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-600 disabled:opacity-50"
               >
                 <RefreshCw
                   size={13}
-                  className={loading ? "animate-spin" : ""}
+                  className={refreshMutation.isPending ? "animate-spin" : ""}
                 />
                 Làm mới
               </button>
@@ -129,7 +145,7 @@ function CoinExchangePage() {
               </span>
               <span className="flex items-center gap-1.5 text-xs text-gray-400">
                 <Clock size={12} />
-                {loading
+                {refreshMutation.isPending
                   ? "Đang cập nhật..."
                   : `Cập nhật lúc ${lastUpdated.toLocaleTimeString("vi-VN")}`}
               </span>
@@ -263,10 +279,10 @@ function CoinExchangePage() {
                 <button
                   type="button"
                   onClick={submit}
-                  disabled={!valid || loading}
+                  disabled={!valid || exchangeMutation.isPending}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-3 text-sm font-bold text-white transition-all hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {loading ? (
+                  {exchangeMutation.isPending ? (
                     <RefreshCw size={16} className="animate-spin" />
                   ) : (
                     <>

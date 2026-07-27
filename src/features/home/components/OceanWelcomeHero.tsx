@@ -1,6 +1,7 @@
 import { Download, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { useAppSelector } from "@/app/store/hooks";
 import { PATH } from "@/shared/config/path";
 
 // const stats = [
@@ -31,6 +32,10 @@ import { PATH } from "@/shared/config/path";
 // ];
 
 const OceanWelcomeHero = () => {
+  const isAuthenticated = useAppSelector((state) =>
+    Boolean(state.auth.accessToken),
+  );
+
   return (
     <section className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-gradient-to-br from-amber-50 via-white to-orange-50 pt-16">
       <div className="pointer-events-none absolute inset-0">
@@ -75,13 +80,15 @@ const OceanWelcomeHero = () => {
             <Download size={18} />
             Tải Game Ngay
           </Link>
-          <Link
-            to={PATH.AUTH}
-            className="inline-flex items-center gap-2 rounded-xl border-2 border-amber-300 bg-white px-8 py-3.5 text-base font-semibold text-amber-600 transition-all hover:border-amber-500 hover:bg-amber-50"
-          >
-            <Users size={18} />
-            Đăng Ký Tài Khoản
-          </Link>
+          {!isAuthenticated && (
+            <Link
+              to={{ pathname: PATH.AUTH, search: "?mode=register" }}
+              className="inline-flex items-center gap-2 rounded-xl border-2 border-amber-300 bg-white px-8 py-3.5 text-base font-semibold text-amber-600 transition-all hover:border-amber-500 hover:bg-amber-50"
+            >
+              <Users size={18} />
+              Đăng Ký Tài Khoản
+            </Link>
+          )}
         </div>
         {/* <div className="mx-auto grid max-w-3xl grid-cols-2 gap-4 sm:grid-cols-4">
           {stats.map((stat) => (

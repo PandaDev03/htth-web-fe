@@ -1,14 +1,17 @@
-import { ChevronRight, Download, LogIn, Menu, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ChevronRight, LogIn, Menu, X } from "lucide-react";
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
+import { useAppSelector } from "@/app/store/hooks";
 import { PirateBrandMark } from "@/shared/components/site/BrandMark";
+import { UserMenu } from "@/shared/components/site/UserMenu";
 import { PATH } from "@/shared/config/path";
 
 export function Header() {
   const { pathname } = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
+  const { accessToken, user } = useAppSelector((state) => state.auth);
+  const isAuthenticated = Boolean(accessToken && user);
 
   const PUBLIC_NAV_ITEMS = [
     { label: "Trang Chủ", href: PATH.HOME },
@@ -17,25 +20,14 @@ export function Header() {
     { label: "Nạp Tiền", href: PATH.WALLET_DEPOSIT },
   ];
 
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
   return (
     <>
       <header
-        className={
-          "fixed inset-x-0 top-0 z-50 border-b transition-all duration-300 " +
-          (scrolled
-            ? "border-gray-200 bg-white shadow-sm"
-            : "border-gray-100 bg-white/95")
-        }
+        className="fixed inset-x-0 top-0 z-50 border-b border-gray-200 bg-white/95 shadow-sm backdrop-blur-sm"
       >
         <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 xl:px-10">
           <div className="flex h-16 items-center justify-between">
-            <Link to="/">
+            <Link to={PATH.HOME}>
               <PirateBrandMark />
             </Link>
             <nav className="hidden items-center gap-6 md:flex">
@@ -54,30 +46,40 @@ export function Header() {
                 </Link>
               ))}
             </nav>
-            <div className="hidden items-center gap-3 md:flex">
-              <Link
-                to={PATH.AUTH}
-                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 transition-all hover:border-amber-300 hover:text-amber-600"
-              >
-                <LogIn size={15} />
-                Đăng Nhập
-              </Link>
-              <Link
-                to={PATH.DOWNLOAD}
-                className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-white shadow-sm transition-all hover:bg-amber-600"
-              >
-                <Download size={15} />
-                Tải Game
-              </Link>
+            <div className="hidden items-center md:flex">
+              {isAuthenticated ? (
+                <UserMenu />
+              ) : (
+                <Link
+                  to={PATH.AUTH}
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 transition-all hover:border-amber-300 hover:text-amber-600"
+                >
+                  <LogIn size={15} />
+                  Đăng Nhập
+                </Link>
+              )}
             </div>
-            <button
-              type="button"
-              onClick={() => setMobileOpen(true)}
-              className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 md:hidden"
-              aria-label="Mở menu"
-            >
-              <Menu size={22} />
-            </button>
+            <div className="flex items-center gap-2 md:hidden">
+              {isAuthenticated ? (
+                <UserMenu compact />
+              ) : (
+                <Link
+                  to={PATH.AUTH}
+                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-600"
+                  aria-label="Đăng nhập"
+                >
+                  <LogIn size={18} />
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={() => setMobileOpen(true)}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+                aria-label="Mở menu"
+              >
+                <Menu size={22} />
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -123,24 +125,6 @@ export function Header() {
             </Link>
           ))}
         </nav>
-        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-3 border-t border-gray-100 px-4 py-5">
-          <Link
-            to={PATH.AUTH}
-            onClick={() => setMobileOpen(false)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600"
-          >
-            <LogIn size={15} />
-            Đăng Nhập
-          </Link>
-          <Link
-            to={PATH.DOWNLOAD}
-            onClick={() => setMobileOpen(false)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-white"
-          >
-            <Download size={15} />
-            Tải Game
-          </Link>
-        </div>
       </aside>
     </>
   );

@@ -10,15 +10,16 @@ import {
   Wallet,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useAppDispatch, useAppSelector } from "@/app/store/hooks";
 import { AccountPasswordModal } from "@/features/account/components/PasswordModal";
 import { logout } from "@/features/auth/model/authSlice";
-import { PATH } from "@/shared/config/path";
 import { Footer } from "@/shared/components/site/Footer";
 import { Header } from "@/shared/components/site/Header";
+import { PATH } from "@/shared/config/path";
+import { scrollToTop } from "@/shared/utils/utils";
 
 const PREVIEW_ACCOUNT = {
   username: "pirate_demo",
@@ -89,29 +90,18 @@ function SecurityPasswordRow({
 }
 
 function PlayerAccountPage() {
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+
   const authUser = useAppSelector((state) => state.auth.user);
+
   const account = {
     ...PREVIEW_ACCOUNT,
     username: authUser?.username ?? authUser?.name ?? PREVIEW_ACCOUNT.username,
     coin: authUser?.coin ?? PREVIEW_ACCOUNT.coin,
     tongnap: authUser?.tongnap ?? PREVIEW_ACCOUNT.tongnap,
   };
-  const [avatar, setAvatar] = useState<string | null>(account.avatar);
-  const [modal, setModal] = useState<null | "pass" | "pass2">(null);
-  const fileInput = useRef<HTMLInputElement>(null);
-  const dispatch = useAppDispatch();
-  const navigate = useNavigate();
-  function upload(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (result) => setAvatar(result.target?.result as string);
-    reader.readAsDataURL(file);
-  }
-  function signOut() {
-    dispatch(logout());
-    navigate(PATH.AUTH);
-  }
+
   const active = account.status === 1;
   const joined = account.joinDate.toLocaleString("vi-VN", {
     day: "2-digit",
@@ -121,6 +111,29 @@ function PlayerAccountPage() {
     minute: "2-digit",
     hour12: false,
   });
+
+  const [avatar, setAvatar] = useState<string | null>(account.avatar);
+  const [modal, setModal] = useState<null | "pass" | "pass2">(null);
+
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    scrollToTop({ behavior: "smooth" });
+  }, []);
+
+  const upload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (result) => setAvatar(result.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const signOut = () => {
+    dispatch(logout());
+    navigate(PATH.AUTH);
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
       <Header />

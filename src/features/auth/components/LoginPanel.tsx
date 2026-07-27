@@ -12,9 +12,9 @@ import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { useAppDispatch } from "@/app/store/hooks";
-import { login } from "@/features/auth/api/authApi";
-import { setCredentials } from "@/features/auth/model/authSlice";
+import { useAppDispatch, useAppSelector } from "@/app/store/hooks";
+import { clearAuthError } from "@/features/auth/model/authSlice";
+import { loginUser } from "@/features/auth/model/authThunks";
 import {
   clearRememberedUsername,
   getRememberedUsername,
@@ -31,7 +31,6 @@ interface LoginPanelProps {
   onRegister: () => void;
   redirectTo: string;
 }
-
 
 const inputClassName =
   "h-12 w-full rounded-xl border border-gray-200 bg-gray-50/90 pl-11 pr-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100 motion-reduce:transition-none";
@@ -50,9 +49,8 @@ function getInputClassName(hasError: boolean, hasTrailingAction = false) {
 
 export function PlayerLoginPanel({ onRegister, redirectTo }: LoginPanelProps) {
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
   const dispatch = useAppDispatch();
+  const { error: authError, loading } = useAppSelector((state) => state.auth);
   const navigate = useNavigate();
   const rememberedUsername = getRememberedUsername();
   const {
@@ -68,13 +66,13 @@ export function PlayerLoginPanel({ onRegister, redirectTo }: LoginPanelProps) {
   });
 
   async function submit(data: LoginFields) {
-    setAuthError(null);
-    setLoading(true);
+    dispatch(clearAuthError());
 
     try {
       const username = data.username.trim().toLowerCase();
-      const session = await login({ username, password: data.password });
-      dispatch(setCredentials(session));
+      await dispatch(
+        loginUser({ username, password: data.password }),
+      ).unwrap();
 
       if (data.rememberMe) {
         setRememberedUsername(username);
@@ -84,14 +82,8 @@ export function PlayerLoginPanel({ onRegister, redirectTo }: LoginPanelProps) {
 
       toast.success("Đăng nhập thành công! Chào mừng trở lại.");
       navigate(redirectTo, { replace: true });
-    } catch (error) {
-      setAuthError(
-        error instanceof Error
-          ? error.message
-          : "Thông tin đăng nhập không đúng.",
-      );
-    } finally {
-      setLoading(false);
+    } catch {
+      return;
     }
   }
 
@@ -232,7 +224,10 @@ export function PlayerLoginPanel({ onRegister, redirectTo }: LoginPanelProps) {
         Chưa có tài khoản?{" "}
         <button
           type="button"
-          onClick={onRegister}
+          onClick={() => {
+            dispatch(clearAuthError());
+            onRegister();
+          }}
           className="font-700 text-amber-700 underline-offset-4 hover:underline focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
         >
           Đăng ký ngay
