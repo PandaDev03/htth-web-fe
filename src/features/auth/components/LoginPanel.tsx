@@ -1,14 +1,12 @@
+import { Input } from "antd";
 import {
   AlertCircle,
-  Eye,
-  EyeOff,
   KeyRound,
   Loader2,
   LogIn,
   UserRound,
 } from "lucide-react";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -48,12 +46,12 @@ function getInputClassName(hasError: boolean, hasTrailingAction = false) {
 }
 
 export function PlayerLoginPanel({ onRegister, redirectTo }: LoginPanelProps) {
-  const [showPassword, setShowPassword] = useState(false);
   const dispatch = useAppDispatch();
   const { error: authError, loading } = useAppSelector((state) => state.auth);
   const navigate = useNavigate();
   const rememberedUsername = getRememberedUsername();
   const {
+    control,
     register,
     handleSubmit,
     formState: { errors },
@@ -159,32 +157,31 @@ export function PlayerLoginPanel({ onRegister, redirectTo }: LoginPanelProps) {
         >
           Mật khẩu
         </label>
-        <div className="relative">
-          <KeyRound
-            size={18}
-            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
-          />
-          <input
-            id="login-password"
-            type={showPassword ? "text" : "password"}
-            placeholder="Nhập mật khẩu"
-            autoComplete="current-password"
-            aria-invalid={Boolean(errors.password)}
-            className={getInputClassName(Boolean(errors.password), true)}
-            {...register("password", {
-              required: "Vui lòng nhập mật khẩu",
-              maxLength: { value: 255, message: "Mật khẩu không hợp lệ" },
-            })}
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((value) => !value)}
-            className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 motion-reduce:transition-none"
-            aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-          >
-            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
-        </div>
+        <Controller
+          name="password"
+          control={control}
+          rules={{
+            required: "Vui lòng nhập mật khẩu",
+            maxLength: { value: 255, message: "Mật khẩu không hợp lệ" },
+          }}
+          render={({ field }) => (
+            <Input.Password
+              id="login-password"
+              prefix={<KeyRound size={18} className="mr-1 text-gray-400" />}
+              placeholder="Nhập mật khẩu"
+              autoComplete="current-password"
+              aria-invalid={Boolean(errors.password)}
+              status={errors.password ? "error" : undefined}
+              className={[
+                "!h-12 !rounded-xl !border-gray-200 !bg-gray-50/90 !px-3.5 !text-sm !text-gray-900 !shadow-none transition motion-reduce:transition-none",
+                errors.password
+                  ? "focus-within:!border-red-400 focus-within:!shadow-[0_0_0_4px_rgb(254_226_226)]"
+                  : "hover:!border-amber-300 focus-within:!border-amber-400 focus-within:!bg-white focus-within:!shadow-[0_0_0_4px_rgb(254_243_199)]",
+              ].join(" ")}
+              {...field}
+            />
+          )}
+        />
         {errors.password && (
           <p className="flex items-center gap-1.5 text-xs text-red-600">
             <AlertCircle size={12} />

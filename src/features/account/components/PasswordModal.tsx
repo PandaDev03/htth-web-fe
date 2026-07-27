@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
-import { AlertCircle, CheckCircle, Eye, EyeOff, Loader2, XCircle } from "lucide-react";
+import { Input } from "antd";
+import { AlertCircle, CheckCircle, Loader2, XCircle } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -39,8 +40,6 @@ export function AccountPasswordModal({ title, onClose }: PasswordModalProps) {
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
 
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNext, setShowNext] = useState(false);
   const [saved, setSaved] = useState(false);
 
   const changePasswordMutation = useMutation({
@@ -121,57 +120,41 @@ export function AccountPasswordModal({ title, onClose }: PasswordModalProps) {
               <label className="mb-1.5 block text-xs font-semibold text-gray-600">
                 Mật khẩu hiện tại
               </label>
-              <div className="relative">
-                <input
-                  type={showCurrent ? "text" : "password"}
-                  value={current}
-                  onChange={(event) => {
-                    setCurrent(event.target.value);
-                    resetRequestError();
-                  }}
-                  placeholder="Nhập mật khẩu hiện tại..."
-                  disabled={changePasswordMutation.isPending}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2.5 pr-10 text-sm text-gray-800 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100 disabled:cursor-not-allowed disabled:bg-gray-50"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowCurrent((value) => !value)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                >
-                  {showCurrent ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
-              </div>
+              <Input.Password
+                value={current}
+                onChange={(event) => {
+                  setCurrent(event.target.value);
+                  resetRequestError();
+                }}
+                placeholder="Nhập mật khẩu hiện tại..."
+                autoComplete="current-password"
+                disabled={changePasswordMutation.isPending}
+                className="!h-[42px] !rounded-lg !border-gray-200 !px-3 !text-sm !text-gray-800 !shadow-none hover:!border-amber-300 focus-within:!border-amber-400 focus-within:!shadow-[0_0_0_2px_rgb(254_243_199)]"
+              />
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-gray-600">
                 Mật khẩu mới
               </label>
-              <div className="relative">
-                <input
-                  type={showNext ? "text" : "password"}
-                  value={next}
-                  onChange={(event) => {
-                    setNext(event.target.value);
-                    resetRequestError();
-                  }}
-                  placeholder="Nhập mật khẩu mới..."
-                  aria-describedby="account-next-password-hint"
-                  aria-invalid={Boolean(nextPasswordError)}
-                  disabled={changePasswordMutation.isPending}
-                  className={`w-full rounded-lg border px-3 py-2.5 pr-10 text-sm text-gray-800 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-gray-50 ${
-                    nextPasswordError
-                      ? "border-red-300 focus:border-red-400 focus:ring-red-100"
-                      : "border-gray-200 focus:border-amber-400 focus:ring-amber-100"
-                  }`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNext((value) => !value)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                >
-                  {showNext ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
-              </div>
+              <Input.Password
+                value={next}
+                onChange={(event) => {
+                  setNext(event.target.value);
+                  resetRequestError();
+                }}
+                placeholder="Nhập mật khẩu mới..."
+                autoComplete="new-password"
+                aria-describedby="account-next-password-hint"
+                aria-invalid={Boolean(nextPasswordError)}
+                status={nextPasswordError ? "error" : undefined}
+                disabled={changePasswordMutation.isPending}
+                className={[
+                  "!h-[42px] !rounded-lg !px-3 !text-sm !text-gray-800 !shadow-none",
+                  nextPasswordError
+                    ? "focus-within:!shadow-[0_0_0_2px_rgb(254_226_226)]"
+                    : "!border-gray-200 hover:!border-amber-300 focus-within:!border-amber-400 focus-within:!shadow-[0_0_0_2px_rgb(254_243_199)]",
+                ].join(" ")}
+              />
               {nextPasswordError ? (
                 <p className="mt-1.5 flex items-center gap-1.5 text-xs text-red-600">
                   <AlertCircle size={12} />
@@ -190,21 +173,23 @@ export function AccountPasswordModal({ title, onClose }: PasswordModalProps) {
               <label className="mb-1.5 block text-xs font-semibold text-gray-600">
                 Xác nhận mật khẩu mới
               </label>
-              <input
-                type="password"
+              <Input.Password
                 value={confirm}
                 onChange={(event) => {
                   setConfirm(event.target.value);
                   resetRequestError();
                 }}
                 placeholder="Nhập lại mật khẩu mới..."
+                autoComplete="new-password"
                 aria-invalid={Boolean(confirmError)}
+                status={confirmError ? "error" : undefined}
                 disabled={changePasswordMutation.isPending}
-                className={`w-full rounded-lg border px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-gray-50 ${
+                className={[
+                  "!h-[42px] !rounded-lg !px-3 !text-sm !text-gray-800 !shadow-none",
                   confirmError
-                    ? "border-red-300 focus:border-red-400 focus:ring-red-100"
-                    : "border-gray-200 focus:border-amber-400 focus:ring-amber-100"
-                }`}
+                    ? "focus-within:!shadow-[0_0_0_2px_rgb(254_226_226)]"
+                    : "!border-gray-200 hover:!border-amber-300 focus-within:!border-amber-400 focus-within:!shadow-[0_0_0_2px_rgb(254_243_199)]",
+                ].join(" ")}
               />
               {confirmError && (
                 <p className="mt-1.5 flex items-center gap-1.5 text-xs text-red-600">
