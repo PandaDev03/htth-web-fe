@@ -16,6 +16,7 @@ import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "@/app/store/hooks";
 import { AccountPasswordModal } from "@/features/account/components/PasswordModal";
 import { logout } from "@/features/auth/model/authSlice";
+import { PATH } from "@/shared/config/path";
 import { Footer } from "@/shared/components/site/Footer";
 import { Header } from "@/shared/components/site/Header";
 
@@ -109,7 +110,7 @@ function PlayerAccountPage() {
   }
   function signOut() {
     dispatch(logout());
-    navigate("/sign-up-login-screen");
+    navigate(PATH.AUTH);
   }
   const active = account.status === 1;
   const joined = account.joinDate.toLocaleString("vi-VN", {

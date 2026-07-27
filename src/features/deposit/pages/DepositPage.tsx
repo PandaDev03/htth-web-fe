@@ -15,6 +15,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
+import { PATH } from "@/shared/config/path";
+
 import {
   createPayosPayment,
   getPayosPaymentStatus,
@@ -556,7 +558,7 @@ function WalletDepositPage() {
 
           <div className="mt-6 flex justify-center">
             <Link
-              to="/user-account"
+              to={PATH.ACCOUNT}
               className="inline-flex items-center gap-2 text-sm font-bold text-amber-600 hover:text-amber-700"
             >
               <Wallet size={16} />

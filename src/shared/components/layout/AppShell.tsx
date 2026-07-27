@@ -6,6 +6,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { appRoutes } from "@/app/router/routes";
 import { useAppDispatch, useAppSelector } from "@/app/store/hooks";
 import { logout } from "@/features/auth/model/authSlice";
+import { PATH } from "@/shared/config/path";
 import { hasAllowedRole } from "@/shared/lib/access";
 
 const { Header, Content, Sider } = Layout;
@@ -61,7 +62,7 @@ export function AppShell() {
             icon={<LogoutOutlined />}
             onClick={() => {
               dispatch(logout());
-              navigate("/sign-up-login-screen");
+              navigate(PATH.AUTH);
             }}
           >
             Dang xuat

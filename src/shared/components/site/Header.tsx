@@ -125,7 +125,7 @@ export function Header() {
         </nav>
         <div className="absolute inset-x-0 bottom-0 flex flex-col gap-3 border-t border-gray-100 px-4 py-5">
           <Link
-            to="/sign-up-login-screen"
+            to={PATH.AUTH}
             onClick={() => setMobileOpen(false)}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600"
           >
@@ -133,7 +133,7 @@ export function Header() {
             Đăng Nhập
           </Link>
           <Link
-            to="/download-screen"
+            to={PATH.DOWNLOAD}
             onClick={() => setMobileOpen(false)}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-white"
           >

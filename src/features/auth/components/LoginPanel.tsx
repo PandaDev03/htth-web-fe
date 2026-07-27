@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { useAppDispatch } from "@/app/store/hooks";
@@ -20,7 +20,6 @@ import {
   getRememberedUsername,
   setRememberedUsername,
 } from "@/features/auth/model/tokenStorage";
-import { PATH } from "@/shared/config/path";
 
 interface LoginFields {
   username: string;
@@ -30,13 +29,9 @@ interface LoginFields {
 
 interface LoginPanelProps {
   onRegister: () => void;
+  redirectTo: string;
 }
 
-type LocationState = {
-  from?: {
-    pathname?: string;
-  };
-};
 
 const inputClassName =
   "h-12 w-full rounded-xl border border-gray-200 bg-gray-50/90 pl-11 pr-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100 motion-reduce:transition-none";
@@ -53,13 +48,12 @@ function getInputClassName(hasError: boolean, hasTrailingAction = false) {
     .join(" ");
 }
 
-export function PlayerLoginPanel({ onRegister }: LoginPanelProps) {
+export function PlayerLoginPanel({ onRegister, redirectTo }: LoginPanelProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const location = useLocation();
   const rememberedUsername = getRememberedUsername();
   const {
     register,
@@ -89,8 +83,7 @@ export function PlayerLoginPanel({ onRegister }: LoginPanelProps) {
       }
 
       toast.success("Đăng nhập thành công! Chào mừng trở lại.");
-      const state = location.state as LocationState | null;
-      navigate(state?.from?.pathname ?? PATH.ACCOUNT, { replace: true });
+      navigate(redirectTo, { replace: true });
     } catch (error) {
       setAuthError(
         error instanceof Error

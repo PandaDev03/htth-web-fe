@@ -3,6 +3,6 @@ export const PATH = {
   AUTH: "/auth",
   ACCOUNT: "/user-account",
   DOWNLOAD: "/download",
-  COIN_EXCHANGE: "/doi-exchange",
+  COIN_EXCHANGE: "/coin-exchange",
   WALLET_DEPOSIT: "/deposit",
 };

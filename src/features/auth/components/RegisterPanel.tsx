@@ -1,4 +1,4 @@
-﻿import {
+import {
   AlertCircle,
   Eye,
   EyeOff,
@@ -23,7 +23,6 @@ import {
   GAME_ACCOUNT_USERNAME_PATTERN,
 } from "@/features/auth/model/accountRules";
 import { setCredentials } from "@/features/auth/model/authSlice";
-import { PATH } from "@/shared/config/path";
 
 interface RegisterFields {
   username: string;
@@ -32,6 +31,7 @@ interface RegisterFields {
 
 interface RegisterPanelProps {
   onLogin: () => void;
+  redirectTo: string;
 }
 
 const inputClassName =
@@ -49,7 +49,7 @@ function getInputClassName(hasError: boolean, hasTrailingAction = false) {
     .join(" ");
 }
 
-export function PlayerRegisterPanel({ onLogin }: RegisterPanelProps) {
+export function PlayerRegisterPanel({ onLogin, redirectTo }: RegisterPanelProps) {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
@@ -80,7 +80,7 @@ export function PlayerRegisterPanel({ onLogin }: RegisterPanelProps) {
         "Đăng ký tài khoản thành công! Tài khoản đã sẵn sàng để vào game.",
       );
 
-      navigate(PATH.ACCOUNT, { replace: true });
+      navigate(redirectTo, { replace: true });
     } catch (error) {
       setAuthError(
         error instanceof Error
