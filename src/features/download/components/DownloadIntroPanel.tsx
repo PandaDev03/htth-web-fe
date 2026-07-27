@@ -30,7 +30,7 @@ const DownloadIntroPanel = () => {
           Tải <span className="text-amber-600">Hải tặc vui vẻ</span>
         </h1>
         <div className="mx-auto mb-5 h-0.5 w-24 bg-gradient-to-r from-amber-300 via-amber-500 to-amber-300" />
-        <p className="mx-auto mb-10 max-w-xl text-base leading-relaxed text-gray-500">
+        <p className="mx-auto mb-2 max-w-xl text-base leading-relaxed text-gray-500">
           Chọn nền tảng phù hợp và bắt đầu hành trình hải tặc ngay hôm nay
         </p>
         <div className="flex flex-wrap items-center justify-center gap-4">

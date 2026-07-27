@@ -1,17 +1,37 @@
-import { CheckCircle, Eye, EyeOff, XCircle } from "lucide-react";
+import { AlertCircle, CheckCircle, Eye, EyeOff, XCircle } from "lucide-react";
 import { useState } from "react";
+
+import {
+  GAME_ACCOUNT_MAX_LENGTH,
+  GAME_ACCOUNT_MIN_LENGTH,
+  GAME_ACCOUNT_PASSWORD_HINT,
+  GAME_ACCOUNT_PASSWORD_PATTERN,
+} from "@/features/auth/model/accountRules";
 
 interface PasswordModalProps {
   title: string;
-  md5?: boolean;
   onClose: () => void;
 }
 
-export function AccountPasswordModal({
-  title,
-  md5,
-  onClose,
-}: PasswordModalProps) {
+function getPasswordError(value: string) {
+  if (!value) return null;
+
+  if (value.length < GAME_ACCOUNT_MIN_LENGTH) {
+    return "Tối thiểu 6 ký tự";
+  }
+
+  if (value.length > GAME_ACCOUNT_MAX_LENGTH) {
+    return "Tối đa 30 ký tự";
+  }
+
+  if (!GAME_ACCOUNT_PASSWORD_PATTERN.test(value)) {
+    return "Chỉ chấp nhận chữ cái và số";
+  }
+
+  return null;
+}
+
+export function AccountPasswordModal({ title, onClose }: PasswordModalProps) {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -20,7 +40,13 @@ export function AccountPasswordModal({
   const [showNext, setShowNext] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const nextPasswordError = getPasswordError(next);
+  const confirmError = confirm && next !== confirm ? "Mật khẩu xác nhận không khớp" : null;
+  const canSave = Boolean(current && next && confirm && !nextPasswordError && !confirmError);
+
   const save = () => {
+    if (!canSave) return;
+
     setSaved(true);
     setTimeout(onClose, 1200);
   };
@@ -47,14 +73,9 @@ export function AccountPasswordModal({
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {md5 && (
-              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-600">
-                Mật khẩu cấp 2 được mã hóa MD5 trước khi lưu.
-              </p>
-            )}
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-gray-600">
-                {md5 ? "Pass2 hiện tại" : "Mật khẩu hiện tại"}
+                Mật khẩu hiện tại
               </label>
               <div className="relative">
                 <input
@@ -75,7 +96,7 @@ export function AccountPasswordModal({
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-gray-600">
-                {md5 ? "Pass2 mới" : "Mật khẩu mới"}
+                Mật khẩu mới
               </label>
               <div className="relative">
                 <input
@@ -83,7 +104,13 @@ export function AccountPasswordModal({
                   value={next}
                   onChange={(event) => setNext(event.target.value)}
                   placeholder="Nhập mật khẩu mới..."
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2.5 pr-10 text-sm text-gray-800 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                  aria-describedby="account-next-password-hint"
+                  aria-invalid={Boolean(nextPasswordError)}
+                  className={`w-full rounded-lg border px-3 py-2.5 pr-10 text-sm text-gray-800 focus:outline-none focus:ring-2 ${
+                    nextPasswordError
+                      ? "border-red-300 focus:border-red-400 focus:ring-red-100"
+                      : "border-gray-200 focus:border-amber-400 focus:ring-amber-100"
+                  }`}
                 />
                 <button
                   type="button"
@@ -93,6 +120,19 @@ export function AccountPasswordModal({
                   {showNext ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
+              {nextPasswordError ? (
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-red-600">
+                  <AlertCircle size={12} />
+                  {nextPasswordError}
+                </p>
+              ) : (
+                <p
+                  id="account-next-password-hint"
+                  className="mt-1.5 text-xs leading-relaxed text-gray-500"
+                >
+                  {GAME_ACCOUNT_PASSWORD_HINT}
+                </p>
+              )}
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-gray-600">
@@ -103,8 +143,19 @@ export function AccountPasswordModal({
                 value={confirm}
                 onChange={(event) => setConfirm(event.target.value)}
                 placeholder="Nhập lại mật khẩu mới..."
-                className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-800 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                aria-invalid={Boolean(confirmError)}
+                className={`w-full rounded-lg border px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 ${
+                  confirmError
+                    ? "border-red-300 focus:border-red-400 focus:ring-red-100"
+                    : "border-gray-200 focus:border-amber-400 focus:ring-amber-100"
+                }`}
               />
+              {confirmError && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-red-600">
+                  <AlertCircle size={12} />
+                  {confirmError}
+                </p>
+              )}
             </div>
             <div className="mt-1 flex gap-3">
               <button
@@ -117,7 +168,7 @@ export function AccountPasswordModal({
               <button
                 type="button"
                 onClick={save}
-                disabled={!current || !next || next !== confirm}
+                disabled={!canSave}
                 className="flex-1 rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Lưu thay đổi

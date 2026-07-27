@@ -113,7 +113,7 @@ function PlayerAccountPage() {
   });
 
   const [avatar, setAvatar] = useState<string | null>(account.avatar);
-  const [modal, setModal] = useState<null | "pass" | "pass2">(null);
+  const [modal, setModal] = useState<null | "pass">(null);
 
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -269,11 +269,6 @@ function PlayerAccountPage() {
                 label="Mật khẩu đăng nhập"
                 onChange={() => setModal("pass")}
               />
-              <SecurityPasswordRow
-                label="Mật khẩu cấp 2 (Pass2)"
-                hint="Mã hóa MD5"
-                onChange={() => setModal("pass2")}
-              />
             </div>
           </section>
           <button
@@ -290,13 +285,6 @@ function PlayerAccountPage() {
       {modal === "pass" && (
         <AccountPasswordModal
           title="Đổi Mật Khẩu Đăng Nhập"
-          onClose={() => setModal(null)}
-        />
-      )}
-      {modal === "pass2" && (
-        <AccountPasswordModal
-          title="Đổi Mật Khẩu Cấp 2 (Pass2)"
-          md5
           onClose={() => setModal(null)}
         />
       )}

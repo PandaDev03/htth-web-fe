@@ -5,7 +5,6 @@ import {
   Download,
   LogOut,
   UserRound,
-  WalletCards,
   WalletMinimal,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -20,6 +19,7 @@ type UserMenuProps = {
 };
 
 const MENU_PATHS = {
+  account: PATH.ACCOUNT,
   download: PATH.DOWNLOAD,
   deposit: PATH.WALLET_DEPOSIT,
   exchange: PATH.COIN_EXCHANGE,
@@ -66,8 +66,10 @@ export function UserMenu({ compact = false }: UserMenuProps) {
   const handleMenuClick: MenuProps["onClick"] = ({ key }) => {
     if (key === "logout") {
       dispatch(logout());
+
       toast.success("Đã đăng xuất.");
       navigate(PATH.HOME);
+
       return;
     }
 
