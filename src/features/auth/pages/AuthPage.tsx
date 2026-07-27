@@ -1,45 +1,30 @@
-import { Navigate } from "react-router-dom";
 import { useState } from "react";
+import { Navigate } from "react-router-dom";
 
 import { useAppSelector } from "@/app/store/hooks";
 import { PirateAuthShell } from "@/features/auth/components/AuthShell";
 import { PlayerLoginPanel } from "@/features/auth/components/LoginPanel";
 import { PlayerRegisterPanel } from "@/features/auth/components/RegisterPanel";
+import { PATH } from "@/shared/config/path";
+
+type AuthMode = "login" | "register";
 
 function PlayerAuthPage() {
-  const [tab, setTab] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<AuthMode>("login");
   const accessToken = useAppSelector((state) => state.auth.accessToken);
 
   if (accessToken) {
-    return <Navigate to="/user-account" replace />;
+    return <Navigate to={PATH.ACCOUNT} replace />;
   }
 
   return (
     <PirateAuthShell>
-      <div className="w-full">
-        <div className="mb-7 flex border-b border-navy-border">
-          <button
-            type="button"
-            onClick={() => setTab("login")}
-            className={`flex-1 pb-3 text-sm font-600 transition-all ${tab === "login" ? "tab-active" : "tab-inactive"}`}
-          >
-            Đăng Nhập
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("register")}
-            className={`flex-1 pb-3 text-sm font-600 transition-all ${tab === "register" ? "tab-active" : "tab-inactive"}`}
-          >
-            Đăng Ký
-          </button>
-        </div>
-        <div className="animate-fade-in">
-          {tab === "login" ? (
-            <PlayerLoginPanel onRegister={() => setTab("register")} />
-          ) : (
-            <PlayerRegisterPanel onLogin={() => setTab("login")} />
-          )}
-        </div>
+      <div key={mode} className="animate-fade-in motion-reduce:animate-none">
+        {mode === "login" ? (
+          <PlayerLoginPanel onRegister={() => setMode("register")} />
+        ) : (
+          <PlayerRegisterPanel onLogin={() => setMode("login")} />
+        )}
       </div>
     </PirateAuthShell>
   );

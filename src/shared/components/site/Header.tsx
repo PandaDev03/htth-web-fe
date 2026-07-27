@@ -1,19 +1,21 @@
-import { PirateBrandMark } from "@/shared/components/site/BrandMark";
 import { ChevronRight, Download, LogIn, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
-const PUBLIC_NAV_ITEMS = [
-  { label: "Trang Chủ", href: "/" },
-  { label: "Tải Game", href: "/download-screen" },
-  { label: "Đổi Coin", href: "/doi-coin" },
-  { label: "Nạp Tiền", href: "/nap-tien" },
-];
+import { PirateBrandMark } from "@/shared/components/site/BrandMark";
+import { PATH } from "@/shared/config/path";
 
 export function Header() {
   const { pathname } = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+
+  const PUBLIC_NAV_ITEMS = [
+    { label: "Trang Chủ", href: PATH.HOME },
+    { label: "Tải Game", href: PATH.DOWNLOAD },
+    { label: "Đổi Coin", href: PATH.COIN_EXCHANGE },
+    { label: "Nạp Tiền", href: PATH.WALLET_DEPOSIT },
+  ];
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -54,14 +56,14 @@ export function Header() {
             </nav>
             <div className="hidden items-center gap-3 md:flex">
               <Link
-                to="/sign-up-login-screen"
+                to={PATH.AUTH}
                 className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 transition-all hover:border-amber-300 hover:text-amber-600"
               >
                 <LogIn size={15} />
                 Đăng Nhập
               </Link>
               <Link
-                to="/download-screen"
+                to={PATH.DOWNLOAD}
                 className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-white shadow-sm transition-all hover:bg-amber-600"
               >
                 <Download size={15} />

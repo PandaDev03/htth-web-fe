@@ -12,6 +12,7 @@ import {
   downloadPlatforms,
   type DownloadPlatformId,
 } from "@/shared/config/downloads";
+import { PATH } from "@/shared/config/path";
 
 const platformIcons: Record<DownloadPlatformId, ReactNode> = {
   testflight: <Apple size={22} />,
@@ -90,7 +91,7 @@ const CompactDownloadShowcase = () => {
         </div>
         <div className="text-center">
           <Link
-            to="/download-screen"
+            to={PATH.DOWNLOAD}
             className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-10 py-3.5 text-base font-bold text-white shadow-lg shadow-amber-200 transition-all hover:-translate-y-0.5 hover:bg-amber-600"
           >
             <Download size={18} />

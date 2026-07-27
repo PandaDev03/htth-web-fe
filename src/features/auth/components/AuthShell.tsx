@@ -1,104 +1,48 @@
 import type { ReactNode } from "react";
-import { Coins, Ship, Sword, Users } from "lucide-react";
 import { Link } from "react-router-dom";
-import { PirateBrandMark } from "@/shared/components/site/BrandMark";
 
-const AUTH_FEATURES = [
-  { icon: <Ship size={18} />, text: "Chinh phục đại dương với hạm đội riêng" },
-  { icon: <Sword size={18} />, text: "PvP hải chiến thời gian thực" },
-  { icon: <Coins size={18} />, text: "Hệ thống kinh tế và giao dịch phong phú" },
-  { icon: <Users size={18} />, text: "Guild & đồng minh chiến lược" },
-];
+import { PirateBrandMark } from "@/shared/components/site/BrandMark";
+import { PATH } from "@/shared/config/path";
 
 export function PirateAuthShell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-[100dvh] bg-background">
-      <section className="relative hidden w-[55%] flex-col justify-between overflow-hidden p-10 lg:flex xl:w-[60%] xl:p-14">
-        <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-navy-deep via-navy-mid to-navy-light" />
-          <div
-            className="absolute inset-0 opacity-[0.04]"
-            style={{
-              backgroundImage:
-                "linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px)",
-              backgroundSize: "50px 50px",
-            }}
-          />
-          <div
-            className="absolute left-1/3 top-1/4 h-96 w-96 rounded-full opacity-15"
-            style={{
-              background:
-                "radial-gradient(circle, rgba(201,168,76,0.4) 0%, transparent 70%)",
-            }}
-          />
-          <div className="absolute left-1/2 top-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-gold/10" />
-          <div className="absolute left-1/2 top-1/2 h-[350px] w-[350px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-gold/10" />
-          <div className="absolute left-1/2 top-1/2 h-[200px] w-[200px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-gold/20" />
-        </div>
-        <div className="relative z-10">
-          <Link to="/">
-            <PirateBrandMark size={44} dark />
-          </Link>
-        </div>
-        <div className="relative z-10 flex flex-col gap-8">
-          <div>
-            <h1 className="text-hero-md mb-3 text-foreground">
-              Bắt Đầu Hành Trình
-              <br />
-              <span className="text-gold">Hải Tặc</span> Của Bạn
-            </h1>
-            <div className="pirate-divider mb-4 w-32" />
-            <p className="max-w-md text-base leading-relaxed text-muted-foreground">
-              Tham gia cùng hơn 48,000 người chơi trong thế giới hải tặc 2D vui
-              nhộn. Mỗi cuộc phiêu lưu là một trận PK, săn đồ và giải trí mới.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3">
-            {AUTH_FEATURES.map((item) => (
-              <div key={item.text} className="flex items-center gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gold/20 bg-gold/10 text-gold">
-                  {item.icon}
-                </div>
-                <span className="text-sm text-muted-foreground">{item.text}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="relative z-10 flex items-center gap-4">
-          <div className="flex -space-x-2">
-            {["#C9A84C", "#C0392B", "#1ABC9C", "#8B5CF6"].map((color, index) => (
-              <span
-                key={color}
-                className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-navy-mid text-xs font-700 text-white"
-                style={{ background: color }}
-              >
-                {["H", "T", "V", "V"][index]}
-              </span>
-            ))}
-          </div>
-          <div>
-            <p className="text-sm font-600 text-foreground">1,247 đang online</p>
-            <p className="text-xs text-muted-foreground">Tham gia ngay hôm nay</p>
-          </div>
-        </div>
-      </section>
-      <section className="relative flex flex-1 flex-col items-center justify-center px-5 py-10 sm:px-8">
-        <div className="mb-8 lg:hidden">
-          <PirateBrandMark size={36} dark />
-        </div>
-        <div className="w-full max-w-md">{children}</div>
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          © 2026 Hải tặc vui vẻ. Bằng cách đăng ký, bạn đồng ý với{" "}
-          <span className="cursor-pointer text-gold hover:underline">
-            Điều khoản dịch vụ
-          </span>{" "}
-          và{" "}
-          <span className="cursor-pointer text-gold hover:underline">
-            Chính sách bảo mật
-          </span>
-          .
-        </p>
-      </section>
-    </div>
+    <main className="relative min-h-[100dvh] overflow-hidden bg-gradient-to-br from-amber-50 via-white to-orange-50 px-4 py-5 sm:px-6 sm:py-7">
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div
+          className="absolute inset-0 opacity-[0.035]"
+          style={{
+            backgroundImage:
+              "linear-gradient(#d97706 1px, transparent 1px), linear-gradient(90deg, #d97706 1px, transparent 1px)",
+            backgroundSize: "60px 60px",
+          }}
+        />
+        <div
+          className="absolute left-1/2 top-0 h-[430px] w-[min(900px,95vw)] -translate-x-1/2 rounded-full opacity-40"
+          style={{
+            background:
+              "radial-gradient(ellipse, rgba(251,191,36,0.28) 0%, transparent 68%)",
+          }}
+        />
+        <div className="absolute left-1/2 top-[46%] h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-300/25" />
+        <div className="absolute left-1/2 top-[46%] h-[390px] w-[390px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-300/20" />
+        <div className="absolute -bottom-32 -left-24 h-80 w-80 rounded-full bg-white/90 blur-2xl" />
+        <div className="absolute -bottom-40 left-1/4 h-96 w-96 rounded-full bg-amber-50/90 blur-3xl" />
+        <div className="absolute -bottom-32 -right-24 h-80 w-80 rounded-full bg-white/90 blur-2xl" />
+      </div>
+
+      <Link
+        to={PATH.HOME}
+        aria-label="Về trang chủ Hải tặc vui vẻ"
+        className="relative z-20 inline-flex rounded-xl outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-4 motion-reduce:transition-none"
+      >
+        <PirateBrandMark size={40} />
+      </Link>
+
+      <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-md flex-col items-center justify-center py-8 sm:py-10">
+        <section className="w-full overflow-hidden rounded-[28px] border border-white/80 bg-white/85 p-5 shadow-[0_26px_80px_rgba(146,100,28,0.16),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-xl sm:p-8">
+          {children}
+        </section>
+      </div>
+    </main>
   );
 }

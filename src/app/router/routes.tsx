@@ -1,18 +1,42 @@
-import { lazy } from 'react';
-import type { AppRoute } from '@/app/router/routeTypes';
+import { lazy } from "react";
 
-const PirateLandingPage = lazy(() => import('@/features/home/pages/HomePage'));
-const GameDownloadPage = lazy(() => import('@/features/download/pages/DownloadPage'));
-const PlayerAuthPage = lazy(() => import('@/features/auth/pages/AuthPage'));
-const PlayerAccountPage = lazy(() => import('@/features/account/pages/AccountPage'));
-const CoinExchangePage = lazy(() => import('@/features/coin/pages/CoinPage'));
-const WalletDepositPage = lazy(() => import('@/features/deposit/pages/DepositPage'));
+import type { AppRoute } from "@/app/router/routeTypes";
+import { PATH } from "@/shared/config/path";
+
+const PirateLandingPage = lazy(() => import("@/features/home/pages/HomePage"));
+const GameDownloadPage = lazy(
+  () => import("@/features/download/pages/DownloadPage"),
+);
+const PlayerAuthPage = lazy(() => import("@/features/auth/pages/AuthPage"));
+const PlayerAccountPage = lazy(
+  () => import("@/features/account/pages/AccountPage"),
+);
+const CoinExchangePage = lazy(() => import("@/features/coin/pages/CoinPage"));
+const WalletDepositPage = lazy(
+  () => import("@/features/deposit/pages/DepositPage"),
+);
 
 export const appRoutes: AppRoute[] = [
-  { path: '/', element: <PirateLandingPage />, isPublic: true },
-  { path: '/download-screen', element: <GameDownloadPage />, isPublic: true },
-  { path: '/sign-up-login-screen', element: <PlayerAuthPage />, isPublic: true },
-  { path: '/user-account', element: <PlayerAccountPage />, allowedRoles: ['user', 'moderator', 'admin'] },
-  { path: '/doi-coin', element: <CoinExchangePage />, allowedRoles: ['user', 'moderator', 'admin'] },
-  { path: '/nap-tien', element: <WalletDepositPage />, allowedRoles: ['user', 'moderator', 'admin'] },
+  { path: PATH.HOME, element: <PirateLandingPage />, isPublic: true },
+  { path: PATH.DOWNLOAD, element: <GameDownloadPage />, isPublic: true },
+  {
+    path: PATH.AUTH,
+    element: <PlayerAuthPage />,
+    isPublic: true,
+  },
+  {
+    path: PATH.ACCOUNT,
+    element: <PlayerAccountPage />,
+    allowedRoles: ["user", "moderator", "admin"],
+  },
+  {
+    path: PATH.COIN_EXCHANGE,
+    element: <CoinExchangePage />,
+    allowedRoles: ["user", "moderator", "admin"],
+  },
+  {
+    path: PATH.WALLET_DEPOSIT,
+    element: <WalletDepositPage />,
+    allowedRoles: ["user", "moderator", "admin"],
+  },
 ];

@@ -1,4 +1,12 @@
-import { AlertCircle, Eye, EyeOff, Loader2, LogIn } from "lucide-react";
+import {
+  AlertCircle,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Loader2,
+  LogIn,
+  UserRound,
+} from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -12,6 +20,7 @@ import {
   getRememberedUsername,
   setRememberedUsername,
 } from "@/features/auth/model/tokenStorage";
+import { PATH } from "@/shared/config/path";
 
 interface LoginFields {
   username: string;
@@ -28,6 +37,21 @@ type LocationState = {
     pathname?: string;
   };
 };
+
+const inputClassName =
+  "h-12 w-full rounded-xl border border-gray-200 bg-gray-50/90 pl-11 pr-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100 motion-reduce:transition-none";
+
+const normalizeUsername = (value: string) => value.trim().toLowerCase();
+
+function getInputClassName(hasError: boolean, hasTrailingAction = false) {
+  return [
+    inputClassName,
+    hasTrailingAction ? "pr-12" : "",
+    hasError ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
 
 export function PlayerLoginPanel({ onRegister }: LoginPanelProps) {
   const [showPassword, setShowPassword] = useState(false);
@@ -66,7 +90,7 @@ export function PlayerLoginPanel({ onRegister }: LoginPanelProps) {
 
       toast.success("Đăng nhập thành công! Chào mừng trở lại.");
       const state = location.state as LocationState | null;
-      navigate(state?.from?.pathname ?? "/user-account", { replace: true });
+      navigate(state?.from?.pathname ?? PATH.ACCOUNT, { replace: true });
     } catch (error) {
       setAuthError(
         error instanceof Error
@@ -79,112 +103,145 @@ export function PlayerLoginPanel({ onRegister }: LoginPanelProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-5" noValidate>
-      <div>
-        <h2 className="mb-1 text-xl font-700 text-foreground">Đăng Nhập</h2>
-        <p className="text-sm text-muted-foreground">
-          Nhập thông tin tài khoản để tiếp tục
+    <form
+      onSubmit={handleSubmit(submit)}
+      className="flex flex-col gap-4"
+      noValidate
+    >
+      <header className="mb-1 text-center">
+        <span className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-100 bg-amber-50 text-amber-700 shadow-[0_10px_26px_rgba(217,119,6,0.14)]">
+          <LogIn size={24} strokeWidth={1.8} />
+        </span>
+        <h1 className="text-2xl font-800 tracking-tight text-gray-900">
+          Chào mừng trở lại
+        </h1>
+        <p className="mt-1.5 text-sm leading-relaxed text-gray-500">
+          Đăng nhập để tiếp tục hành trình hải tặc của bạn
         </p>
-      </div>
+      </header>
 
       {authError && (
-        <div className="flex items-start gap-3 rounded-lg border border-accent/30 bg-accent/10 px-4 py-3">
-          <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-light" />
-          <p className="text-sm text-red-light">{authError}</p>
+        <div
+          role="alert"
+          className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-red-700"
+        >
+          <AlertCircle size={17} className="mt-0.5 shrink-0" />
+          <p className="text-sm leading-relaxed">{authError}</p>
         </div>
       )}
 
-      <div>
-        <label className="mb-1.5 block text-sm font-600 text-foreground">
-          Tên Tài Khoản
+      <div className="space-y-1.5">
+        <label
+          htmlFor="login-username"
+          className="block text-sm font-600 text-gray-700"
+        >
+          Tên tài khoản
         </label>
-        <input
-          type="text"
-          placeholder="Nhập tên tài khoản..."
-          autoComplete="username"
-          className={`input-field ${errors.username ? "border-red-light" : ""}`}
-          {...register("username", {
-            required: "Vui lòng nhập tên tài khoản",
-            minLength: { value: 4, message: "Tối thiểu 4 ký tự" },
-            maxLength: { value: 20, message: "Tối đa 20 ký tự" },
-            pattern: {
-              value: /^[a-z0-9_]+$/,
-              message: "Chỉ chấp nhận chữ thường, số và dấu gạch dưới",
-            },
-            setValueAs: (value: string) => value.trim().toLowerCase(),
-          })}
-        />
+        <div className="relative">
+          <UserRound
+            size={18}
+            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
+          />
+          <input
+            id="login-username"
+            type="text"
+            placeholder="Nhập tên tài khoản"
+            autoComplete="username"
+            spellCheck={false}
+            autoCapitalize="none"
+            autoCorrect="off"
+            aria-invalid={Boolean(errors.username)}
+            className={getInputClassName(Boolean(errors.username))}
+            {...register("username", {
+              required: "Vui lòng nhập tên tài khoản",
+              maxLength: { value: 255, message: "Tên tài khoản không hợp lệ" },
+              setValueAs: normalizeUsername,
+            })}
+          />
+        </div>
         {errors.username && (
-          <p className="mt-1.5 flex items-center gap-1 text-xs text-red-light">
+          <p className="flex items-center gap-1.5 text-xs text-red-600">
             <AlertCircle size={12} />
             {errors.username.message}
           </p>
         )}
       </div>
 
-      <div>
-        <label className="mb-1.5 block text-sm font-600 text-foreground">Mật Khẩu</label>
+      <div className="space-y-1.5">
+        <label
+          htmlFor="login-password"
+          className="block text-sm font-600 text-gray-700"
+        >
+          Mật khẩu
+        </label>
         <div className="relative">
+          <KeyRound
+            size={18}
+            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
+          />
           <input
+            id="login-password"
             type={showPassword ? "text" : "password"}
-            placeholder="Nhập mật khẩu..."
+            placeholder="Nhập mật khẩu"
             autoComplete="current-password"
-            className={`input-field pr-10 ${errors.password ? "border-red-light" : ""}`}
+            aria-invalid={Boolean(errors.password)}
+            className={getInputClassName(Boolean(errors.password), true)}
             {...register("password", {
               required: "Vui lòng nhập mật khẩu",
-              minLength: { value: 4, message: "Tối thiểu 4 ký tự" },
+              maxLength: { value: 255, message: "Mật khẩu không hợp lệ" },
             })}
           />
           <button
             type="button"
             onClick={() => setShowPassword((value) => !value)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            aria-label="Hiện hoặc ẩn mật khẩu"
+            className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 motion-reduce:transition-none"
+            aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
           >
-            {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         </div>
         {errors.password && (
-          <p className="mt-1.5 flex items-center gap-1 text-xs text-red-light">
+          <p className="flex items-center gap-1.5 text-xs text-red-600">
             <AlertCircle size={12} />
             {errors.password.message}
           </p>
         )}
       </div>
 
-      <div className="flex items-start gap-2">
+      <label className="flex cursor-pointer items-start gap-2.5 text-sm text-gray-600">
         <input
           type="checkbox"
-          id="rememberMe"
-          className="mt-0.5 h-4 w-4 accent-primary"
+          className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-amber-600"
           {...register("rememberMe")}
         />
-        <label htmlFor="rememberMe" className="cursor-pointer select-none text-sm text-muted-foreground">
-          Ghi nhớ đăng nhập
-          <span className="mt-0.5 block text-2xs text-muted-foreground/80">
-            Chỉ lưu tên tài khoản, không lưu mật khẩu.
-          </span>
-        </label>
-      </div>
+        <span className="font-600 text-gray-700">Ghi nhớ đăng nhập</span>
+      </label>
 
       <button
         type="submit"
         disabled={loading}
-        className="btn-primary mt-1 flex min-h-12 w-full items-center justify-center gap-2 py-3 disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-1 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-5 py-3 text-sm font-700 text-white shadow-[0_10px_24px_rgba(17,24,39,0.18)] transition hover:-translate-y-0.5 hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transform-none motion-reduce:transition-none"
       >
         {loading ? (
-          <Loader2 size={18} className="animate-spin" />
-        ) : (
           <>
-            <LogIn size={18} />
-            Đăng Nhập
+            <Loader2
+              size={18}
+              className="animate-spin motion-reduce:animate-none"
+            />
+            Đang đăng nhập
           </>
+        ) : (
+          "Đăng nhập"
         )}
       </button>
 
-      <p className="text-center text-sm text-muted-foreground">
+      <p className="pt-1 text-center text-sm text-gray-500">
         Chưa có tài khoản?{" "}
-        <button type="button" onClick={onRegister} className="font-600 text-gold hover:text-gold-light">
+        <button
+          type="button"
+          onClick={onRegister}
+          className="font-700 text-amber-700 underline-offset-4 hover:underline focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+        >
           Đăng ký ngay
         </button>
       </p>

@@ -2,22 +2,24 @@ import { Image } from "antd";
 import { CircleDollarSign, Download, Home, User } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { env } from "@/shared/config/env";
+import { PATH } from "@/shared/config/path";
+
 import { ZaloLogoArc } from "@/assets/images";
 import { PirateBrandMark } from "@/shared/components/site/BrandMark";
-import { env } from "@/shared/config/env";
 
 export function Footer() {
   const links = [
-    { label: "Trang Chủ", href: "/", icon: <Home size={13} /> },
+    { label: "Trang Chủ", href: PATH.HOME, icon: <Home size={13} /> },
     {
       label: "Tải Game",
-      href: "/download-screen",
+      href: PATH.DOWNLOAD,
       icon: <Download size={13} />,
     },
-    { label: "Tài Khoản", href: "/user-account", icon: <User size={13} /> },
+    { label: "Tài Khoản", href: PATH.ACCOUNT, icon: <User size={13} /> },
     {
       label: "Đổi Coin",
-      href: "/doi-coin",
+      href: PATH.COIN_EXCHANGE,
       icon: <CircleDollarSign size={13} />,
     },
   ];
