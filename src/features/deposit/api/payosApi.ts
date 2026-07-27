@@ -19,6 +19,15 @@ export type PayosPaymentStatus = {
   tongnap?: number;
 };
 
+export type DepositHistoryItem = {
+  id: number;
+  ref_no: string;
+  paid_at: string;
+  amount: number;
+  status: string;
+  bank: string;
+};
+
 type ApiEnvelope<T> = { message?: string; data: T };
 
 function apiErrorMessage(error: unknown, fallback: string) {
@@ -36,11 +45,13 @@ export async function createPayosPayment(amount: number) {
       { amount },
     );
     return {
-      message: response.data.message || "T\\u1ea1o m\\u00e3 QR thanh to\\u00e1n th\\u00e0nh c\\u00f4ng.",
+      message: response.data.message || "Tạo mã QR thanh toán thành công.",
       data: response.data.data,
     };
   } catch (error) {
-    throw new Error(apiErrorMessage(error, "Kh\\u00f4ng th\\u1ec3 t\\u1ea1o m\\u00e3 QR thanh to\\u00e1n."));
+    throw new Error(
+      apiErrorMessage(error, "Không thể tạo mã QR thanh toán."),
+    );
   }
 }
 
@@ -50,10 +61,23 @@ export async function getPayosPaymentStatus(orderCode: string) {
       "/deposit/payos/payments/" + encodeURIComponent(orderCode) + "/status",
     );
     return {
-      message: response.data.message || "\\u0110\\u00e3 ki\\u1ec3m tra tr\\u1ea1ng th\\u00e1i thanh to\\u00e1n.",
+      message: response.data.message || "Đã kiểm tra trạng thái thanh toán.",
       data: response.data.data,
     };
   } catch (error) {
-    throw new Error(apiErrorMessage(error, "Kh\\u00f4ng th\\u1ec3 ki\\u1ec3m tra tr\\u1ea1ng th\\u00e1i PayOS."));
+    throw new Error(
+      apiErrorMessage(error, "Không thể kiểm tra trạng thái PayOS."),
+    );
+  }
+}
+
+export async function getDepositHistory() {
+  try {
+    const response = await httpClient.get<ApiEnvelope<DepositHistoryItem[]>>(
+      "/deposit/payos/history",
+    );
+    return response.data.data;
+  } catch (error) {
+    throw new Error(apiErrorMessage(error, "Không thể tải lịch sử nạp tiền."));
   }
 }

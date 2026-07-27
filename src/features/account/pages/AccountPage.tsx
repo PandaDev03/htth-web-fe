@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useAppDispatch, useAppSelector } from "@/app/store/hooks";
+import { DepositHistoryTable } from "@/features/account/components/DepositHistoryTable";
 import { AccountPasswordModal } from "@/features/account/components/PasswordModal";
 import { logout } from "@/features/auth/model/authSlice";
 import { Footer } from "@/shared/components/site/Footer";
@@ -271,6 +272,7 @@ function PlayerAccountPage() {
               />
             </div>
           </section>
+          <DepositHistoryTable />
           <button
             type="button"
             onClick={signOut}
