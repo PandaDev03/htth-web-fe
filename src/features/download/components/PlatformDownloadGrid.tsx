@@ -120,7 +120,7 @@ const PlatformDownloadGrid = () => {
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={() => download(platform)}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-white transition-all hover:bg-amber-600"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-white transition-all hover:bg-amber-600 hover:text-white"
                     >
                       {downloading === platform.id ? (
                         <Loader2 size={16} className="animate-spin" />

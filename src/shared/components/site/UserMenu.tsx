@@ -32,6 +32,8 @@ export function UserMenu({ compact = false }: UserMenuProps) {
 
   if (!user) return null;
 
+  const avatarSrc = user.avatar || undefined;
+
   const items: MenuProps["items"] = [
     {
       key: "account",
@@ -96,7 +98,9 @@ export function UserMenu({ compact = false }: UserMenuProps) {
           >
             <Avatar
               size={40}
+              src={avatarSrc}
               icon={<UserRound size={20} />}
+              alt={`${user.username} avatar`}
               className="shrink-0 bg-amber-500 text-white"
             />
             <div className="min-w-0">
@@ -119,7 +123,9 @@ export function UserMenu({ compact = false }: UserMenuProps) {
       >
         <Avatar
           size={28}
+          src={avatarSrc}
           icon={<UserRound size={15} />}
+          alt={`${user.username} avatar`}
           className="bg-amber-500 text-white"
         />
         {!compact && (

@@ -75,7 +75,7 @@ const OceanWelcomeHero = () => {
         <div className="mb-14 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
             to={PATH.DOWNLOAD}
-            className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-8 py-3.5 text-base font-bold text-white shadow-lg shadow-amber-200 transition-all hover:-translate-y-0.5 hover:bg-amber-600"
+            className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-8 py-3.5 text-base font-bold text-white shadow-lg shadow-amber-200 transition-all hover:-translate-y-0.5 hover:bg-amber-600 hover:text-white"
           >
             <Download size={18} />
             Tải Game Ngay
