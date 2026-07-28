@@ -354,17 +354,17 @@ function RewardItemRow({ item }: { item: RewardItem }) {
 }
 
 function RewardTierCard({ tier }: { tier: RewardTier }) {
-  const toneClass =
-    tier.highlight === "champion"
-      ? "border-amber-300 bg-gradient-to-br from-amber-50 to-white shadow-[0_16px_40px_rgba(180,120,20,0.12)]"
-      : tier.highlight === "runner"
-        ? "border-slate-200 bg-white"
-        : tier.highlight === "bronze"
-          ? "border-orange-200 bg-orange-50/40"
-          : "border-gray-200 bg-white";
+  // const toneClass =
+  //   tier.highlight === "champion"
+  //     ? "border-amber-300 bg-gradient-to-br from-amber-50 to-white shadow-[0_16px_40px_rgba(180,120,20,0.12)]"
+  //     : tier.highlight === "runner"
+  //       ? "border-slate-200 bg-white"
+  //       : tier.highlight === "bronze"
+  //         ? "border-orange-200 bg-orange-50/40"
+  //         : "border-gray-200 bg-white";
 
   return (
-    <article className={`rounded-2xl border p-5 ${toneClass}`}>
+    <article className={`rounded-2xl border p-5`}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <h3 className="text-base font-800 text-gray-800">{tier.rankLabel}</h3>
         <span className="rounded-lg bg-white px-2.5 py-1 font-mono text-xs font-bold text-amber-600 shadow-sm">
@@ -646,7 +646,9 @@ function RankingPage() {
   const remaining = entries.slice(3);
   const valueLabel = showLevel ? "Cấp độ" : "Điểm tích nạp";
   const nameHeading = showLevel ? "Nhân vật" : "Tài khoản";
-  const currentRewards = showLevel ? levelRankingRewards : depositRankingRewards;
+  const currentRewards = showLevel
+    ? levelRankingRewards
+    : depositRankingRewards;
 
   const changeTab = (nextTab: RankingTabId) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -702,7 +704,7 @@ function RankingPage() {
                 <p className="font-mono text-xl font-bold text-gray-800">
                   {showFireworks
                     ? "Sắp diễn ra"
-                    : "Top " + (rankingQuery.data?.limit ?? 20)}
+                    : "Top " + (rankingQuery.data?.limit ?? 10)}
                 </p>
                 <p className="text-xs font-medium text-gray-500">
                   {showFireworks ? "Chưa mở tính điểm" : "Xếp hạng hiện hành"}

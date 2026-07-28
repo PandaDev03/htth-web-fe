@@ -3,7 +3,7 @@ export const PATH = {
   AUTH: "/auth",
   ACCOUNT: "/user-account",
   DOWNLOAD: "/download",
-  RANKING: "/dua-top",
+  RANKING: "/leader-board",
   COIN_EXCHANGE: "/coin-exchange",
   WALLET_DEPOSIT: "/deposit",
 };
