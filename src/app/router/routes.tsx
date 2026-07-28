@@ -16,6 +16,9 @@ const CoinExchangePage = lazy(() => import("@/features/coin/pages/CoinPage"));
 const WalletDepositPage = lazy(
   () => import("@/features/deposit/pages/DepositPage"),
 );
+const AdminDashboardPage = lazy(
+  () => import("@/features/admin/pages/AdminDashboardPage"),
+);
 
 export const appRoutes: AppRoute[] = [
   { path: PATH.HOME, element: <PirateLandingPage />, isPublic: true },
@@ -40,5 +43,10 @@ export const appRoutes: AppRoute[] = [
     path: PATH.WALLET_DEPOSIT,
     element: <WalletDepositPage />,
     allowedRoles: ["user", "moderator", "admin"],
+  },
+  {
+    path: PATH.ADMIN_DASHBOARD,
+    element: <AdminDashboardPage />,
+    allowedRoles: ["admin"],
   },
 ];
