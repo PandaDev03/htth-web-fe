@@ -39,7 +39,7 @@ const DEPOSIT_PRESETS = [
 const MIN_DEPOSIT_AMOUNT = 1_000;
 const MAX_DEPOSIT_AMOUNT = 2_000_000_000;
 const QR_CREATE_DEBOUNCE_MS = 900;
-const PAYMENT_STATUS_DELAY_MS = 3_000;
+const PAYMENT_STATUS_DELAY_MS = 6_000;
 const MAX_STATUS_ATTEMPTS = 100;
 
 const formatNumber = (amount: number) => amount.toLocaleString("vi-VN");
@@ -160,7 +160,7 @@ function WalletDepositPage() {
         setStatusText(
           result.message || "Đã thanh toán, server game đang cộng Coin vào ví.",
         );
-        schedulePaymentStatusCheck(1_500);
+        schedulePaymentStatusCheck(PAYMENT_STATUS_DELAY_MS);
         return;
       }
 

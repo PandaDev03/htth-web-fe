@@ -3,6 +3,7 @@ import {
   ChevronDown,
   CircleDollarSign,
   Download,
+  LayoutDashboard,
   LogOut,
   UserRound,
   WalletMinimal,
@@ -23,6 +24,7 @@ const MENU_PATHS = {
   download: PATH.DOWNLOAD,
   deposit: PATH.WALLET_DEPOSIT,
   exchange: PATH.COIN_EXCHANGE,
+  dashboard: PATH.ADMIN_DASHBOARD,
 } as const;
 
 export function UserMenu({ compact = false }: UserMenuProps) {
@@ -35,6 +37,16 @@ export function UserMenu({ compact = false }: UserMenuProps) {
   const avatarSrc = user.avatar || undefined;
 
   const items: MenuProps["items"] = [
+    ...(user.role === "admin"
+      ? [
+          {
+            key: "dashboard",
+            icon: <LayoutDashboard size={16} />,
+            label: "Quản lý",
+          },
+          { type: "divider" as const },
+        ]
+      : []),
     {
       key: "account",
       icon: <UserRound size={16} />,
