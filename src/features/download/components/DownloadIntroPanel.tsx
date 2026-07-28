@@ -1,5 +1,5 @@
 import { env } from "@/shared/config/env";
-import { Clock, Download, Shield, Zap } from "lucide-react";
+import { Clock, Download, ShieldCheck, Zap } from "lucide-react";
 
 const DownloadIntroPanel = () => {
   return (
@@ -35,7 +35,7 @@ const DownloadIntroPanel = () => {
         </p>
         <div className="flex flex-wrap items-center justify-center gap-4">
           {[
-            { icon: <Shield size={15} />, label: "Không virus - đã quét" },
+            { icon: <ShieldCheck size={15} />, label: "Không virus - đã quét" },
             {
               icon: <Zap size={15} />,
               label: `Cập nhật ${env?.downloads?.windows?.updatedAt}`,

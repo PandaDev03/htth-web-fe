@@ -1,7 +1,9 @@
+import { useMutation } from "@tanstack/react-query";
 import {
   Calendar,
   Camera,
   Lock,
+  Loader2,
   LogOut,
   Pencil,
   Shield,
@@ -12,11 +14,13 @@ import {
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 import { useAppDispatch, useAppSelector } from "@/app/store/hooks";
+import { updateAccountAvatar } from "@/features/account/api/accountApi";
 import { DepositHistoryTable } from "@/features/account/components/DepositHistoryTable";
 import { AccountPasswordModal } from "@/features/account/components/PasswordModal";
-import { logout } from "@/features/auth/model/authSlice";
+import { logout, updateAuthUser } from "@/features/auth/model/authSlice";
 import { Footer } from "@/shared/components/site/Footer";
 import { Header } from "@/shared/components/site/Header";
 import { PATH } from "@/shared/config/path";
@@ -101,6 +105,7 @@ function PlayerAccountPage() {
     username: authUser?.username ?? authUser?.name ?? PREVIEW_ACCOUNT.username,
     coin: authUser?.coin ?? PREVIEW_ACCOUNT.coin,
     tongnap: authUser?.tongnap ?? PREVIEW_ACCOUNT.tongnap,
+    avatar: authUser?.avatar ?? PREVIEW_ACCOUNT.avatar,
   };
 
   const active = account.status === 1;
@@ -113,21 +118,59 @@ function PlayerAccountPage() {
     hour12: false,
   });
 
-  const [avatar, setAvatar] = useState<string | null>(account.avatar);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [modal, setModal] = useState<null | "pass">(null);
 
   const fileInput = useRef<HTMLInputElement>(null);
+  const uploadAvatarMutation = useMutation({
+    mutationFn: updateAccountAvatar,
+    onSuccess: (result) => {
+      dispatch(updateAuthUser(result.user));
+      setAvatarPreview(null);
+      toast.success("Cập nhật ảnh đại diện thành công.");
+    },
+    onError: (error) => {
+      setAvatarPreview(null);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Không thể cập nhật ảnh đại diện.",
+      );
+    },
+  });
+  const avatar = avatarPreview ?? account.avatar;
+  const isUploadingAvatar = uploadAvatarMutation.isPending;
 
   useEffect(() => {
     scrollToTop({ behavior: "smooth" });
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (avatarPreview?.startsWith("blob:")) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+    };
+  }, [avatarPreview]);
+
   const upload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (result) => setAvatar(result.target?.result as string);
-    reader.readAsDataURL(file);
+    event.target.value = "";
+
+    if (!file || isUploadingAvatar) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Vui lòng chọn đúng file ảnh.");
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Ảnh đại diện không được vượt quá 2MB.");
+      return;
+    }
+
+    setAvatarPreview(URL.createObjectURL(file));
+    uploadAvatarMutation.mutate(file);
   };
 
   const signOut = () => {
@@ -164,16 +207,22 @@ function PlayerAccountPage() {
               <button
                 type="button"
                 onClick={() => fileInput.current?.click()}
-                className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-amber-500 shadow-md hover:bg-amber-600"
+                disabled={isUploadingAvatar}
+                className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-amber-500 shadow-md transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-70"
                 title="Đổi ảnh đại diện"
               >
-                <Camera size={13} className="text-white" />
+                {isUploadingAvatar ? (
+                  <Loader2 size={13} className="animate-spin text-white" />
+                ) : (
+                  <Camera size={13} className="text-white" />
+                )}
               </button>
               <input
                 ref={fileInput}
                 type="file"
                 accept="image/*"
                 className="hidden"
+                disabled={isUploadingAvatar}
                 onChange={upload}
               />
             </div>
@@ -190,7 +239,9 @@ function PlayerAccountPage() {
                 {active ? "Đang hoạt động" : "Bị khóa"}
               </span>
               <p className="mt-1.5 text-xs text-gray-400">
-                Nhấn vào biểu tượng máy ảnh để đổi ảnh đại diện
+                {isUploadingAvatar
+                  ? "Đang tải ảnh lên Cloudinary..."
+                  : "Nhấn vào biểu tượng máy ảnh để đổi ảnh đại diện"}
               </p>
             </div>
           </div>
