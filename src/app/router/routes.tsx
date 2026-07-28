@@ -7,6 +7,7 @@ const PirateLandingPage = lazy(() => import("@/features/home/pages/HomePage"));
 const GameDownloadPage = lazy(
   () => import("@/features/download/pages/DownloadPage"),
 );
+const RankingPage = lazy(() => import("@/features/ranking/pages/RankingPage"));
 const PlayerAuthPage = lazy(() => import("@/features/auth/pages/AuthPage"));
 const PlayerAccountPage = lazy(
   () => import("@/features/account/pages/AccountPage"),
@@ -19,6 +20,7 @@ const WalletDepositPage = lazy(
 export const appRoutes: AppRoute[] = [
   { path: PATH.HOME, element: <PirateLandingPage />, isPublic: true },
   { path: PATH.DOWNLOAD, element: <GameDownloadPage />, isPublic: true },
+  { path: PATH.RANKING, element: <RankingPage />, isPublic: true },
   {
     path: PATH.AUTH,
     element: <PlayerAuthPage />,

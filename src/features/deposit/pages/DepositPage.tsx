@@ -376,15 +376,19 @@ function WalletDepositPage() {
   }
 
   function resetDeposit() {
+    scrollToTop({ behavior: "smooth" });
+
     setAmountInput("");
     setPayment(null);
     setError("");
     setStatusText("");
     setCopied(null);
     setPaymentState("Chưa tạo mã");
+
     generatedAmountRef.current = null;
     activeOrderCodeRef.current = "";
     statusAttemptsRef.current = 0;
+
     clearDebounceTimer();
     clearStatusTimer();
   }
@@ -615,7 +619,7 @@ function WalletDepositPage() {
                         <button
                           type="button"
                           onClick={() => void copy(String(value), String(key))}
-                          className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-600 transition-all hover:border-amber-200 hover:text-amber-600 active:translate-y-px max-sm:w-full"
+                          className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-600 transition-all hover:border-amber-200 hover:text-amber-600 active:translate-y-px max-sm:w-max"
                         >
                           {copied === key ? "Đã chép" : <Copy size={13} />}
                         </button>

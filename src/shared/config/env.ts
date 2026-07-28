@@ -6,6 +6,10 @@ const readEnv = (value: string | undefined, fallback = "") => {
 export const env = {
   apiBaseUrl: readEnv(import.meta.env.VITE_API_BASE_URL, "http://localhost:3000/api/v1"),
   legacyApiBaseUrl: readEnv(import.meta.env.VITE_LEGACY_API_BASE_URL),
+  gameItemIconBaseUrl: readEnv(
+    import.meta.env.VITE_GAME_ITEM_ICON_BASE_URL,
+    "/assets/game-icons",
+  ),
   downloads: {
     testflight: {
       version: readEnv(import.meta.env.VITE_DOWNLOAD_TESTFLIGHT_VERSION, "v1.4.2"),

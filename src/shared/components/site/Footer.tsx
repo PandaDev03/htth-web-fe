@@ -1,5 +1,5 @@
 import { Image } from "antd";
-import { CircleDollarSign, Download, Home, User } from "lucide-react";
+import { CircleDollarSign, Download, Home, Trophy, User } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { env } from "@/shared/config/env";
@@ -15,6 +15,11 @@ export function Footer() {
       label: "Tải Game",
       href: PATH.DOWNLOAD,
       icon: <Download size={13} />,
+    },
+    {
+      label: "Đua Top",
+      href: PATH.RANKING,
+      icon: <Trophy size={13} />,
     },
     { label: "Tài Khoản", href: PATH.ACCOUNT, icon: <User size={13} /> },
     {
