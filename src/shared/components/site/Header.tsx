@@ -16,6 +16,7 @@ export function Header() {
   const PUBLIC_NAV_ITEMS = [
     { label: "Trang Chủ", href: PATH.HOME },
     { label: "Tải Game", href: PATH.DOWNLOAD },
+    { label: "Đua Top", href: PATH.RANKING },
     { label: "Đổi Coin", href: PATH.COIN_EXCHANGE },
     { label: "Nạp Tiền", href: PATH.WALLET_DEPOSIT },
   ];
@@ -30,7 +31,7 @@ export function Header() {
             <Link to={PATH.HOME}>
               <PirateBrandMark />
             </Link>
-            <nav className="hidden items-center gap-6 md:flex">
+            <nav className="hidden items-center gap-4 md:flex lg:gap-6">
               {PUBLIC_NAV_ITEMS.map((item) => (
                 <Link
                   key={item.href}
