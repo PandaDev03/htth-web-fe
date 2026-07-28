@@ -393,7 +393,7 @@ function WalletDepositPage() {
     <div className="flex min-h-screen flex-col bg-gray-50">
       <Header />
       <main className="flex-1 px-4 pb-16 pt-24">
-        <div className="mx-auto max-w-5xl">
+        <div className="mx-auto max-w-6xl">
           <DepositPageHeader />
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)]">
             <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">

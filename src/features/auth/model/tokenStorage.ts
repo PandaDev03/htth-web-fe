@@ -33,6 +33,10 @@ export function getStoredAuthUser() {
   return safeParseUser(localStorage.getItem(AUTH_USER_STORAGE_KEY));
 }
 
+export function setStoredAuthUser(user: AuthUser) {
+  localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
+}
+
 export function setAuthSession(session: AuthSession) {
   localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(session.user));
   localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, session.accessToken);

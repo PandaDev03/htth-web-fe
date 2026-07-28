@@ -11,6 +11,7 @@ import {
   getStoredAuthUser,
   getStoredRefreshToken,
   setAuthSession,
+  setStoredAuthUser,
   type AuthSession,
 } from "@/features/auth/model/tokenStorage";
 import type { AuthUser } from "@/shared/types/auth";
@@ -61,6 +62,12 @@ const authSlice = createSlice({
     logout: (state) => {
       clearSession(state);
     },
+    updateAuthUser: (state, action: PayloadAction<Partial<AuthUser>>) => {
+      if (!state.user) return;
+
+      state.user = { ...state.user, ...action.payload };
+      setStoredAuthUser(state.user);
+    },
     clearAuthError: (state) => {
       state.error = null;
     },
@@ -106,5 +113,6 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearAuthError, logout, setCredentials } = authSlice.actions;
+export const { clearAuthError, logout, setCredentials, updateAuthUser } =
+  authSlice.actions;
 export default authSlice.reducer;

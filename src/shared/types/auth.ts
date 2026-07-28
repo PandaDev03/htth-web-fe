@@ -8,4 +8,5 @@ export type AuthUser = {
   role: UserRole;
   coin?: number;
   tongnap?: number;
+  avatar?: string | null;
 };
