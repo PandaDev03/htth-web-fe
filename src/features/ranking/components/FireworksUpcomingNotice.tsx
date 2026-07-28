@@ -14,14 +14,15 @@ export function FireworksUpcomingNotice() {
         </div>
         <div className="max-w-2xl">
           <span className="inline-flex rounded-lg border border-amber-200 bg-white px-3 py-1 text-xs font-bold text-amber-700">
-            Sự kiện sắp diễn ra
+            Sự kiện sắp mở
           </span>
           <h2 className="mt-4 text-2xl font-800 tracking-tight text-gray-800 sm:text-3xl">
-            Đường đua Pháo Hoa chưa khai màn
+            Pháo Hoa chưa chính thức khởi tranh
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-gray-600 sm:text-base">
-            Bảng xếp hạng chỉ ghi nhận khi sự kiện Pháo Hoa chính thức mở. Thời
-            gian và thể lệ sẽ được công bố tại đây.
+            Bảng xếp hạng Pháo Hoa sẽ xuất hiện khi sự kiện chính thức bắt đầu.
+            Hiện tại hệ thống vẫn đang trong giai đoạn chuẩn bị, bạn có thể quay
+            lại tab này để xem ngay khi đua top mở màn.
           </p>
           <div className="mt-7 grid gap-3 sm:grid-cols-2">
             <div className="flex items-start gap-3 rounded-xl border border-amber-100 bg-white/80 p-4">
@@ -31,7 +32,7 @@ export function FireworksUpcomingNotice() {
                 aria-hidden="true"
               />
               <p className="text-sm font-medium leading-relaxed text-gray-600">
-                Hiện hệ thống chưa bắt đầu ghi nhận điểm Pháo Hoa.
+                Điểm Pháo Hoa hiện chưa được ghi nhận trên hệ thống.
               </p>
             </div>
             <div className="flex items-start gap-3 rounded-xl border border-amber-100 bg-white/80 p-4">
@@ -41,7 +42,7 @@ export function FireworksUpcomingNotice() {
                 aria-hidden="true"
               />
               <p className="text-sm font-medium leading-relaxed text-gray-600">
-                Theo dõi thông báo để không bỏ lỡ thời điểm sự kiện bắt đầu.
+                Theo dõi tab này để không bỏ lỡ thời điểm sự kiện bắt đầu.
               </p>
             </div>
           </div>

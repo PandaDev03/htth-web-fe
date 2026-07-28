@@ -1,6 +1,6 @@
-import { PartyPopper, Trophy } from "lucide-react";
+import { PartyPopper, TrendingUp, Trophy } from "lucide-react";
 
-export type RankingTabId = "deposit" | "fireworks";
+export type RankingTabId = "deposit" | "level" | "fireworks";
 
 const rankingTabs = [
   {
@@ -8,6 +8,12 @@ const rankingTabs = [
     label: "Top Nạp",
     status: "Hiện hành",
     icon: Trophy,
+  },
+  {
+    id: "level" as const,
+    label: "Top Level",
+    status: "Hiện hành",
+    icon: TrendingUp,
   },
   {
     id: "fireworks" as const,
