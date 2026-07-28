@@ -637,11 +637,16 @@ function RankingPage() {
         subtitle: entry.accountUsername,
         value: entry.level,
       }))
-    : (depositRankingQuery.data?.items ?? []).map((entry) => ({
-        rank: entry.rank,
-        name: entry.username,
-        value: entry.tongnap,
-      }));
+    : (depositRankingQuery.data?.items ?? []).map((entry) => {
+        const playerName = entry.playerName?.trim();
+
+        return {
+          rank: entry.rank,
+          name: playerName || entry.username,
+          subtitle: playerName ? entry.username : undefined,
+          value: entry.tongnap,
+        };
+      });
   const topThree = entries.slice(0, 3);
   const remaining = entries.slice(3);
   const valueLabel = showLevel ? "Cấp độ" : "Điểm tích nạp";

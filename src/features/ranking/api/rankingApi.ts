@@ -5,6 +5,7 @@ import { httpClient } from "@/shared/api/httpClient";
 export type RankingEntry = {
   rank: number;
   username: string;
+  playerName?: string | null;
   tongnap: number;
 };
 
