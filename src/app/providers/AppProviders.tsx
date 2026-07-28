@@ -1,11 +1,13 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { ConfigProvider } from "antd";
+import { App as AntdApp, ConfigProvider } from "antd";
 import viVN from "antd/locale/vi_VN";
 import { Provider } from "react-redux";
 import { RouterProvider } from "react-router-dom";
+import { Toaster } from "sonner";
 
 import { router } from "@/app/router/router";
 import { store } from "@/app/store/store";
+import { AuthSessionBootstrap } from "@/features/auth/components/AuthSessionBootstrap";
 import { queryClient } from "@/shared/api/queryClient";
 
 export function AppProviders() {
@@ -16,24 +18,17 @@ export function AppProviders() {
           locale={viVN}
           theme={{
             token: {
-              colorPrimary: "#1677ff",
-              borderRadius: 6,
-              fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
-            },
-            components: {
-              Layout: {
-                bodyBg: "#f4f7fb",
-                siderBg: "#111827",
-              },
-              Menu: {
-                darkItemBg: "#111827",
-                darkSubMenuItemBg: "#111827",
-                darkItemSelectedBg: "#2563eb",
-              },
+              colorPrimary: "#d97706",
+              borderRadius: 8,
+              fontFamily: "Plus Jakarta Sans, sans-serif",
             },
           }}
         >
-          <RouterProvider router={router} />
+          <AntdApp>
+            <AuthSessionBootstrap />
+            <RouterProvider router={router} />
+            <Toaster position="top-right" richColors />
+          </AntdApp>
         </ConfigProvider>
       </QueryClientProvider>
     </Provider>

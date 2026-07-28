@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { useAppDispatch } from "@/app/store/hooks";
 import { setCredentials } from "@/features/auth/model/authSlice";
+import { PATH } from "@/shared/config/path";
 
 type LoginFormValues = {
   email: string;
@@ -18,22 +19,24 @@ function LoginPage() {
     dispatch(
       setCredentials({
         accessToken: "dev-token",
+        refreshToken: "dev-refresh-token",
         user: {
           id: "1",
+          username: "admin",
           email: values.email,
-          name: "Admin HTTH",
+          name: "Admin Hải tặc vui vẻ",
           role: "admin",
         },
       }),
     );
-    navigate("/");
+    navigate(PATH.HOME);
   }
 
   return (
     <main className="grid min-h-screen place-items-center bg-slate-100 px-4">
       <section className="w-full max-w-[420px] rounded-lg bg-white p-6 shadow-sm ring-1 ring-slate-200">
         <Typography.Title level={2} className="!mb-1">
-          HTTH Admin
+          Hải tặc vui vẻ Admin
         </Typography.Title>
         <Typography.Paragraph className="!mb-6 text-slate-500">
           Dang nhap de quan ly he thong web.

@@ -1,11 +1,20 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
+import '@fontsource/plus-jakarta-sans/latin-400.css';
+import '@fontsource/plus-jakarta-sans/vietnamese-400.css';
+import '@fontsource/plus-jakarta-sans/latin-500.css';
+import '@fontsource/plus-jakarta-sans/vietnamese-500.css';
+import '@fontsource/plus-jakarta-sans/latin-600.css';
+import '@fontsource/plus-jakarta-sans/vietnamese-600.css';
+import '@fontsource/plus-jakarta-sans/latin-700.css';
+import '@fontsource/plus-jakarta-sans/vietnamese-700.css';
+import '@fontsource/plus-jakarta-sans/latin-800.css';
+import '@fontsource/plus-jakarta-sans/vietnamese-800.css';
+import '@fontsource/jetbrains-mono/latin-400.css';
+import '@fontsource/jetbrains-mono/vietnamese-400.css';
+import '@fontsource/jetbrains-mono/latin-600.css';
+import '@fontsource/jetbrains-mono/vietnamese-600.css';
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { AppProviders } from '@/app/providers/AppProviders';
+import '@/app/styles.css';
 
-import { AppProviders } from "@/app/providers/AppProviders";
-import "@/app/styles.css";
-
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <AppProviders />
-  </React.StrictMode>,
-);
+ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><AppProviders /></React.StrictMode>);

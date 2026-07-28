@@ -8,7 +8,7 @@ function DashboardPage() {
           Dashboard
         </Typography.Title>
         <Typography.Text className="text-slate-500">
-          Khung quan tri moi cho HTTH.
+          Khung qu?n tr? m?i cho Hải tặc vui vẻ.
         </Typography.Text>
       </div>
 

@@ -6,6 +6,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { appRoutes } from "@/app/router/routes";
 import { useAppDispatch, useAppSelector } from "@/app/store/hooks";
 import { logout } from "@/features/auth/model/authSlice";
+import { PATH } from "@/shared/config/path";
 import { hasAllowedRole } from "@/shared/lib/access";
 
 const { Header, Content, Sider } = Layout;
@@ -17,25 +18,28 @@ export function AppShell() {
   const { user } = useAppSelector((state) => state.auth);
 
   const menuItems = useMemo(() => {
-    const protectedRoot = appRoutes.find((route) => route.path === "/");
+    const protectedRoot = appRoutes.find((route) => route.path === PATH.HOME);
 
     return protectedRoot?.children
       ?.filter((route) => route.showInMenu && hasAllowedRole(user?.role, route.allowedRoles))
       .map((route) => ({
-        key: route.index ? "/" : `/${route.path ?? ""}`,
+        key: route.index ? PATH.HOME : `/${route.path ?? ""}`,
         icon: route.icon,
         label: route.title,
       }));
   }, [user?.role]);
 
-  const selectedKey = location.pathname === "/" ? "/" : `/${location.pathname.split("/")[1]}`;
+  const selectedKey =
+    location.pathname === PATH.HOME
+      ? PATH.HOME
+      : `/${location.pathname.split("/")[1]}`;
 
   return (
     <Layout className="min-h-screen">
       <Sider breakpoint="lg" collapsedWidth={0} width={248}>
         <div className="flex h-16 items-center px-5">
           <Typography.Text className="text-base font-semibold text-white">
-            HTTH Admin
+            Hải tặc vui vẻ Admin
           </Typography.Text>
         </div>
         <Menu
@@ -61,7 +65,7 @@ export function AppShell() {
             icon={<LogoutOutlined />}
             onClick={() => {
               dispatch(logout());
-              navigate("/login");
+              navigate(PATH.AUTH);
             }}
           >
             Dang xuat

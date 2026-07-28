@@ -3,6 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 
 import type { AppRoute } from "@/app/router/routeTypes";
 import { useAppSelector } from "@/app/store/hooks";
+import { PATH } from "@/shared/config/path";
 import { hasAllowedRole } from "@/shared/lib/access";
 
 type GuardedRouteProps = {
@@ -19,11 +20,11 @@ export function GuardedRoute({ route, children }: GuardedRouteProps) {
   }
 
   if (!accessToken) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
+    return <Navigate to={PATH.AUTH} replace state={{ from: location }} />;
   }
 
   if (!hasAllowedRole(user?.role, route.allowedRoles)) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={PATH.HOME} replace />;
   }
 
   return children;
