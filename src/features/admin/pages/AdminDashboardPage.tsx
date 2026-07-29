@@ -103,28 +103,6 @@ function AdminDashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-amber-600">
-            Tổng quan vận hành
-          </p>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
-            Dashboard
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            Theo dõi tài khoản, doanh thu và xử lý nhanh các tác vụ vận hành.
-          </p>
-        </div>
-        <Button
-          icon={<RefreshCw size={15} />}
-          loading={statsQuery.isFetching}
-          onClick={() => void statsQuery.refetch()}
-          className="self-start sm:self-auto"
-        >
-          Làm mới
-        </Button>
-      </div>
-
       {statsQuery.isError && (
         <Alert
           type="error"
@@ -147,9 +125,14 @@ function AdminDashboardPage() {
           <h2 id="stats-heading" className="text-base font-bold text-slate-800">
             Thống kê tổng quan
           </h2>
-          <span className="text-xs text-slate-400">
-            Cập nhật theo thời gian thực
-          </span>
+          <Button
+            size="small"
+            icon={<RefreshCw size={14} />}
+            loading={statsQuery.isFetching}
+            onClick={() => void statsQuery.refetch()}
+          >
+            Làm mới
+          </Button>
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {statsQuery.isLoading

@@ -89,9 +89,10 @@ function ArticlePage() {
                   className="aspect-[16/8] w-full object-cover"
                 />
               </div>
-              <div className="prose prose-slate mt-10 max-w-none whitespace-pre-wrap text-base leading-8 text-slate-600">
-                {articleQuery.data.content}
-              </div>
+              <div
+                className="prose prose-slate mt-10 max-w-none text-base leading-8 text-slate-600"
+                dangerouslySetInnerHTML={{ __html: articleQuery.data.content }}
+              />
             </article>
           )}
         </div>

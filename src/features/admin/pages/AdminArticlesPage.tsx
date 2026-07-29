@@ -1,3 +1,4 @@
+import { Editor } from "@tinymce/tinymce-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
@@ -9,6 +10,8 @@ import {
   Popconfirm,
   Select,
   Skeleton,
+  Upload,
+  type UploadProps,
 } from "antd";
 import {
   ExternalLink,
@@ -18,7 +21,7 @@ import {
   Send,
   Trash2,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -31,7 +34,6 @@ import {
 } from "@/features/articles/api/articleApi";
 import { getArticlePath } from "@/shared/config/path";
 
-const { TextArea } = Input;
 const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
   day: "2-digit",
   month: "2-digit",
@@ -40,10 +42,19 @@ const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
   minute: "2-digit",
 });
 
+function stripHtml(value: string) {
+  const element = document.createElement("div");
+  element.innerHTML = value;
+  return element.textContent || element.innerText || "";
+}
+
 function AdminArticlesPage() {
   const [form] = Form.useForm<CreateArticlePayload>();
-  const fileInput = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const editorRef = useRef<{ setContent: (content: string) => void } | null>(
+    null,
+  );
+  const localPreviewRef = useRef<string | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
 
   const articlesQuery = useQuery({
@@ -53,11 +64,19 @@ function AdminArticlesPage() {
   const uploadMutation = useMutation({
     mutationFn: uploadArticleThumbnail,
     onSuccess: (result) => {
+      if (localPreviewRef.current) {
+        URL.revokeObjectURL(localPreviewRef.current);
+        localPreviewRef.current = null;
+      }
       form.setFieldValue("thumbnailUrl", result.url);
       setThumbnailPreview(result.url);
       toast.success("Đã upload thumbnail.");
     },
     onError: (error) => {
+      if (localPreviewRef.current) {
+        URL.revokeObjectURL(localPreviewRef.current);
+        localPreviewRef.current = null;
+      }
       form.setFieldValue("thumbnailUrl", undefined);
       setThumbnailPreview(null);
       toast.error(
@@ -70,6 +89,7 @@ function AdminArticlesPage() {
     onSuccess: async (result) => {
       toast.success(result.message || "Đã đăng bài viết.");
       form.resetFields();
+      editorRef.current?.setContent("");
       setThumbnailPreview(null);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["admin", "articles"] }),
@@ -93,41 +113,47 @@ function AdminArticlesPage() {
       ),
   });
 
-  const selectThumbnail = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file || uploadMutation.isPending) return;
+  useEffect(() => () => {
+    if (localPreviewRef.current) URL.revokeObjectURL(localPreviewRef.current);
+  });
+
+  const beforeUpload: UploadProps["beforeUpload"] = (file) => {
     if (
       !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(
         file.type,
       )
     ) {
       toast.error("Thumbnail chỉ hỗ trợ JPG, PNG, WEBP hoặc GIF.");
-      return;
+      return Upload.LIST_IGNORE;
     }
     if (file.size > 5 * 1024 * 1024) {
       toast.error("Thumbnail không được vượt quá 5MB.");
-      return;
+      return Upload.LIST_IGNORE;
     }
-    setThumbnailPreview(URL.createObjectURL(file));
-    uploadMutation.mutate(file);
+    if (localPreviewRef.current) URL.revokeObjectURL(localPreviewRef.current);
+    localPreviewRef.current = URL.createObjectURL(file);
+    setThumbnailPreview(localPreviewRef.current);
+    return true;
+  };
+
+  const customUpload: UploadProps["customRequest"] = ({
+    file,
+    onError,
+    onSuccess,
+  }) => {
+    uploadMutation.mutate(file as File, {
+      onSuccess: (result) => onSuccess?.(result),
+      onError: (error) =>
+        onError?.(
+          error instanceof Error
+            ? error
+            : new Error("Không thể upload thumbnail."),
+        ),
+    });
   };
 
   return (
     <div className="space-y-8">
-      <div className="border-b border-slate-200 pb-6">
-        <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-amber-600">
-          Nội dung website
-        </p>
-        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
-          Bài viết
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-          Đăng sự kiện, cập nhật và thông báo. Bài mới sẽ xuất hiện trên Home
-          page ngay sau khi đăng.
-        </p>
-      </div>
-
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(360px,0.82fr)_minmax(0,1.18fr)]">
         <Card
           className="border-slate-200 shadow-sm"
@@ -161,47 +187,44 @@ function AdminArticlesPage() {
               <Input />
             </Form.Item>
             <Form.Item label="Thumbnail" required>
-              <button
-                type="button"
-                onClick={() => fileInput.current?.click()}
-                disabled={uploadMutation.isPending}
-                className="group relative flex aspect-[16/9] w-full overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50 transition hover:border-amber-400 hover:bg-amber-50/50 disabled:cursor-wait"
-              >
-                {thumbnailPreview ? (
-                  <img
-                    src={thumbnailPreview}
-                    alt="Xem trước thumbnail"
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <span className="m-auto flex flex-col items-center gap-2 text-slate-400">
-                    <ImagePlus size={28} />
-                    <span className="text-xs font-semibold">
-                      Chọn ảnh thumbnail
-                    </span>
-                    <span className="text-[11px]">
-                      JPG, PNG, WEBP, GIF · tối đa 5MB
-                    </span>
-                  </span>
-                )}
-                {uploadMutation.isPending && (
-                  <span className="absolute inset-0 flex items-center justify-center bg-slate-950/55 text-white">
-                    <Loader2 size={24} className="animate-spin" />
-                  </span>
-                )}
-                {thumbnailPreview && !uploadMutation.isPending && (
-                  <span className="absolute inset-x-0 bottom-0 bg-slate-950/65 px-3 py-2 text-center text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100">
-                    Nhấn để đổi ảnh
-                  </span>
-                )}
-              </button>
-              <input
-                ref={fileInput}
-                type="file"
+              <Upload
                 accept="image/jpeg,image/png,image/webp,image/gif"
-                className="hidden"
-                onChange={selectThumbnail}
-              />
+                showUploadList={false}
+                beforeUpload={beforeUpload}
+                customRequest={customUpload}
+                disabled={uploadMutation.isPending}
+                className="block"
+              >
+                <div className="group relative flex aspect-[16/9] w-full cursor-pointer overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50 transition hover:border-amber-400 hover:bg-amber-50/50">
+                  {thumbnailPreview ? (
+                    <img
+                      src={thumbnailPreview}
+                      alt="Xem trước thumbnail"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="m-auto flex flex-col items-center gap-2 text-slate-400">
+                      <ImagePlus size={28} />
+                      <span className="text-xs font-semibold">
+                        Chọn ảnh thumbnail
+                      </span>
+                      <span className="text-[11px]">
+                        JPG, PNG, WEBP, GIF · tối đa 5MB
+                      </span>
+                    </span>
+                  )}
+                  {uploadMutation.isPending && (
+                    <span className="absolute inset-0 flex items-center justify-center bg-slate-950/55 text-white">
+                      <Loader2 size={24} className="animate-spin" />
+                    </span>
+                  )}
+                  {thumbnailPreview && !uploadMutation.isPending && (
+                    <span className="absolute inset-x-0 bottom-0 bg-slate-950/65 px-3 py-2 text-center text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100">
+                      Nhấn để đổi ảnh
+                    </span>
+                  )}
+                </div>
+              </Upload>
             </Form.Item>
             <Form.Item
               name="category"
@@ -235,17 +258,33 @@ function AdminArticlesPage() {
             </Form.Item>
             <Form.Item
               name="content"
-              label="Nội dung"
+              hidden
               rules={[
                 { required: true, message: "Vui lòng nhập nội dung." },
                 { max: 50_000, message: "Nội dung quá dài." },
               ]}
             >
-              <TextArea
-                rows={9}
-                placeholder="Viết đầy đủ nội dung sự kiện hoặc cập nhật..."
-                showCount
-                maxLength={50_000}
+              <Input />
+            </Form.Item>
+            <Form.Item label="Nội dung" required>
+              <Editor
+                tinymceScriptSrc="/tinymce/tinymce.min.js"
+                licenseKey="gpl"
+                onInit={(_event, editor) => {
+                  editorRef.current = editor;
+                }}
+                onEditorChange={(value) => form.setFieldValue("content", value)}
+                init={{
+                  height: 360,
+                  menubar: false,
+                  branding: false,
+                  plugins:
+                    "advlist autolink lists link charmap table code wordcount",
+                  toolbar:
+                    "undo redo | blocks | bold italic underline forecolor | alignleft aligncenter alignright | bullist numlist | link table | removeformat code",
+                  content_style:
+                    "body { font-family: Plus Jakarta Sans, sans-serif; font-size: 14px; color: #334155; padding: 12px; }",
+                }}
               />
             </Form.Item>
             <Button
@@ -330,7 +369,7 @@ function AdminArticlesPage() {
                         WebkitBoxOrient: "vertical",
                       }}
                     >
-                      {article.content}
+                      {stripHtml(article.content)}
                     </p>
                     <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
                       <Link

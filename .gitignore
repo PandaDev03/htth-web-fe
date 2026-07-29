@@ -10,3 +10,5 @@ pnpm-debug.log*
 
 # CodeGraph local knowledge graph
 .codegraph/
+# Self-hosted TinyMCE assets copied from node_modules
+public/tinymce/

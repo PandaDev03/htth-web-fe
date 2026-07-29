@@ -11,6 +11,11 @@ import { Link } from "react-router-dom";
 import { getArticles } from "@/features/articles/api/articleApi";
 import { getArticlePath } from "@/shared/config/path";
 
+function stripHtml(value: string) {
+  const element = document.createElement("div");
+  element.innerHTML = value;
+  return element.textContent || element.innerText || "";
+}
 const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
   day: "2-digit",
   month: "2-digit",
@@ -124,7 +129,7 @@ const AdminNoticeBoard = () => {
                       WebkitBoxOrient: "vertical",
                     }}
                   >
-                    {article.content}
+                    {stripHtml(article.content)}
                   </p>
                   <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-amber-700">
                     Đọc bài viết{" "}
