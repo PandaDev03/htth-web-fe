@@ -30,6 +30,44 @@ export type LevelRanking = {
   items: LevelRankingEntry[];
 };
 
+export type EventRankingEntry = {
+  rank: number;
+  playerName: string;
+  accountUsername: string;
+  points: number;
+};
+
+export type RankingRewardItem = {
+  source?: "currency" | "item4" | "item7" | "fashiontemplate" | "pet_template";
+  itemId?: number;
+  name: string;
+  quantity?: string;
+  description?: string | null;
+  iconUrl?: string | null;
+};
+
+export type RankingRewardTier = {
+  rankLabel: string;
+  highlight?: "champion" | "runner" | "bronze";
+  items: RankingRewardItem[];
+};
+
+export type RankingRewardSet = {
+  title: string;
+  description: string;
+  tiers: RankingRewardTier[];
+};
+
+export type EventRanking = {
+  category: "top-fireworks" | "top-boss-hunt";
+  eventId: 12;
+  scoreIndex: 0 | 1;
+  limit: number;
+  updatedAt: string;
+  rewards?: RankingRewardSet;
+  items: EventRankingEntry[];
+};
+
 type ApiEnvelope<T> = { data: T };
 
 function getErrorMessage(error: unknown) {
@@ -63,4 +101,21 @@ export async function getTopLevelRanking() {
   } catch (error) {
     throw new Error(getErrorMessage(error));
   }
+}
+
+async function getEventRanking(path: string) {
+  try {
+    const response = await httpClient.get<ApiEnvelope<EventRanking>>(path);
+    return response.data.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
+}
+
+export function getTopFireworksRanking() {
+  return getEventRanking("/rankings/top-fireworks");
+}
+
+export function getTopBossHuntRanking() {
+  return getEventRanking("/rankings/top-boss-hunt");
 }

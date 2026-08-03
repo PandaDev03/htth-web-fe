@@ -83,7 +83,7 @@ const OceanWelcomeHero = () => {
           {!isAuthenticated && (
             <Link
               to={{ pathname: PATH.AUTH, search: "?mode=register" }}
-              className="inline-flex items-center gap-2 rounded-xl border-2 border-amber-300 bg-white px-8 py-3.5 text-base font-semibold text-amber-600 transition-all hover:border-amber-500 hover:bg-amber-50"
+              className="inline-flex items-center gap-2 rounded-xl border-2 border-amber-300 bg-white px-8 py-3.5 text-base font-semibold text-amber-600 transition-all hover:border-amber-500 hover:bg-amber-50 hover:text-amber-600"
             >
               <Users size={18} />
               Đăng Ký Tài Khoản
