@@ -1,10 +1,10 @@
-import { Breadcrumb, Button, Drawer, Layout, Menu, Tooltip } from "antd";
+import { Breadcrumb, Button, Drawer, Layout, Menu } from "antd";
 import {
+  BookText,
   ChevronLeft,
   ChevronRight,
   LayoutDashboard,
   Menu as MenuIcon,
-  Newspaper,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -24,7 +24,7 @@ const ADMIN_MENU = [
   {
     key: PATH.ADMIN_ARTICLES,
     label: "Bài viết",
-    icon: <Newspaper size={18} />,
+    icon: <BookText size={18} />,
   },
 ];
 
@@ -39,7 +39,7 @@ function SidebarContent({
   const { pathname } = useLocation();
 
   return (
-    <div className="flex h-full flex-col bg-[#111827]">
+    <div className="flex h-full flex-col">
       <Link
         to={PATH.HOME}
         onClick={onNavigate}
@@ -55,7 +55,7 @@ function SidebarContent({
         </div>
       )}
       <Menu
-        theme="dark"
+        theme="light"
         mode="inline"
         selectedKeys={[pathname]}
         items={ADMIN_MENU}
@@ -93,7 +93,7 @@ export function AppShell() {
         collapsed={collapsed}
         onCollapse={setCollapsed}
         trigger={null}
-        className="!sticky !top-0 hidden !h-[100dvh] !max-h-[100dvh] !min-h-[100dvh] overflow-hidden lg:block"
+        className="!sticky !top-0 hidden !h-[100dvh] !max-h-[100dvh] !min-h-[100dvh] overflow-hidden lg:block bg-white shadow-md"
       >
         <SidebarContent collapsed={collapsed} />
       </Sider>
@@ -114,24 +114,20 @@ export function AppShell() {
 
       <Layout className="min-w-0 !bg-[#f4f6f9]">
         <Header className="!sticky !top-0 !z-40 flex !h-16 items-center justify-between border-b border-slate-200/90 !bg-white/95 !px-4 !leading-normal shadow-[0_1px_0_rgba(15,23,42,0.03)] backdrop-blur sm:!px-6">
-          <UserMenu showIdentity />
-
           <div className="flex items-center gap-2">
-            <Tooltip title={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}>
-              <Button
-                type="text"
-                onClick={() => setCollapsed((value) => !value)}
-                icon={
-                  collapsed ? (
-                    <ChevronRight size={19} />
-                  ) : (
-                    <ChevronLeft size={19} />
-                  )
-                }
-                className="hidden !h-10 !w-10 !items-center !justify-center !rounded-xl !text-slate-600 hover:!bg-amber-50 hover:!text-amber-700 lg:inline-flex"
-                aria-label={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
-              />
-            </Tooltip>
+            <Button
+              type="text"
+              onClick={() => setCollapsed((value) => !value)}
+              icon={
+                collapsed ? (
+                  <ChevronRight size={19} />
+                ) : (
+                  <ChevronLeft size={19} />
+                )
+              }
+              className="hidden !h-10 !w-10 !items-center !justify-center !rounded-xl !text-slate-600 hover:!bg-amber-50 hover:!text-amber-700 lg:inline-flex"
+              aria-label={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+            />
             <Button
               type="text"
               onClick={() => setMobileOpen(true)}
@@ -140,6 +136,8 @@ export function AppShell() {
               aria-label="Mở menu quản trị"
             />
           </div>
+
+          <UserMenu showIdentity />
         </Header>
 
         <Content className="min-w-0 p-4 sm:p-6 lg:p-8">

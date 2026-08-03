@@ -154,9 +154,9 @@ function AdminArticlesPage() {
 
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(360px,0.82fr)_minmax(0,1.18fr)]">
+      <div className="grid grid-cols-3 items-start gap-6 xl:grid-cols-[minmax(360px,0.82fr)_minmax(0,1.18fr)]">
         <Card
-          className="border-slate-200 shadow-sm"
+          className="col-span-2 border-slate-200 shadow-sm"
           styles={{ body: { padding: 24 } }}
         >
           <div className="mb-6 flex items-start gap-3">
