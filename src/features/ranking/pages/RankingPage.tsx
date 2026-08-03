@@ -65,11 +65,20 @@ function getRewardIconUrl(item: RankingRewardItem) {
 
 function RewardIcon({ item }: { item: RankingRewardItem }) {
   const iconUrl = getRewardIconUrl(item);
+  const shouldCropFirstFrame = item.source === "item4";
 
   return (
     <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-amber-100 bg-amber-50 text-amber-600">
-      <PackageOpen size={20} aria-hidden="true" />
-      {iconUrl && (
+      {iconUrl && shouldCropFirstFrame ? (
+        <span
+          aria-hidden="true"
+          className="absolute inset-1.5 bg-top bg-no-repeat"
+          style={{
+            backgroundImage: `url("${iconUrl}")`,
+            backgroundSize: "100% auto",
+          }}
+        />
+      ) : iconUrl ? (
         <img
           src={iconUrl}
           alt=""
@@ -79,23 +88,16 @@ function RewardIcon({ item }: { item: RankingRewardItem }) {
             event.currentTarget.hidden = true;
           }}
         />
+      ) : (
+        <PackageOpen size={20} aria-hidden="true" />
       )}
     </span>
   );
 }
 
 function RewardTierCard({ tier }: { tier: RankingRewardTier }) {
-  const toneClass =
-    tier.highlight === "champion"
-      ? "border-amber-300 bg-amber-50/60"
-      : tier.highlight === "runner"
-        ? "border-slate-200 bg-white"
-        : tier.highlight === "bronze"
-          ? "border-orange-200 bg-orange-50/40"
-          : "border-gray-200 bg-white";
-
   return (
-    <article className={"rounded-lg border p-5 " + toneClass}>
+    <article className="rounded-lg border p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <h3 className="text-base font-800 text-gray-800">{tier.rankLabel}</h3>
         <span className="rounded-lg bg-white px-2.5 py-1 font-mono text-xs font-bold text-amber-600 shadow-sm">
