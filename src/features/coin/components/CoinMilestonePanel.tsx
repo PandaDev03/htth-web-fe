@@ -16,6 +16,7 @@ import {
   type CoinMilestone,
   type CoinMilestoneReward,
 } from "@/features/coin/api/coinApi";
+import { RewardIcon } from "@/shared/components/RewardIcon";
 
 type CoinMilestonePanelProps = {
   milestone: CoinMilestone | null;
@@ -23,26 +24,6 @@ type CoinMilestonePanelProps = {
 };
 
 const formatNumber = (value: number) => value.toLocaleString("vi-VN");
-
-function RewardIcon({ reward }: { reward: CoinMilestoneReward }) {
-  const [failed, setFailed] = useState(false);
-
-  return (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-amber-50 text-amber-600">
-      {reward.icon_url && !failed ? (
-        <img
-          src={reward.icon_url}
-          alt={reward.name}
-          className="h-full w-full object-contain p-1"
-          loading="lazy"
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <Package size={18} aria-hidden="true" />
-      )}
-    </div>
-  );
-}
 
 export function CoinMilestonePanel({
   milestone,
@@ -112,7 +93,9 @@ export function CoinMilestonePanel({
 
         <div className="mt-4">
           <div className="mb-2 flex items-center justify-between gap-3 text-[11px] font-medium text-gray-500">
-            <span>{allCompleted ? "Đã hoàn thành mọi mốc" : "Mốc tiếp theo"}</span>
+            <span>
+              {allCompleted ? "Đã hoàn thành mọi mốc" : "Mốc tiếp theo"}
+            </span>
             <span>
               {allCompleted
                 ? "100%"
@@ -191,7 +174,22 @@ export function CoinMilestonePanel({
                       key={`${reward.item_type}:${reward.item_id}:${rewardIndex}`}
                       className="flex min-w-0 items-center gap-2.5"
                     >
-                      <RewardIcon reward={reward} />
+                      <RewardIcon
+                        item={{
+                          name: reward?.name,
+                          iconUrl: reward?.icon_url,
+                          itemId: reward?.item_id,
+                          quantity: reward?.quantity?.toString(),
+                          source:
+                            reward?.item_type === 4
+                              ? "item4"
+                              : reward?.item_type === 7
+                                ? "item7"
+                                : reward?.item_type === 105
+                                  ? "fashiontemplate"
+                                  : "currency",
+                        }}
+                      />
                       <div className="min-w-0">
                         <p className="truncate text-xs font-semibold text-gray-700">
                           {reward.name}
