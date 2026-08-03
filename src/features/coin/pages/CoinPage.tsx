@@ -16,6 +16,7 @@ import {
   createCoinConversion,
   getCoinSummary,
 } from "@/features/coin/api/coinApi";
+import { CoinMilestonePanel } from "@/features/coin/components/CoinMilestonePanel";
 import { Footer } from "@/shared/components/site/Footer";
 import { Header } from "@/shared/components/site/Header";
 import { scrollToTop } from "@/shared/utils/utils";
@@ -310,6 +311,10 @@ function CoinExchangePage() {
                   </>
                 )}
               </section>
+              <CoinMilestonePanel
+                milestone={summary.milestone}
+                onClaimed={() => query.refetch()}
+              />
 
               <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
                 <h2 className="mb-4 text-sm font-bold text-gray-700">
