@@ -1,4 +1,4 @@
-﻿import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   Crown,
   Flame,
@@ -16,6 +16,9 @@ import { useSearchParams } from "react-router-dom";
 import {
   getTopBossHuntRanking,
   getTopFireworksRanking,
+  type RankingRewardItem,
+  type RankingRewardSet,
+  type RankingRewardTier,
 } from "@/features/ranking/api/rankingApi";
 import {
   RankingTabs,
@@ -23,279 +26,16 @@ import {
 } from "@/features/ranking/components/RankingTabs";
 import { Footer } from "@/shared/components/site/Footer";
 import { Header } from "@/shared/components/site/Header";
-import { env } from "@/shared/config/env";
 import { scrollToTop } from "@/shared/utils/utils";
 
 const fireworksRankingQueryKey = ["rankings", "top-fireworks"] as const;
 const bossHuntRankingQueryKey = ["rankings", "top-boss-hunt"] as const;
-const item4IconFamily = 2000;
-const gameItemIconBaseUrl = env.gameItemIconBaseUrl.replace(/\/$/, "");
 
 type DisplayRankingEntry = {
   rank: number;
   name: string;
   subtitle?: string;
   value: number;
-};
-
-type RewardItem = {
-  itemId?: number;
-  name: string;
-  quantity?: string;
-  icon?: number;
-};
-
-type RewardTier = {
-  rankLabel: string;
-  highlight?: "champion" | "runner" | "bronze";
-  items: RewardItem[];
-};
-
-type RankingRewardSet = {
-  title: string;
-  description: string;
-  tiers: RewardTier[];
-};
-
-const rewardIcons = {
-  orangeChestByLevel: 99,
-  seaStone6: 182,
-  bossTitle: 401,
-  workTitle: 401,
-  midAutumnTitle: 401,
-  dialChest: 407,
-  superGemChest: 439,
-  journeyChest: 443,
-  insuranceBasic: 539,
-  insuranceMedium: 540,
-  randomLv6GemChest: 768,
-} as const;
-
-const fireworksRewards: RankingRewardSet = {
-  title: "Quà Top Đốt Pháo",
-  description:
-    "Tổng kết theo điểm Đốt pháo của event 12. Quà được trao theo thứ hạng khi sự kiện kết thúc.",
-  tiers: [
-    {
-      rankLabel: "Top 1",
-      highlight: "champion",
-      items: [
-        { quantity: "300m", name: "Beri" },
-        {
-          itemId: 226,
-          quantity: "30",
-          name: "Đá Hải Thạch cấp 6",
-          icon: rewardIcons.seaStone6,
-        },
-        {
-          itemId: 866,
-          quantity: "1",
-          name: "Danh hiệu Trung Thu",
-          icon: rewardIcons.midAutumnTitle,
-        },
-        {
-          quantity: "1",
-          name: "Rương cam cùng level +15",
-          icon: rewardIcons.orangeChestByLevel,
-        },
-      ],
-    },
-    {
-      rankLabel: "Top 2",
-      highlight: "runner",
-      items: [
-        { quantity: "200m", name: "Beri" },
-        {
-          itemId: 226,
-          quantity: "20",
-          name: "Đá Hải Thạch cấp 6",
-          icon: rewardIcons.seaStone6,
-        },
-        {
-          itemId: 866,
-          quantity: "1",
-          name: "Danh hiệu Trung Thu",
-          icon: rewardIcons.midAutumnTitle,
-        },
-        {
-          quantity: "1",
-          name: "Rương cam cùng level +14",
-          icon: rewardIcons.orangeChestByLevel,
-        },
-      ],
-    },
-    {
-      rankLabel: "Top 3",
-      highlight: "bronze",
-      items: [
-        { quantity: "100m", name: "Beri" },
-        {
-          itemId: 226,
-          quantity: "10",
-          name: "Đá Hải Thạch cấp 6",
-          icon: rewardIcons.seaStone6,
-        },
-        {
-          itemId: 866,
-          quantity: "1",
-          name: "Danh hiệu Trung Thu",
-          icon: rewardIcons.midAutumnTitle,
-        },
-        {
-          quantity: "1",
-          name: "Rương cam cùng level +13",
-          icon: rewardIcons.orangeChestByLevel,
-        },
-      ],
-    },
-    {
-      rankLabel: "Top 4 đến Top 10",
-      items: [
-        { quantity: "50m", name: "Beri" },
-        {
-          itemId: 226,
-          quantity: "5",
-          name: "Đá Hải Thạch cấp 6",
-          icon: rewardIcons.seaStone6,
-        },
-        {
-          itemId: 781,
-          quantity: "1",
-          name: "Danh hiệu Cày Cuốc",
-          icon: rewardIcons.workTitle,
-        },
-        {
-          quantity: "5",
-          name: "Rương cam cùng level",
-          icon: rewardIcons.orangeChestByLevel,
-        },
-      ],
-    },
-  ],
-};
-
-const bossHuntRewards: RankingRewardSet = {
-  title: "Quà Top Săn Boss",
-  description:
-    "Tổng kết theo điểm hạ gục boss Lân Sư Vũ của event 12. Quà được trao theo thứ hạng.",
-  tiers: [
-    {
-      rankLabel: "Top 1",
-      highlight: "champion",
-      items: [
-        {
-          quantity: "1",
-          name: "Rương cam cùng level +14",
-          icon: rewardIcons.orangeChestByLevel,
-        },
-        {
-          itemId: 550,
-          quantity: "1",
-          name: "Bảo hiểm chuyển hóa trung",
-          icon: rewardIcons.insuranceMedium,
-        },
-        {
-          itemId: 841,
-          quantity: "1",
-          name: "Rương đá siêu cấp Lv6 ngẫu nhiên",
-          icon: rewardIcons.superGemChest,
-        },
-        {
-          itemId: 125,
-          quantity: "1",
-          name: "Danh hiệu Trùm săn boss",
-          icon: rewardIcons.bossTitle,
-        },
-      ],
-    },
-    {
-      rankLabel: "Top 2",
-      highlight: "runner",
-      items: [
-        {
-          quantity: "1",
-          name: "Rương cam cùng level +13",
-          icon: rewardIcons.orangeChestByLevel,
-        },
-        {
-          itemId: 550,
-          quantity: "1",
-          name: "Bảo hiểm chuyển hóa trung",
-          icon: rewardIcons.insuranceMedium,
-        },
-        {
-          itemId: 519,
-          quantity: "20",
-          name: "Rương hành trình",
-          icon: rewardIcons.journeyChest,
-        },
-        {
-          itemId: 125,
-          quantity: "1",
-          name: "Danh hiệu Trùm săn boss",
-          icon: rewardIcons.bossTitle,
-        },
-      ],
-    },
-    {
-      rankLabel: "Top 3",
-      highlight: "bronze",
-      items: [
-        {
-          quantity: "1",
-          name: "Rương cam cùng level +12",
-          icon: rewardIcons.orangeChestByLevel,
-        },
-        {
-          itemId: 549,
-          quantity: "1",
-          name: "Bảo hiểm chuyển hóa sơ",
-          icon: rewardIcons.insuranceBasic,
-        },
-        {
-          itemId: 519,
-          quantity: "10",
-          name: "Rương hành trình",
-          icon: rewardIcons.journeyChest,
-        },
-        {
-          itemId: 125,
-          quantity: "1",
-          name: "Danh hiệu Trùm săn boss",
-          icon: rewardIcons.bossTitle,
-        },
-      ],
-    },
-    {
-      rankLabel: "Top 4 đến Top 10",
-      items: [
-        {
-          itemId: 837,
-          quantity: "5",
-          name: "Rương đá Lv6 ngẫu nhiên",
-          icon: rewardIcons.randomLv6GemChest,
-        },
-        {
-          itemId: 519,
-          quantity: "10",
-          name: "Rương hành trình",
-          icon: rewardIcons.journeyChest,
-        },
-        {
-          itemId: 455,
-          quantity: "5",
-          name: "Rương Dial",
-          icon: rewardIcons.dialChest,
-        },
-        {
-          itemId: 867,
-          quantity: "1",
-          name: "Danh hiệu Nông dân chăm chỉ",
-          icon: rewardIcons.workTitle,
-        },
-      ],
-    },
-  ],
 };
 
 function formatPoints(value: number) {
@@ -319,13 +59,11 @@ function getInitial(username: string) {
   return username.trim().charAt(0).toUpperCase() || "P";
 }
 
-function getRewardIconUrl(item: RewardItem) {
-  if (typeof item.icon !== "number") return undefined;
-
-  return gameItemIconBaseUrl + "/" + (item4IconFamily + item.icon) + ".png";
+function getRewardIconUrl(item: RankingRewardItem) {
+  return item.iconUrl || undefined;
 }
 
-function RewardIcon({ item }: { item: RewardItem }) {
+function RewardIcon({ item }: { item: RankingRewardItem }) {
   const iconUrl = getRewardIconUrl(item);
 
   return (
@@ -346,7 +84,7 @@ function RewardIcon({ item }: { item: RewardItem }) {
   );
 }
 
-function RewardTierCard({ tier }: { tier: RewardTier }) {
+function RewardTierCard({ tier }: { tier: RankingRewardTier }) {
   const toneClass =
     tier.highlight === "champion"
       ? "border-amber-300 bg-amber-50/60"
@@ -365,10 +103,16 @@ function RewardTierCard({ tier }: { tier: RewardTier }) {
         </span>
       </div>
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-        {tier.items.map((item) => (
+        {tier.items.map((item, index) => (
           <li
-            key={tier.rankLabel + "-" + item.name}
+            key={[
+              tier.rankLabel,
+              item.source ?? "reward",
+              item.itemId ?? item.name,
+              index,
+            ].join("-")}
             className="flex min-w-0 items-center gap-3"
+            title={item.description ?? item.name}
           >
             <RewardIcon item={item} />
             <span className="min-w-0 text-sm font-semibold leading-snug text-gray-700">
@@ -613,7 +357,7 @@ function RankingPage() {
   );
   const topThree = entries.slice(0, 3);
   const remaining = entries.slice(3);
-  const currentRewards = showBossHunt ? bossHuntRewards : fireworksRewards;
+  const currentRewards = rankingQuery.data?.rewards;
   const pageTitle = showBossHunt ? "Top Săn Boss" : "Top Đốt Pháo";
   const pageDescription = showBossHunt
     ? "Vinh danh những thuyền trưởng hạ gục nhiều boss Lân Sư Vũ nhất."
@@ -702,7 +446,7 @@ function RankingPage() {
               </button>
             </div>
 
-            <RankingRewards rewards={currentRewards} />
+            {currentRewards && <RankingRewards rewards={currentRewards} />}
 
             {rankingQuery.isLoading ? (
               <RankingSkeleton />

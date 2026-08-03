@@ -37,12 +37,34 @@ export type EventRankingEntry = {
   points: number;
 };
 
+export type RankingRewardItem = {
+  source?: "currency" | "item4" | "item7" | "fashiontemplate" | "pet_template";
+  itemId?: number;
+  name: string;
+  quantity?: string;
+  description?: string | null;
+  iconUrl?: string | null;
+};
+
+export type RankingRewardTier = {
+  rankLabel: string;
+  highlight?: "champion" | "runner" | "bronze";
+  items: RankingRewardItem[];
+};
+
+export type RankingRewardSet = {
+  title: string;
+  description: string;
+  tiers: RankingRewardTier[];
+};
+
 export type EventRanking = {
   category: "top-fireworks" | "top-boss-hunt";
   eventId: 12;
   scoreIndex: 0 | 1;
   limit: number;
   updatedAt: string;
+  rewards?: RankingRewardSet;
   items: EventRankingEntry[];
 };
 
@@ -80,6 +102,7 @@ export async function getTopLevelRanking() {
     throw new Error(getErrorMessage(error));
   }
 }
+
 async function getEventRanking(path: string) {
   try {
     const response = await httpClient.get<ApiEnvelope<EventRanking>>(path);
