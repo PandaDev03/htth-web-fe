@@ -2,6 +2,35 @@ import axios from "axios";
 
 import { httpClient } from "@/shared/api/httpClient";
 
+export type CoinMilestoneReward = {
+  item_type: 4 | 7 | 105;
+  item_id: number;
+  quantity: number;
+  name: string;
+  icon_url: string | null;
+};
+
+export type CoinMilestone = {
+  season: {
+    id: number;
+    name: string;
+    start_at: string;
+    end_at: string;
+  };
+  total_exchanged: number;
+  claimed_tier_ids: number[];
+  next_milestone: number | null;
+  progress_percent: number;
+  tiers: Array<{
+    tier_id: number;
+    milestone: number;
+    sort: number;
+    claimed: boolean;
+    claimable: boolean;
+    rewards: CoinMilestoneReward[];
+  }>;
+};
+
 export type CoinSummary = {
   wallet: {
     web_coin: number;
@@ -19,6 +48,7 @@ export type CoinSummary = {
     min_amount: number;
     max_amount: number;
   };
+  milestone: CoinMilestone | null;
   history: Array<{
     id: number;
     web_coin: number;
@@ -65,5 +95,20 @@ export async function createCoinConversion(amount: number) {
     return response.data;
   } catch (error) {
     throw new Error(getErrorMessage(error, "Không thể tạo yêu cầu đổi Coin."));
+  }
+}
+
+export async function claimCoinMilestone(tierId: number) {
+  try {
+    const response = await httpClient.post<
+      ApiEnvelope<{
+        tier_id: number;
+        pending_gift_id: number;
+        status: string;
+      }>
+    >(`/coin-conversion/milestones/${tierId}/claim`);
+    return response.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error, "Không thể nhận mốc quà."));
   }
 }

@@ -6,7 +6,7 @@ const rankingTabs = [
   {
     id: "fireworks" as const,
     label: "Top Đốt pháo",
-    status: "Event 12",
+    status: "Sự kiện Pháo hoa",
     icon: Flame,
   },
   {
