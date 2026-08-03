@@ -1,25 +1,19 @@
-import { PartyPopper, TrendingUp, Trophy } from "lucide-react";
+import { Flame, Swords } from "lucide-react";
 
-export type RankingTabId = "deposit" | "level" | "fireworks";
+export type RankingTabId = "fireworks" | "boss";
 
 const rankingTabs = [
   {
-    id: "deposit" as const,
-    label: "Top Nạp",
-    status: "Hiện hành",
-    icon: Trophy,
-  },
-  {
-    id: "level" as const,
-    label: "Top Level",
-    status: "Hiện hành",
-    icon: TrendingUp,
-  },
-  {
     id: "fireworks" as const,
-    label: "Top Pháo Hoa",
-    status: "Sắp diễn ra",
-    icon: PartyPopper,
+    label: "Top Đốt pháo",
+    status: "Event 12",
+    icon: Flame,
+  },
+  {
+    id: "boss" as const,
+    label: "Top Săn Boss",
+    status: "Lân Sư Vũ",
+    icon: Swords,
   },
 ];
 
