@@ -1,22 +1,46 @@
+import { useMutation } from "@tanstack/react-query";
 import {
   BarChart3,
   CheckCircle2,
   Flag,
+  Gift,
+  Loader2,
+  LockKeyhole,
+  LogIn,
   PartyPopper,
   Target,
   UsersRound,
 } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { toast } from "sonner";
 
-import type { ArticleProgress } from "@/features/articles/api/articleApi";
+import {
+  claimArticleProgressMilestone,
+  type ArticleProgress,
+  type ArticleProgressClaimStatus,
+} from "@/features/articles/api/articleApi";
 import { RewardIcon } from "@/shared/components/RewardIcon";
+import { PATH } from "@/shared/config/path";
 
 type ArticleProgressPanelProps = {
+  articleIdentifier: number | string;
   progress: ArticleProgress;
+  claimStatus: ArticleProgressClaimStatus | null;
+  claimStatusError: string | null;
+  isAuthenticated: boolean;
+  onClaimed?: () => Promise<unknown>;
 };
 
 const numberFormatter = new Intl.NumberFormat("vi-VN");
 
-export function ArticleProgressPanel({ progress }: ArticleProgressPanelProps) {
+export function ArticleProgressPanel({
+  articleIdentifier,
+  progress,
+  claimStatus,
+  claimStatusError,
+  isAuthenticated,
+  onClaimed,
+}: ArticleProgressPanelProps) {
   const unit = progress.unit?.trim() || "lượt";
   const safeTarget = Math.max(1, progress.target);
   const safeCurrent = Math.min(progress.current, safeTarget);
@@ -31,7 +55,24 @@ export function ArticleProgressPanel({ progress }: ArticleProgressPanelProps) {
   const reachedMilestones = progress.milestones.filter(
     (milestone) => milestone.reached,
   ).length;
-
+  const location = useLocation();
+  const claimStatusByTierId = new Map(
+    (claimStatus?.tiers ?? []).map((tier) => [tier.tierId, tier]),
+  );
+  const claimStatusLoading =
+    isAuthenticated && !claimStatus && !claimStatusError;
+  const mutation = useMutation({
+    mutationFn: (tierId: number) =>
+      claimArticleProgressMilestone(articleIdentifier, tierId),
+    onSuccess: async (result) => {
+      toast.success(result.message || "Đã gửi yêu cầu nhận quà.");
+      await onClaimed?.();
+    },
+    onError: (error) =>
+      toast.error(
+        error instanceof Error ? error.message : "Không thể nhận mốc quà.",
+      ),
+  });
   return (
     <section
       className="mx-auto mb-8 max-w-4xl my-10 overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-white shadow-[0_16px_48px_rgba(146,64,14,0.08)]"
@@ -110,8 +151,26 @@ export function ArticleProgressPanel({ progress }: ArticleProgressPanelProps) {
                 {reachedMilestones}/{progress.milestones.length} mốc đã đạt
               </p>
             </div>
+            {claimStatusError && (
+              <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                {claimStatusError}
+              </p>
+            )}
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              {progress.milestones.map((milestone, index) => (
+              {progress.milestones.map((milestone, index) => {
+                const tierId = milestone.id ?? index + 1;
+                const claimInfo = claimStatusByTierId.get(tierId);
+                const claimed = Boolean(claimInfo?.claimed);
+                const claimable = Boolean(claimInfo?.claimable);
+                const claiming = mutation.isPending && mutation.variables === tierId;
+                const claimBlocked = Boolean(claimStatusError);
+                const buttonDisabled =
+                  claimStatusLoading ||
+                  claimBlocked ||
+                  !claimable ||
+                  mutation.isPending;
+
+                return (
                 <div
                   key={milestone.target}
                   className={[
@@ -134,17 +193,65 @@ export function ArticleProgressPanel({ progress }: ArticleProgressPanelProps) {
                     {milestone.reached ? "Đã đạt" : "Chưa đạt"}
                   </p>
 
+                  <div className="mt-3">
+                    {!isAuthenticated && milestone.reached ? (
+                      <Link
+                        to={PATH.AUTH}
+                        state={{ from: location }}
+                        className="inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-white px-2.5 py-2 text-center text-xs font-bold text-amber-700 transition hover:bg-amber-50 active:scale-[0.98]"
+                      >
+                        <LogIn size={14} aria-hidden="true" />
+                        Đăng nhập nhận quà
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => mutation.mutate(tierId)}
+                        disabled={buttonDisabled}
+                        className={[
+                          "inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg px-2.5 py-2 text-center text-xs font-bold transition active:scale-[0.98] disabled:cursor-not-allowed",
+                          claimed
+                            ? "bg-emerald-100 text-emerald-700"
+                            : claimable
+                              ? "bg-amber-700 text-white hover:bg-amber-800"
+                              : "bg-slate-100 text-slate-500",
+                        ].join(" ")}
+                      >
+                        {claiming ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : claimed ? (
+                          <CheckCircle2 size={14} aria-hidden="true" />
+                        ) : claimable ? (
+                          <Gift size={14} aria-hidden="true" />
+                        ) : (
+                          <LockKeyhole size={14} aria-hidden="true" />
+                        )}
+                        {claiming
+                          ? "Đang nhận"
+                          : claimStatusLoading
+                            ? "Đang tải"
+                            : claimBlocked
+                              ? "Không thể nhận"
+                              : claimed
+                                ? "Đã nhận"
+                                : claimable
+                                  ? "Nhận quà"
+                                  : "Chưa đạt"}
+                      </button>
+                    )}
+                  </div>
+
                   {milestone.rewards.length > 0 && (
                     <div className="mt-3 grid gap-2">
                       {milestone.rewards.map((reward) => (
                         <div
                           key={reward.source + ":" + String(reward.itemId)}
-                          className="flex items-center gap-2 rounded-lg border border-amber-100 bg-white px-2 py-1.5"
-                          title={reward.description ?? reward.name ?? undefined}
+                          className="flex items-start gap-2 rounded-lg border border-amber-100 bg-white px-2 py-1.5"
+                          title={reward.name ?? undefined}
                         >
-                          <RewardIcon item={reward} className="h-10 w-10" />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs font-semibold text-slate-700 text-wrap">
+                          <RewardIcon item={reward} className="h-10 w-10 shrink-0" />
+                          <div className="min-w-0 flex-1 overflow-hidden">
+                            <p className="whitespace-normal break-words text-xs font-semibold leading-4 text-slate-700">
                               {reward.name ?? "Vật phẩm"}
                             </p>
                             <p className="text-[11px] font-medium text-slate-500">
@@ -156,7 +263,8 @@ export function ArticleProgressPanel({ progress }: ArticleProgressPanelProps) {
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

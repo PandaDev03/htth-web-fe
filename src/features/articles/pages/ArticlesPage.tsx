@@ -30,7 +30,8 @@ type Category = (typeof categories)[number];
 function ArticlesPage() {
   const [activeCategory, setActiveCategory] = useState<Category>("Tất cả");
   const [page, setPage] = useState(1);
-  const categoryParam = activeCategory === "Tất cả" ? undefined : activeCategory;
+  const categoryParam =
+    activeCategory === "Tất cả" ? undefined : activeCategory;
   const articlesQuery = useQuery({
     queryKey: ["articles", "public", page, categoryParam],
     queryFn: () =>
@@ -132,7 +133,11 @@ function ArticlesPage() {
 
           {articlesQuery.data && articles.length > 0 && (
             <>
-              <div className={"grid grid-cols-1 gap-6 md:grid-cols-2 " + articleGridClass}>
+              <div
+                className={
+                  "grid grid-cols-1 gap-6 md:grid-cols-2 " + articleGridClass
+                }
+              >
                 {articles.map((article) => (
                   <EventArticleCard key={article.id} article={article} />
                 ))}
@@ -196,12 +201,15 @@ function EventArticleCard({ article }: { article: Article }) {
         <h2 className="line-clamp-2 text-lg font-extrabold uppercase leading-snug tracking-normal text-slate-900 transition group-hover:text-amber-700">
           {article.title}
         </h2>
-        <p className="mt-3 line-clamp-4 text-sm leading-6 text-slate-500 sm:mx-auto sm:max-w-[30ch]">
+        <p className="mt-3 line-clamp-4 text-sm leading-6 text-slate-500">
           {getArticleSummary(article)}
         </p>
         <span className="mt-auto inline-flex items-center gap-1.5 pt-5 text-xs font-bold uppercase tracking-wide text-amber-700 sm:justify-center">
           Đọc bài viết
-          <ArrowRight size={14} className="transition group-hover:translate-x-1" />
+          <ArrowRight
+            size={14}
+            className="transition group-hover:translate-x-1"
+          />
         </span>
       </div>
     </Link>
