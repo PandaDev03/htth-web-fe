@@ -1,4 +1,4 @@
-﻿import axios from "axios";
+import axios from "axios";
 
 import { httpClient } from "@/shared/api/httpClient";
 import type { RewardIconItem } from "@/shared/types/reward";
@@ -26,6 +26,17 @@ export type ArticleProgress = {
     reached: boolean;
     rewards: ArticleProgressRewardItem[];
   }[];
+};
+
+export type ArticleProgressClaimStatus = {
+  claimedTierIds: number[];
+  tiers: Array<{
+    tierId: number;
+    target: number;
+    reached: boolean;
+    claimed: boolean;
+    claimable: boolean;
+  }>;
 };
 
 export type ArticleRewardTuple = [number, number, number];
@@ -141,6 +152,34 @@ export async function getArticle(idOrSlug: number | string) {
   }
 }
 
+export async function getArticleProgressClaims(idOrSlug: number | string) {
+  try {
+    const { data } = await httpClient.get<
+      ApiEnvelope<ArticleProgressClaimStatus>
+    >(`/articles/${idOrSlug}/progress/claims`);
+    return data.data;
+  } catch (error) {
+    throw new Error(errorMessage(error, "Không thể tải trạng thái nhận quà."));
+  }
+}
+
+export async function claimArticleProgressMilestone(
+  idOrSlug: number | string,
+  tierId: number,
+) {
+  try {
+    const { data } = await httpClient.post<
+      ApiEnvelope<{
+        tierId: number;
+        pendingGiftId: number;
+        status: string;
+      }>
+    >(`/articles/${idOrSlug}/progress/milestones/${tierId}/claim`);
+    return data;
+  } catch (error) {
+    throw new Error(errorMessage(error, "Không thể nhận mốc quà."));
+  }
+}
 export async function getAdminArticles() {
   try {
     const { data } =
