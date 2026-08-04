@@ -1,10 +1,10 @@
-import { ArrowUpRight, CalendarDays, Newspaper } from "lucide-react";
+﻿import { ArrowUpRight, CalendarDays, Newspaper } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import type { Article } from "@/features/articles/api/articleApi";
 import {
   articleDateFormatter,
-  getArticleExcerpt,
+  getArticleSummary,
 } from "@/features/articles/utils/articlePresentation";
 import { getArticlePath } from "@/shared/config/path";
 
@@ -15,7 +15,7 @@ type ArticleCardProps = {
 export function ArticleCard({ article }: ArticleCardProps) {
   return (
     <Link
-      to={getArticlePath(article.id)}
+      to={getArticlePath(article.slug ?? article.id)}
       className="group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_20px_rgba(15,23,42,0.04)] transition duration-300 hover:-translate-y-1 hover:border-amber-200 hover:shadow-[0_16px_36px_rgba(146,64,14,0.10)] active:translate-y-0"
     >
       <div className="aspect-[16/9] overflow-hidden bg-slate-100">
@@ -46,7 +46,7 @@ export function ArticleCard({ article }: ArticleCardProps) {
           {article.title}
         </h3>
         <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-500">
-          {getArticleExcerpt(article.content)}
+          {getArticleSummary(article)}
         </p>
         <span className="mt-auto inline-flex items-center gap-1.5 pt-5 text-xs font-bold text-amber-700">
           Đọc bài viết

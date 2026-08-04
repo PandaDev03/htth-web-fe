@@ -1,4 +1,4 @@
-import { Flame, Sparkles, Target, UsersRound } from "lucide-react";
+﻿import { Flame, Sparkles, Target, UsersRound } from "lucide-react";
 
 export type FireworksEventProgress = {
   current: number;
@@ -13,12 +13,11 @@ type FireworksEventPanelProps = {
 
 const numberFormatter = new Intl.NumberFormat("vi-VN");
 
-export function FireworksEventPanel({
-  progress,
-}: FireworksEventPanelProps) {
+export function FireworksEventPanel({ progress }: FireworksEventPanelProps) {
+  const safeTarget = Math.max(1, progress.target);
   const percentage = Math.min(
     100,
-    Math.max(0, (progress.current / progress.target) * 100),
+    Math.max(0, (progress.current / safeTarget) * 100),
   );
   const remaining = Math.max(0, progress.target - progress.current);
   const nextMilestoneRemaining = Math.max(
@@ -50,7 +49,7 @@ export function FireworksEventPanel({
             </div>
           </div>
           <span className="self-start rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-bold text-amber-700">
-            Bản xem trước UI
+            Đang diễn ra
           </span>
         </div>
 
@@ -88,8 +87,7 @@ export function FireworksEventPanel({
 
         <p className="mt-3 flex items-center gap-2 text-sm text-slate-500">
           <Target size={15} className="shrink-0 text-amber-600" />
-          Còn {numberFormatter.format(nextMilestoneRemaining)} pháo để chạm mốc
-          {" "}
+          Còn {numberFormatter.format(nextMilestoneRemaining)} pháo để chạm mốc{" "}
           {numberFormatter.format(progress.nextMilestone)}.
         </p>
       </div>

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+﻿import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
   CalendarDays,
@@ -12,7 +12,7 @@ import { getArticles } from "@/features/articles/api/articleApi";
 import { ArticleCard } from "@/features/articles/components/ArticleCard";
 import {
   articleDateFormatter,
-  getArticleExcerpt,
+  getArticleSummary,
 } from "@/features/articles/utils/articlePresentation";
 import { Footer } from "@/shared/components/site/Footer";
 import { Header } from "@/shared/components/site/Header";
@@ -136,7 +136,7 @@ function ArticlesPage() {
           {featuredArticle && (
             <>
               <Link
-                to={getArticlePath(featuredArticle.id)}
+                to={getArticlePath(featuredArticle.slug ?? featuredArticle.id)}
                 className="group grid overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-[0_10px_36px_rgba(15,23,42,0.06)] transition hover:border-amber-200 lg:grid-cols-[1.25fr_1fr]"
               >
                 <div className="aspect-[16/10] overflow-hidden bg-slate-100 lg:aspect-auto lg:min-h-[28rem]">
@@ -168,7 +168,7 @@ function ArticlesPage() {
                     {featuredArticle.title}
                   </h2>
                   <p className="mt-4 line-clamp-4 text-sm leading-7 text-slate-500 sm:text-base">
-                    {getArticleExcerpt(featuredArticle.content)}
+                    {getArticleSummary(featuredArticle)}
                   </p>
                   <span className="mt-7 inline-flex items-center gap-2 text-sm font-bold text-amber-700">
                     Đọc bài viết

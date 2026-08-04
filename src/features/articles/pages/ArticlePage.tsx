@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+﻿import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
   ArrowLeft,
@@ -10,11 +10,7 @@ import { useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { getArticle } from "@/features/articles/api/articleApi";
-import {
-  FireworksEventPanel,
-  type FireworksEventProgress,
-} from "@/features/articles/components/FireworksEventPanel";
-import { isFireworksArticle } from "@/features/articles/utils/articlePresentation";
+import { FireworksEventPanel } from "@/features/articles/components/FireworksEventPanel";
 import { Footer } from "@/shared/components/site/Footer";
 import { Header } from "@/shared/components/site/Header";
 import { PATH } from "@/shared/config/path";
@@ -27,14 +23,6 @@ const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
   hour: "2-digit",
   minute: "2-digit",
 });
-
-// Dữ liệu mẫu chỉ phục vụ duyệt UI. BE sẽ trở thành source of truth ở lượt sau.
-const FIREWORKS_EVENT_PREVIEW: FireworksEventProgress = {
-  current: 68_420,
-  target: 100_000,
-  participants: 1_284,
-  nextMilestone: 75_000,
-};
 
 function ArticlePage() {
   const { id } = useParams<{ id: string }>();
@@ -49,9 +37,8 @@ function ArticlePage() {
   }, [id]);
 
   const article = articleQuery.data;
-  const showFireworksEvent = article
-    ? isFireworksArticle(article.category, article.title)
-    : false;
+  const fireworksProgress =
+    article?.eventKey === "fireworks" ? article.eventProgress : null;
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-white">
@@ -120,6 +107,11 @@ function ArticlePage() {
                 <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-5xl">
                   {article.title}
                 </h1>
+                {article.description && (
+                  <p className="mt-5 max-w-3xl text-base leading-7 text-slate-500 sm:text-lg">
+                    {article.description}
+                  </p>
+                )}
               </header>
 
               {article.thumbnailUrl && (
@@ -132,8 +124,8 @@ function ArticlePage() {
                 </div>
               )}
 
-              {showFireworksEvent && (
-                <FireworksEventPanel progress={FIREWORKS_EVENT_PREVIEW} />
+              {fireworksProgress && (
+                <FireworksEventPanel progress={fireworksProgress} />
               )}
 
               <div

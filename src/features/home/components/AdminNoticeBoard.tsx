@@ -1,7 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+﻿import { useQuery } from "@tanstack/react-query";
 import {
-  ArrowUpRight,
   ArrowRight,
+  ArrowUpRight,
   CalendarDays,
   Newspaper,
   RefreshCw,
@@ -9,13 +9,9 @@ import {
 import { Link } from "react-router-dom";
 
 import { getArticles } from "@/features/articles/api/articleApi";
+import { getArticleSummary } from "@/features/articles/utils/articlePresentation";
 import { getArticlePath, PATH } from "@/shared/config/path";
 
-function stripHtml(value: string) {
-  const element = document.createElement("div");
-  element.innerHTML = value;
-  return element.textContent || element.innerText || "";
-}
 const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
   day: "2-digit",
   month: "2-digit",
@@ -104,7 +100,7 @@ const AdminNoticeBoard = () => {
             {articlesQuery.data.map((article) => (
               <Link
                 key={article.id}
-                to={getArticlePath(article.id)}
+                to={getArticlePath(article.slug ?? article.id)}
                 className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_20px_rgba(15,23,42,0.04)] transition duration-300 hover:-translate-y-1 hover:border-amber-200 hover:shadow-[0_16px_36px_rgba(146,64,14,0.10)]"
               >
                 <div className="aspect-[16/9] overflow-hidden bg-slate-100">
@@ -125,18 +121,11 @@ const AdminNoticeBoard = () => {
                       {dateFormatter.format(new Date(article.createdAt))}
                     </time>
                   </div>
-                  <h3 className="text-lg font-extrabold leading-7 text-slate-900 transition group-hover:text-amber-700">
+                  <h3 className="line-clamp-2 text-lg font-extrabold leading-7 text-slate-900 transition group-hover:text-amber-700">
                     {article.title}
                   </h3>
-                  <p
-                    className="mt-2 overflow-hidden text-sm leading-6 text-slate-500"
-                    style={{
-                      display: "-webkit-box",
-                      WebkitLineClamp: 3,
-                      WebkitBoxOrient: "vertical",
-                    }}
-                  >
-                    {stripHtml(article.content)}
+                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-500">
+                    {getArticleSummary(article)}
                   </p>
                   <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-amber-700">
                     Đọc bài viết{" "}

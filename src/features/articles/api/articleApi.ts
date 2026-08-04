@@ -1,22 +1,40 @@
-import axios from "axios";
+﻿import axios from "axios";
+
 import { httpClient } from "@/shared/api/httpClient";
+
+export type ArticleEventProgress = {
+  current: number;
+  target: number;
+  participants: number;
+  nextMilestone: number;
+};
 
 export type Article = {
   id: number;
   title: string;
+  slug: string | null;
+  description: string | null;
   category: string;
   content: string;
   thumbnailUrl: string;
   published: boolean;
+  eventKey: "fireworks" | null;
+  eventProgress: ArticleEventProgress | null;
   authorId: number | null;
   createdAt: string;
   updatedAt: string;
 };
 
-export type CreateArticlePayload = Pick<
-  Article,
-  "title" | "category" | "content" | "thumbnailUrl"
->;
+export type CreateArticlePayload = {
+  title: string;
+  description?: string;
+  category: string;
+  content: string;
+  thumbnailUrl: string;
+  eventKey?: "fireworks";
+  eventProgress?: ArticleEventProgress;
+};
+
 type ApiEnvelope<T> = { message?: string; data: T };
 type ApiErrorBody = { message?: string | string[] };
 
@@ -40,10 +58,10 @@ export async function getArticles(limit = 6) {
   }
 }
 
-export async function getArticle(id: number | string) {
+export async function getArticle(idOrSlug: number | string) {
   try {
     const { data } = await httpClient.get<ApiEnvelope<Article>>(
-      `/articles/${id}`,
+      `/articles/${idOrSlug}`,
     );
     return data.data;
   } catch (error) {

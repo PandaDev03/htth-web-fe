@@ -1,4 +1,4 @@
-import { Editor } from "@tinymce/tinymce-react";
+﻿import { Editor } from "@tinymce/tinymce-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
@@ -7,9 +7,11 @@ import {
   Empty,
   Form,
   Input,
+  InputNumber,
   Popconfirm,
   Select,
   Skeleton,
+  Switch,
   Upload,
   type UploadProps,
 } from "antd";
@@ -19,6 +21,7 @@ import {
   ImagePlus,
   Loader2,
   Send,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -32,7 +35,12 @@ import {
   uploadArticleThumbnail,
   type CreateArticlePayload,
 } from "@/features/articles/api/articleApi";
+import { getArticleSummary } from "@/features/articles/utils/articlePresentation";
 import { getArticlePath } from "@/shared/config/path";
+
+type AdminArticleFormValues = CreateArticlePayload & {
+  fireworksEnabled?: boolean;
+};
 
 const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
   day: "2-digit",
@@ -42,14 +50,9 @@ const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
   minute: "2-digit",
 });
 
-function stripHtml(value: string) {
-  const element = document.createElement("div");
-  element.innerHTML = value;
-  return element.textContent || element.innerText || "";
-}
-
 function AdminArticlesPage() {
-  const [form] = Form.useForm<CreateArticlePayload>();
+  const [form] = Form.useForm<AdminArticleFormValues>();
+  const fireworksEnabled = Form.useWatch("fireworksEnabled", form);
   const queryClient = useQueryClient();
   const editorRef = useRef<{ setContent: (content: string) => void } | null>(
     null,
@@ -61,6 +64,7 @@ function AdminArticlesPage() {
     queryKey: ["admin", "articles"],
     queryFn: getAdminArticles,
   });
+
   const uploadMutation = useMutation({
     mutationFn: uploadArticleThumbnail,
     onSuccess: (result) => {
@@ -84,6 +88,7 @@ function AdminArticlesPage() {
       );
     },
   });
+
   const createMutation = useMutation({
     mutationFn: createAdminArticle,
     onSuccess: async (result) => {
@@ -101,6 +106,7 @@ function AdminArticlesPage() {
         error instanceof Error ? error.message : "Không thể đăng bài viết.",
       ),
   });
+
   const deleteMutation = useMutation({
     mutationFn: deleteAdminArticle,
     onSuccess: async (result) => {
@@ -113,9 +119,12 @@ function AdminArticlesPage() {
       ),
   });
 
-  useEffect(() => () => {
-    if (localPreviewRef.current) URL.revokeObjectURL(localPreviewRef.current);
-  });
+  useEffect(
+    () => () => {
+      if (localPreviewRef.current) URL.revokeObjectURL(localPreviewRef.current);
+    },
+    [],
+  );
 
   const beforeUpload: UploadProps["beforeUpload"] = (file) => {
     if (
@@ -152,11 +161,33 @@ function AdminArticlesPage() {
     });
   };
 
+  const submitArticle = (values: AdminArticleFormValues) => {
+    const payload: CreateArticlePayload = {
+      title: values.title,
+      description: values.description?.trim() || undefined,
+      category: values.category,
+      content: values.content,
+      thumbnailUrl: values.thumbnailUrl,
+    };
+
+    if (values.fireworksEnabled && values.eventProgress) {
+      payload.eventKey = "fireworks";
+      payload.eventProgress = {
+        current: values.eventProgress.current,
+        target: values.eventProgress.target,
+        participants: values.eventProgress.participants,
+        nextMilestone: values.eventProgress.nextMilestone,
+      };
+    }
+
+    createMutation.mutate(payload);
+  };
+
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-3 items-start gap-6 xl:grid-cols-[minmax(360px,0.82fr)_minmax(0,1.18fr)]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(360px,0.9fr)_minmax(0,1.1fr)]">
         <Card
-          className="col-span-2 border-slate-200 shadow-sm"
+          className="border-slate-200 shadow-sm"
           styles={{ body: { padding: 24 } }}
         >
           <div className="mb-6 flex items-start gap-3">
@@ -174,8 +205,17 @@ function AdminArticlesPage() {
             form={form}
             layout="vertical"
             requiredMark={false}
-            initialValues={{ category: "Cập nhật" }}
-            onFinish={(values) => createMutation.mutate(values)}
+            initialValues={{
+              category: "Cập nhật",
+              fireworksEnabled: false,
+              eventProgress: {
+                current: 0,
+                target: 100000,
+                participants: 0,
+                nextMilestone: 75000,
+              },
+            }}
+            onFinish={submitArticle}
           >
             <Form.Item
               name="thumbnailUrl"
@@ -256,6 +296,84 @@ function AdminArticlesPage() {
                 maxLength={255}
               />
             </Form.Item>
+            <Form.Item
+              name="description"
+              label="Mô tả ngắn"
+              rules={[{ max: 500, message: "Tối đa 500 ký tự." }]}
+            >
+              <Input.TextArea
+                placeholder="Nội dung tóm tắt hiển thị trên card bài viết"
+                rows={3}
+                showCount
+                maxLength={500}
+              />
+            </Form.Item>
+
+            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-white text-amber-700 shadow-sm">
+                    <Sparkles size={18} />
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">
+                      Thanh tiến trình Pháo hoa
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      Bật khi bài viết là sự kiện Đốt Pháo toàn server.
+                    </p>
+                  </div>
+                </div>
+                <Form.Item name="fireworksEnabled" valuePropName="checked" noStyle>
+                  <Switch />
+                </Form.Item>
+              </div>
+
+              {fireworksEnabled && (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <Form.Item
+                    name={["eventProgress", "current"]}
+                    label="Pháo đã đốt"
+                    rules={[
+                      { required: true, message: "Vui lòng nhập số pháo." },
+                    ]}
+                  >
+                    <InputNumber min={0} precision={0} className="w-full" />
+                  </Form.Item>
+                  <Form.Item
+                    name={["eventProgress", "target"]}
+                    label="Mốc tổng"
+                    rules={[
+                      { required: true, message: "Vui lòng nhập mốc tổng." },
+                    ]}
+                  >
+                    <InputNumber min={1} precision={0} className="w-full" />
+                  </Form.Item>
+                  <Form.Item
+                    name={["eventProgress", "participants"]}
+                    label="Người tham gia"
+                    rules={[
+                      {
+                        required: true,
+                        message: "Vui lòng nhập số người tham gia.",
+                      },
+                    ]}
+                  >
+                    <InputNumber min={0} precision={0} className="w-full" />
+                  </Form.Item>
+                  <Form.Item
+                    name={["eventProgress", "nextMilestone"]}
+                    label="Mốc kế tiếp"
+                    rules={[
+                      { required: true, message: "Vui lòng nhập mốc kế tiếp." },
+                    ]}
+                  >
+                    <InputNumber min={0} precision={0} className="w-full" />
+                  </Form.Item>
+                </div>
+              )}
+            </div>
+
             <Form.Item
               name="content"
               hidden
@@ -358,22 +476,23 @@ function AdminArticlesPage() {
                         {dateFormatter.format(new Date(article.createdAt))}
                       </time>
                     </div>
-                    <h3 className="text-base font-bold leading-6 text-slate-900">
+                    <h3 className="line-clamp-2 text-base font-bold leading-6 text-slate-900">
                       {article.title}
                     </h3>
-                    <p
-                      className="mt-2 overflow-hidden text-xs leading-5 text-slate-500"
-                      style={{
-                        display: "-webkit-box",
-                        WebkitLineClamp: 3,
-                        WebkitBoxOrient: "vertical",
-                      }}
-                    >
-                      {stripHtml(article.content)}
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      /articles/{article.slug ?? article.id}
                     </p>
+                    <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-500">
+                      {getArticleSummary(article)}
+                    </p>
+                    {article.eventKey === "fireworks" && (
+                      <span className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700">
+                        <Sparkles size={12} /> Có progress Pháo hoa
+                      </span>
+                    )}
                     <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
                       <Link
-                        to={getArticlePath(article.id)}
+                        to={getArticlePath(article.slug ?? article.id)}
                         target="_blank"
                         className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 hover:text-amber-800"
                       >
