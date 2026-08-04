@@ -1,6 +1,7 @@
 import axios from "axios";
 
 import { httpClient } from "@/shared/api/httpClient";
+import type { RewardIconItem } from "@/shared/types/reward";
 
 export type RankingEntry = {
   rank: number;
@@ -37,13 +38,9 @@ export type EventRankingEntry = {
   points: number;
 };
 
-export type RankingRewardItem = {
-  source?: "currency" | "item4" | "item7" | "fashiontemplate" | "pet_template";
-  itemId?: number;
+export type RankingRewardItem = RewardIconItem & {
   name: string;
   quantity?: string;
-  description?: string | null;
-  iconUrl?: string | null;
 };
 
 export type RankingRewardTier = {

@@ -5,25 +5,21 @@ import {
   Gift,
   Loader2,
   LockKeyhole,
-  Package,
   Trophy,
 } from "lucide-react";
-import { useState } from "react";
 import { toast } from "sonner";
 
 import {
   claimCoinMilestone,
   type CoinMilestone,
-  type CoinMilestoneReward,
 } from "@/features/coin/api/coinApi";
 import { RewardIcon } from "@/shared/components/RewardIcon";
+import { formatDateTime, formatNumber } from "@/shared/utils/utils";
 
 type CoinMilestonePanelProps = {
   milestone: CoinMilestone | null;
   onClaimed: () => Promise<unknown>;
 };
-
-const formatNumber = (value: number) => value.toLocaleString("vi-VN");
 
 export function CoinMilestonePanel({
   milestone,
@@ -61,7 +57,7 @@ export function CoinMilestonePanel({
     );
   }
 
-  const nextTarget = milestone.next_milestone;
+  const nextTarget = milestone.nextMilestone;
   const allCompleted = nextTarget === null;
 
   return (
@@ -78,14 +74,14 @@ export function CoinMilestonePanel({
               </h2>
               <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
                 <Clock3 size={13} aria-hidden="true" />
-                Đến {new Date(milestone.season.end_at).toLocaleString("vi-VN")}
+                Đến {formatDateTime(milestone.season.endAt)}
               </p>
             </div>
           </div>
           <div className="text-left sm:text-right">
             <p className="text-[11px] font-medium text-gray-500">Đã đổi</p>
             <p className="mt-0.5 text-lg font-extrabold text-amber-700">
-              {formatNumber(milestone.total_exchanged)}
+              {formatNumber(milestone?.totalExchanged)}
               <span className="ml-1 text-xs font-semibold">Coin</span>
             </p>
           </div>
@@ -99,7 +95,7 @@ export function CoinMilestonePanel({
             <span>
               {allCompleted
                 ? "100%"
-                : `${formatNumber(milestone.total_exchanged)} / ${formatNumber(nextTarget ?? 0)} Coin`}
+                : `${formatNumber(milestone.totalExchanged)} / ${formatNumber(nextTarget ?? 0)} Coin`}
             </span>
           </div>
           <div
@@ -107,12 +103,12 @@ export function CoinMilestonePanel({
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuenow={allCompleted ? 100 : milestone.progress_percent}
+            aria-valuenow={allCompleted ? 100 : milestone.progressPercent}
           >
             <div
               className="h-full rounded-full bg-amber-500 transition-[width] duration-300"
               style={{
-                width: `${allCompleted ? 100 : milestone.progress_percent}%`,
+                width: `${allCompleted ? 100 : milestone.progressPercent}%`,
               }}
             />
           </div>
@@ -123,10 +119,10 @@ export function CoinMilestonePanel({
         <div className="space-y-5">
           {milestone.tiers.map((tier) => {
             const claiming =
-              mutation.isPending && mutation.variables === tier.tier_id;
+              mutation.isPending && mutation.variables === tier.tierId;
             return (
               <div
-                key={tier.tier_id}
+                key={tier.tierId}
                 className="border-b border-gray-100 pb-5 last:border-b-0 last:pb-0"
               >
                 <div className="mb-3 flex items-center justify-between gap-3">
@@ -138,7 +134,7 @@ export function CoinMilestonePanel({
                   </div>
                   <button
                     type="button"
-                    onClick={() => mutation.mutate(tier.tier_id)}
+                    onClick={() => mutation.mutate(tier.tierId)}
                     disabled={!tier.claimable || mutation.isPending}
                     className={
                       "flex min-w-24 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold transition active:scale-[0.98] disabled:cursor-not-allowed " +
@@ -171,31 +167,17 @@ export function CoinMilestonePanel({
                 <div className="grid gap-2 sm:grid-cols-2">
                   {tier.rewards.map((reward, rewardIndex) => (
                     <div
-                      key={`${reward.item_type}:${reward.item_id}:${rewardIndex}`}
+                      key={`${reward.source ?? "currency"}:${reward.itemId ?? "reward"}:${rewardIndex}`}
                       className="flex min-w-0 items-center gap-2.5"
                     >
-                      <RewardIcon
-                        item={{
-                          name: reward?.name,
-                          iconUrl: reward?.icon_url,
-                          itemId: reward?.item_id,
-                          quantity: reward?.quantity?.toString(),
-                          source:
-                            reward?.item_type === 4
-                              ? "item4"
-                              : reward?.item_type === 7
-                                ? "item7"
-                                : reward?.item_type === 105
-                                  ? "fashiontemplate"
-                                  : "currency",
-                        }}
-                      />
+                      <RewardIcon item={reward} />
                       <div className="min-w-0">
                         <p className="truncate text-xs font-semibold text-gray-700">
                           {reward.name}
                         </p>
                         <p className="mt-0.5 text-[11px] text-gray-500">
-                          Số lượng: {formatNumber(reward.quantity)}
+                          {"Số lượng: "}
+                          {formatNumber(reward.quantity)}
                         </p>
                       </div>
                     </div>
