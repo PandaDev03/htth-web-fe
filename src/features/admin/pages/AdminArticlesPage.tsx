@@ -1,4 +1,4 @@
-import { Editor } from "@tinymce/tinymce-react";
+﻿import { Editor } from "@tinymce/tinymce-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
@@ -7,9 +7,11 @@ import {
   Empty,
   Form,
   Input,
+  InputNumber,
   Popconfirm,
   Select,
   Skeleton,
+  Switch,
   Upload,
   type UploadProps,
 } from "antd";
@@ -18,7 +20,9 @@ import {
   FileText,
   ImagePlus,
   Loader2,
+  Plus,
   Send,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -32,7 +36,25 @@ import {
   uploadArticleThumbnail,
   type CreateArticlePayload,
 } from "@/features/articles/api/articleApi";
+import { getArticleSummary } from "@/features/articles/utils/articlePresentation";
 import { getArticlePath } from "@/shared/config/path";
+
+type AdminProgressMilestoneForm = {
+  target?: number;
+  rewardsJson?: string;
+};
+
+type AdminArticleFormValues = Omit<CreateArticlePayload, "progress"> & {
+  progressEnabled?: boolean;
+  progress?: Omit<NonNullable<CreateArticlePayload["progress"]>, "milestones"> & {
+    milestones: AdminProgressMilestoneForm[];
+  };
+};
+
+type TinyEditorRef = {
+  getContent: () => string;
+  setContent: (content: string) => void;
+};
 
 const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
   day: "2-digit",
@@ -42,18 +64,11 @@ const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
   minute: "2-digit",
 });
 
-function stripHtml(value: string) {
-  const element = document.createElement("div");
-  element.innerHTML = value;
-  return element.textContent || element.innerText || "";
-}
-
 function AdminArticlesPage() {
-  const [form] = Form.useForm<CreateArticlePayload>();
+  const [form] = Form.useForm<AdminArticleFormValues>();
+  const progressEnabled = Form.useWatch("progressEnabled", form);
   const queryClient = useQueryClient();
-  const editorRef = useRef<{ setContent: (content: string) => void } | null>(
-    null,
-  );
+  const editorRef = useRef<TinyEditorRef | null>(null);
   const localPreviewRef = useRef<string | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
 
@@ -61,6 +76,7 @@ function AdminArticlesPage() {
     queryKey: ["admin", "articles"],
     queryFn: getAdminArticles,
   });
+
   const uploadMutation = useMutation({
     mutationFn: uploadArticleThumbnail,
     onSuccess: (result) => {
@@ -84,6 +100,7 @@ function AdminArticlesPage() {
       );
     },
   });
+
   const createMutation = useMutation({
     mutationFn: createAdminArticle,
     onSuccess: async (result) => {
@@ -101,6 +118,7 @@ function AdminArticlesPage() {
         error instanceof Error ? error.message : "Không thể đăng bài viết.",
       ),
   });
+
   const deleteMutation = useMutation({
     mutationFn: deleteAdminArticle,
     onSuccess: async (result) => {
@@ -113,9 +131,76 @@ function AdminArticlesPage() {
       ),
   });
 
-  useEffect(() => () => {
-    if (localPreviewRef.current) URL.revokeObjectURL(localPreviewRef.current);
-  });
+  useEffect(
+    () => () => {
+      if (localPreviewRef.current) URL.revokeObjectURL(localPreviewRef.current);
+    },
+    [],
+  );
+
+  const syncEditorContent = () => {
+    const content = editorRef.current?.getContent() ?? "";
+    form.setFieldValue("content", content);
+  };
+
+  const parseRewardJson = (value: string | undefined, milestoneIndex: number) => {
+    const text = value?.trim();
+    if (!text) return [] as [number, number, number][];
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text) as unknown;
+    } catch {
+      throw new Error(
+        "Quà mốc " +
+          (milestoneIndex + 1) +
+          " không phải JSON hợp lệ.",
+      );
+    }
+
+    if (!Array.isArray(parsed)) {
+      throw new Error(
+        "Quà mốc " +
+          (milestoneIndex + 1) +
+          " phải là mảng JSON.",
+      );
+    }
+
+    return parsed.map((reward, rewardIndex) => {
+      if (!Array.isArray(reward) || reward.length < 3) {
+        throw new Error(
+          "Quà mốc " +
+            (milestoneIndex + 1) +
+            ", item " +
+            (rewardIndex + 1) +
+            " sai định dạng.",
+        );
+      }
+
+      const itemType = Number(reward[0]);
+      const itemId = Number(reward[1]);
+      const count = Number(reward[2]);
+
+      if (
+        !Number.isInteger(itemType) ||
+        !Number.isInteger(itemId) ||
+        !Number.isInteger(count) ||
+        itemType <= 0 ||
+        itemId < 0 ||
+        count <= 0
+      ) {
+        throw new Error(
+          "Quà mốc " +
+            (milestoneIndex + 1) +
+            ", item " +
+            (rewardIndex + 1) +
+            " không hợp lệ.",
+        );
+      }
+
+      return [itemType, itemId, count] as [number, number, number];
+    });
+  };
 
   const beforeUpload: UploadProps["beforeUpload"] = (file) => {
     if (
@@ -152,11 +237,45 @@ function AdminArticlesPage() {
     });
   };
 
+  const submitArticle = (values: AdminArticleFormValues) => {
+    const payload: CreateArticlePayload = {
+      title: values.title,
+      description: values.description?.trim() || undefined,
+      category: values.category,
+      content: values.content,
+      thumbnailUrl: values.thumbnailUrl,
+    };
+
+    if (values.progressEnabled && values.progress) {
+      try {
+        payload.progress = {
+          key: values.progress.key?.trim() || undefined,
+          title: values.progress.title?.trim() || undefined,
+          currentLabel: values.progress.currentLabel?.trim() || undefined,
+          unit: values.progress.unit?.trim() || undefined,
+          statusLabel: values.progress.statusLabel?.trim() || undefined,
+          eventId: Number(values.progress.eventId),
+          scoreIndex: Number(values.progress.scoreIndex),
+          milestones: values.progress.milestones.map((milestone, index) => ({
+            target: Number(milestone.target),
+            rewards: parseRewardJson(milestone.rewardsJson, index),
+          })),
+        };
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Cấu hình quà mốc không hợp lệ.",
+        );
+        return;
+      }
+    }
+    createMutation.mutate(payload);
+  };
+
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-3 items-start gap-6 xl:grid-cols-[minmax(360px,0.82fr)_minmax(0,1.18fr)]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(360px,0.9fr)_minmax(0,1.1fr)]">
         <Card
-          className="col-span-2 border-slate-200 shadow-sm"
+          className="border-slate-200 shadow-sm"
           styles={{ body: { padding: 24 } }}
         >
           <div className="mb-6 flex items-start gap-3">
@@ -174,8 +293,30 @@ function AdminArticlesPage() {
             form={form}
             layout="vertical"
             requiredMark={false}
-            initialValues={{ category: "Cập nhật" }}
-            onFinish={(values) => createMutation.mutate(values)}
+            initialValues={{
+              category: "Cập nhật",
+              progressEnabled: false,
+              progress: {
+                key: "fireworks-server-2026",
+                title: "Cùng nhau đốt pháo, nhận quà toàn server",
+                currentLabel: "Pháo đã đốt toàn server",
+                unit: "pháo",
+                statusLabel: "Đang diễn ra",
+                eventId: 12,
+                scoreIndex: 0,
+                milestones: [
+                  { target: 1000, rewardsJson: "" },
+                  { target: 3000, rewardsJson: "" },
+                  { target: 5000, rewardsJson: "" },
+                  { target: 10000, rewardsJson: "" },
+                ],
+              },
+            }}
+            onFinish={submitArticle}
+            onFinishFailed={() => {
+              syncEditorContent();
+              toast.error("Vui lòng kiểm tra thumbnail, tiêu đề và nội dung.");
+            }}
           >
             <Form.Item
               name="thumbnailUrl"
@@ -193,7 +334,7 @@ function AdminArticlesPage() {
                 beforeUpload={beforeUpload}
                 customRequest={customUpload}
                 disabled={uploadMutation.isPending}
-                className="block"
+                className="block w-full [&>div]:w-full"
               >
                 <div className="group relative flex aspect-[16/9] w-full cursor-pointer overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50 transition hover:border-amber-400 hover:bg-amber-50/50">
                   {thumbnailPreview ? (
@@ -257,6 +398,167 @@ function AdminArticlesPage() {
               />
             </Form.Item>
             <Form.Item
+              name="description"
+              label="Mô tả ngắn"
+              rules={[{ max: 500, message: "Tối đa 500 ký tự." }]}
+            >
+              <Input.TextArea
+                placeholder="Nội dung tóm tắt hiển thị trên card bài viết"
+                rows={3}
+                showCount
+                maxLength={500}
+              />
+            </Form.Item>
+
+            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-white text-amber-700 shadow-sm">
+                    <Sparkles size={18} />
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">
+                      Thanh tiến trình sự kiện
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      Bật khi bài viết cần hiển thị mốc tiến độ riêng.
+                    </p>
+                  </div>
+                </div>
+                <Form.Item name="progressEnabled" valuePropName="checked" noStyle>
+                  <Switch />
+                </Form.Item>
+              </div>
+              {progressEnabled && (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <Form.Item name={["progress", "key"]} label="Mã tiến trình">
+                    <Input placeholder="mid-autumn-2026" maxLength={80} />
+                  </Form.Item>
+                  <Form.Item name={["progress", "title"]} label="Tiêu đề panel">
+                    <Input
+                      placeholder="Cùng nhau hoàn thành mục tiêu"
+                      maxLength={255}
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name={["progress", "currentLabel"]}
+                    label="Nhãn chỉ số"
+                  >
+                    <Input placeholder="Đã hoàn thành" maxLength={120} />
+                  </Form.Item>
+                  <Form.Item name={["progress", "unit"]} label="Đơn vị">
+                    <Input placeholder="lượt" maxLength={40} />
+                  </Form.Item>
+                  <Form.Item
+                    name={["progress", "statusLabel"]}
+                    label="Trạng thái"
+                  >
+                    <Input placeholder="Đang diễn ra" maxLength={80} />
+                  </Form.Item>
+                  <Form.Item
+                    name={["progress", "eventId"]}
+                    label="Mã event trong players.event"
+                    rules={[
+                      { required: true, message: "Vui lòng nhập mã event." },
+                    ]}
+                  >
+                    <InputNumber min={1} precision={0} className="w-full" />
+                  </Form.Item>
+                  <Form.Item
+                    name={["progress", "scoreIndex"]}
+                    label="Vị trí điểm trong event"
+                    tooltip="Ví dụ event 12: index 0 là điểm Đốt Pháo, index 1 là điểm Săn boss."
+                    rules={[
+                      { required: true, message: "Vui lòng nhập vị trí điểm." },
+                    ]}
+                  >
+                    <InputNumber min={0} precision={0} className="w-full" />
+                  </Form.Item>
+
+                  <div className="sm:col-span-2">
+                    <div className="mb-2 rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs leading-5 text-slate-500">
+                      Số hiện tại và người tham gia sẽ tự tính từ bảng players,
+                      cột event. Reward JSON mỗi mốc nhập theo tuple như
+                      [[4,641,1],[7,12,2]].
+                    </div>
+                    <Form.List
+                      name={["progress", "milestones"]}
+                      rules={[
+                        {
+                          validator: async (_, value?: AdminProgressMilestoneForm[]) => {
+                            if (!value?.length) {
+                              throw new Error("Vui lòng thêm ít nhất 1 mốc.");
+                            }
+                          },
+                        },
+                      ]}
+                    >
+                      {(fields, { add, remove }, { errors }) => (
+                        <div className="space-y-3">
+                          {fields.map((field, index) => (
+                            <div
+                              key={field.key}
+                              className="grid gap-2 sm:grid-cols-[160px_minmax(0,1fr)_40px]"
+                            >
+                              <Form.Item
+                                {...field}
+                                name={[field.name, "target"]}
+                                label={index === 0 ? "Mốc target" : undefined}
+                                className="mb-0"
+                                rules={[
+                                  {
+                                    required: true,
+                                    message: "Vui lòng nhập mốc.",
+                                  },
+                                ]}
+                              >
+                                <InputNumber
+                                  min={1}
+                                  precision={0}
+                                  className="w-full"
+                                  placeholder="1000"
+                                />
+                              </Form.Item>
+                              <Form.Item
+                                {...field}
+                                name={[field.name, "rewardsJson"]}
+                                label={index === 0 ? "Quà JSON" : undefined}
+                                className="mb-0"
+                              >
+                                <Input.TextArea
+                                  rows={3}
+                                  placeholder="[[4,641,1],[4,642,1]]"
+                                />
+                              </Form.Item>
+                              <Button
+                                type="text"
+                                danger
+                                icon={<Trash2 size={14} />}
+                                disabled={fields.length <= 1}
+                                className={index === 0 ? "mt-7" : undefined}
+                                aria-label={"Xóa mốc " + (index + 1)}
+                                onClick={() => remove(field.name)}
+                              />
+                            </div>
+                          ))}
+                          <Button
+                            type="dashed"
+                            block
+                            icon={<Plus size={14} />}
+                            onClick={() => add({ target: 1000, rewardsJson: "" })}
+                          >
+                            Thêm mốc
+                          </Button>
+                          <Form.ErrorList errors={errors} />
+                        </div>
+                      )}
+                    </Form.List>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <Form.Item
               name="content"
               hidden
               rules={[
@@ -294,6 +596,7 @@ function AdminArticlesPage() {
               loading={createMutation.isPending}
               disabled={uploadMutation.isPending}
               className="w-full"
+              onClick={syncEditorContent}
             >
               Đăng bài viết
             </Button>
@@ -358,22 +661,23 @@ function AdminArticlesPage() {
                         {dateFormatter.format(new Date(article.createdAt))}
                       </time>
                     </div>
-                    <h3 className="text-base font-bold leading-6 text-slate-900">
+                    <h3 className="line-clamp-2 text-base font-bold leading-6 text-slate-900">
                       {article.title}
                     </h3>
-                    <p
-                      className="mt-2 overflow-hidden text-xs leading-5 text-slate-500"
-                      style={{
-                        display: "-webkit-box",
-                        WebkitLineClamp: 3,
-                        WebkitBoxOrient: "vertical",
-                      }}
-                    >
-                      {stripHtml(article.content)}
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      /articles/{article.slug ?? article.id}
                     </p>
+                    <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-500">
+                      {getArticleSummary(article)}
+                    </p>
+                    {article.progress && (
+                      <span className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700">
+                        <Sparkles size={12} /> Event {article.progress.eventId} / index {article.progress.scoreIndex}
+                      </span>
+                    )}
                     <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
                       <Link
-                        to={getArticlePath(article.id)}
+                        to={getArticlePath(article.slug ?? article.id)}
                         target="_blank"
                         className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 hover:text-amber-800"
                       >

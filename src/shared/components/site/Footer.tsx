@@ -1,5 +1,12 @@
 import { Image } from "antd";
-import { CircleDollarSign, Download, Home, Trophy, User } from "lucide-react";
+import {
+  CircleDollarSign,
+  Download,
+  Home,
+  Newspaper,
+  Trophy,
+  User,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { env } from "@/shared/config/env";
@@ -11,6 +18,11 @@ import { PirateBrandMark } from "@/shared/components/site/BrandMark";
 export function Footer() {
   const links = [
     { label: "Trang Chủ", href: PATH.HOME, icon: <Home size={13} /> },
+    {
+      label: "Bài viết",
+      href: PATH.ARTICLES,
+      icon: <Newspaper size={13} />,
+    },
     {
       label: "Tải Game",
       href: PATH.DOWNLOAD,

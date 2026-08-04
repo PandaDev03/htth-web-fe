@@ -1,22 +1,67 @@
-import axios from "axios";
+﻿import axios from "axios";
+
 import { httpClient } from "@/shared/api/httpClient";
+import type { RewardIconItem } from "@/shared/types/reward";
+
+export type ArticleProgressRewardItem = RewardIconItem & {
+  quantity: number;
+};
+
+export type ArticleProgress = {
+  key: string | null;
+  title: string | null;
+  currentLabel: string | null;
+  unit: string | null;
+  statusLabel: string | null;
+  eventId: number;
+  scoreIndex: number;
+  current: number;
+  target: number;
+  participants: number;
+  nextMilestone: number | null;
+  milestones: {
+    target: number;
+    reached: boolean;
+    rewards: ArticleProgressRewardItem[];
+  }[];
+};
 
 export type Article = {
   id: number;
   title: string;
+  slug: string | null;
+  description: string | null;
   category: string;
   content: string;
   thumbnailUrl: string;
   published: boolean;
+  progress: ArticleProgress | null;
   authorId: number | null;
   createdAt: string;
   updatedAt: string;
 };
 
-export type CreateArticlePayload = Pick<
-  Article,
-  "title" | "category" | "content" | "thumbnailUrl"
->;
+export type CreateArticlePayload = {
+  title: string;
+  description?: string;
+  category: string;
+  content: string;
+  thumbnailUrl: string;
+  progress?: {
+    key?: string;
+    title?: string;
+    currentLabel?: string;
+    unit?: string;
+    statusLabel?: string;
+    eventId: number;
+    scoreIndex: number;
+    milestones: {
+      target: number;
+      rewards?: [number, number, number][];
+    }[];
+  };
+};
+
 type ApiEnvelope<T> = { message?: string; data: T };
 type ApiErrorBody = { message?: string | string[] };
 
@@ -40,10 +85,10 @@ export async function getArticles(limit = 6) {
   }
 }
 
-export async function getArticle(id: number | string) {
+export async function getArticle(idOrSlug: number | string) {
   try {
     const { data } = await httpClient.get<ApiEnvelope<Article>>(
-      `/articles/${id}`,
+      `/articles/${idOrSlug}`,
     );
     return data.data;
   } catch (error) {
