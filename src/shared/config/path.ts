@@ -6,6 +6,7 @@ export const PATH = {
   RANKING: "/leader-board",
   COIN_EXCHANGE: "/coin-exchange",
   WALLET_DEPOSIT: "/deposit",
+  ARTICLES: "/articles",
   ARTICLE_DETAIL: "/articles/:id",
   ADMIN_ROOT: "/admin",
   ADMIN_DASHBOARD: "/admin/dashboard",

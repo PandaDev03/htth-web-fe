@@ -18,6 +18,9 @@ const CoinExchangePage = lazy(() => import("@/features/coin/pages/CoinPage"));
 const WalletDepositPage = lazy(
   () => import("@/features/deposit/pages/DepositPage"),
 );
+const ArticlesPage = lazy(
+  () => import("@/features/articles/pages/ArticlesPage"),
+);
 const ArticlePage = lazy(() => import("@/features/articles/pages/ArticlePage"));
 const AdminDashboardPage = lazy(
   () => import("@/features/admin/pages/AdminDashboardPage"),
@@ -30,6 +33,7 @@ export const appRoutes: AppRoute[] = [
   { path: PATH.HOME, element: <PirateLandingPage />, isPublic: true },
   { path: PATH.DOWNLOAD, element: <GameDownloadPage />, isPublic: true },
   { path: PATH.RANKING, element: <RankingPage />, isPublic: true },
+  { path: PATH.ARTICLES, element: <ArticlesPage />, isPublic: true },
   { path: PATH.ARTICLE_DETAIL, element: <ArticlePage />, isPublic: true },
   { path: PATH.AUTH, element: <PlayerAuthPage />, isPublic: true },
   {

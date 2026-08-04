@@ -15,11 +15,17 @@ export function Header() {
 
   const PUBLIC_NAV_ITEMS = [
     { label: "Trang Chủ", href: PATH.HOME },
+    { label: "Bài viết", href: PATH.ARTICLES },
     { label: "Tải Game", href: PATH.DOWNLOAD },
     { label: "Đua Top", href: PATH.RANKING },
     { label: "Đổi Coin", href: PATH.COIN_EXCHANGE },
     { label: "Nạp Tiền", href: PATH.WALLET_DEPOSIT },
   ];
+
+  const isNavItemActive = (href: string) =>
+    href === PATH.HOME
+      ? pathname === PATH.HOME
+      : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <>
@@ -31,14 +37,14 @@ export function Header() {
             <Link to={PATH.HOME}>
               <PirateBrandMark />
             </Link>
-            <nav className="hidden items-center gap-4 md:flex lg:gap-6">
+            <nav className="hidden items-center gap-4 lg:flex xl:gap-6">
               {PUBLIC_NAV_ITEMS.map((item) => (
                 <Link
                   key={item.href}
                   to={item.href}
                   className={
                     "flex items-center gap-1.5 text-sm transition-colors " +
-                    (pathname === item.href
+                    (isNavItemActive(item.href)
                       ? "font-semibold text-amber-600"
                       : "font-medium text-gray-600 hover:text-amber-600")
                   }
@@ -47,7 +53,7 @@ export function Header() {
                 </Link>
               ))}
             </nav>
-            <div className="hidden items-center md:flex">
+            <div className="hidden items-center lg:flex">
               {isAuthenticated ? (
                 <UserMenu />
               ) : (
@@ -60,7 +66,7 @@ export function Header() {
                 </Link>
               )}
             </div>
-            <div className="flex items-center gap-2 md:hidden">
+            <div className="flex items-center gap-2 lg:hidden">
               {isAuthenticated ? (
                 <UserMenu compact />
               ) : (
@@ -87,14 +93,14 @@ export function Header() {
       {mobileOpen && (
         <button
           type="button"
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm lg:hidden"
           onClick={() => setMobileOpen(false)}
           aria-label="Đóng menu"
         />
       )}
       <aside
         className={
-          "fixed right-0 top-0 z-50 h-full w-72 border-l border-gray-200 bg-white shadow-xl transition-transform duration-300 md:hidden " +
+          "fixed right-0 top-0 z-50 h-full w-72 border-l border-gray-200 bg-white shadow-xl transition-transform duration-300 lg:hidden " +
           (mobileOpen ? "translate-x-0" : "translate-x-full")
         }
       >
@@ -116,7 +122,7 @@ export function Header() {
               onClick={() => setMobileOpen(false)}
               className={
                 "flex items-center gap-3 rounded-lg px-3 py-3 " +
-                (pathname === item.href
+                (isNavItemActive(item.href)
                   ? "bg-amber-50 text-amber-600"
                   : "text-gray-600 hover:bg-gray-50")
               }

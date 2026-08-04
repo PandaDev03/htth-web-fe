@@ -1,15 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowUpRight,
+  ArrowRight,
   CalendarDays,
-  Lock,
   Newspaper,
   RefreshCw,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { getArticles } from "@/features/articles/api/articleApi";
-import { getArticlePath } from "@/shared/config/path";
+import { getArticlePath, PATH } from "@/shared/config/path";
 
 function stripHtml(value: string) {
   const element = document.createElement("div");
@@ -51,9 +51,16 @@ const AdminNoticeBoard = () => {
               tặc vui vẻ.
             </p>
           </div>
-          <div className="flex items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-500 sm:self-auto">
-            <Lock size={12} /> Nội dung chính thức từ Admin
-          </div>
+          <Link
+            to={PATH.ARTICLES}
+            className="group inline-flex items-center gap-2 self-start rounded-lg border border-amber-200 bg-white px-4 py-2.5 text-xs font-bold text-amber-700 transition hover:border-amber-300 hover:bg-amber-50 active:translate-y-px sm:self-auto"
+          >
+            Xem tất cả bài viết
+            <ArrowRight
+              size={14}
+              className="transition group-hover:translate-x-0.5"
+            />
+          </Link>
         </div>
         <div className="mb-8 h-px w-full bg-gradient-to-r from-amber-400 via-amber-200 to-transparent" />
 
