@@ -34,7 +34,7 @@ export function ArticleProgressPanel({ progress }: ArticleProgressPanelProps) {
 
   return (
     <section
-      className="my-10 overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-white shadow-[0_16px_48px_rgba(146,64,14,0.08)]"
+      className="mx-auto mb-8 max-w-4xl my-10 overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-white shadow-[0_16px_48px_rgba(146,64,14,0.08)]"
       aria-labelledby="article-progress-heading"
     >
       <div className="p-5 sm:p-7">

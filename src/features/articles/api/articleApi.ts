@@ -20,11 +20,24 @@ export type ArticleProgress = {
   participants: number;
   nextMilestone: number | null;
   milestones: {
+    id: number | null;
     target: number;
+    sort: number;
     reached: boolean;
     rewards: ArticleProgressRewardItem[];
   }[];
 };
+
+export type ArticleRewardTuple = [number, number, number];
+
+export type ArticleProgressMilestonePayload =
+  | [number, number, number, ArticleRewardTuple[]]
+  | {
+      id?: number;
+      target: number;
+      sort?: number;
+      rewards?: ArticleRewardTuple[];
+    };
 
 export type Article = {
   id: number;
@@ -55,14 +68,27 @@ export type CreateArticlePayload = {
     statusLabel?: string;
     eventId: number;
     scoreIndex: number;
-    milestones: {
-      target: number;
-      rewards?: [number, number, number][];
-    }[];
+    milestones: ArticleProgressMilestonePayload[];
   };
 };
 
-type ApiEnvelope<T> = { message?: string; data: T };
+export type ArticlePaginationMeta = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
+export type ArticleListPage = {
+  data: Article[];
+  meta: ArticlePaginationMeta;
+};
+
+type ApiEnvelope<T> = {
+  message?: string;
+  data: T;
+  meta?: ArticlePaginationMeta;
+};
 type ApiErrorBody = { message?: string | string[] };
 
 function errorMessage(error: unknown, fallback: string) {
@@ -74,15 +100,34 @@ function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
-export async function getArticles(limit = 6) {
+export type GetArticlesPageParams = {
+  page?: number;
+  limit?: number;
+  category?: string;
+};
+
+export async function getArticlesPage(params: GetArticlesPageParams = {}) {
   try {
     const { data } = await httpClient.get<ApiEnvelope<Article[]>>("/articles", {
-      params: { limit },
+      params,
     });
-    return data.data;
+    return {
+      data: data.data,
+      meta: data.meta ?? {
+        page: params.page ?? 1,
+        limit: params.limit ?? data.data.length,
+        total: data.data.length,
+        totalPages: data.data.length ? 1 : 0,
+      },
+    } satisfies ArticleListPage;
   } catch (error) {
     throw new Error(errorMessage(error, "Không thể tải danh sách bài viết."));
   }
+}
+
+export async function getArticles(limit = 6) {
+  const result = await getArticlesPage({ limit });
+  return result.data;
 }
 
 export async function getArticle(idOrSlug: number | string) {

@@ -21,7 +21,6 @@ import {
   ImagePlus,
   Loader2,
   Pencil,
-  Plus,
   Send,
   Sparkles,
   Trash2,
@@ -43,18 +42,13 @@ import {
 import { getArticleSummary } from "@/features/articles/utils/articlePresentation";
 import { getArticlePath } from "@/shared/config/path";
 
-type AdminProgressMilestoneForm = {
-  target?: number;
-  rewardsJson?: string;
-};
-
 type AdminArticleFormValues = Omit<CreateArticlePayload, "progress"> & {
   progressEnabled?: boolean;
   progress?: Omit<
     NonNullable<CreateArticlePayload["progress"]>,
     "milestones"
   > & {
-    milestones: AdminProgressMilestoneForm[];
+    milestonesJson?: string;
   };
 };
 
@@ -71,6 +65,17 @@ const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
   minute: "2-digit",
 });
 
+const defaultMilestonesJson = JSON.stringify(
+  [
+    [1, 1000, 1, []],
+    [2, 3000, 2, []],
+    [3, 5000, 3, []],
+    [4, 10000, 4, []],
+  ],
+  null,
+  2,
+);
+
 const defaultProgressValues: NonNullable<AdminArticleFormValues["progress"]> = {
   key: "fireworks-server-2026",
   title: "Cùng nhau đốt pháo, nhận quà toàn server",
@@ -79,12 +84,7 @@ const defaultProgressValues: NonNullable<AdminArticleFormValues["progress"]> = {
   statusLabel: "Đang diễn ra",
   eventId: 12,
   scoreIndex: 0,
-  milestones: [
-    { target: 1000, rewardsJson: "" },
-    { target: 3000, rewardsJson: "" },
-    { target: 5000, rewardsJson: "" },
-    { target: 10000, rewardsJson: "" },
-  ],
+  milestonesJson: defaultMilestonesJson,
 };
 
 const defaultArticleFormValues: Partial<AdminArticleFormValues> = {
@@ -93,15 +93,18 @@ const defaultArticleFormValues: Partial<AdminArticleFormValues> = {
   progress: defaultProgressValues,
 };
 
-const rewardsToJson = (
+const rewardsToTuples = (
   rewards: NonNullable<Article["progress"]>["milestones"][number]["rewards"],
-) => {
-  const tuples = rewards
-    .map((reward) => [
-      Number(reward.sourceId),
-      Number(reward.itemId),
-      Number(reward.quantity),
-    ])
+) =>
+  rewards
+    .map(
+      (reward) =>
+        [
+          Number(reward.sourceId),
+          Number(reward.itemId),
+          Number(reward.quantity),
+        ] as [number, number, number],
+    )
     .filter(
       ([itemType, itemId, quantity]) =>
         [itemType, itemId, quantity].every(Number.isInteger) &&
@@ -110,8 +113,19 @@ const rewardsToJson = (
         quantity > 0,
     );
 
-  return tuples.length ? JSON.stringify(tuples) : "";
-};
+const progressMilestonesToJson = (
+  milestones: NonNullable<Article["progress"]>["milestones"],
+) =>
+  JSON.stringify(
+    milestones.map((milestone, index) => [
+      milestone.id ?? index + 1,
+      milestone.target,
+      milestone.sort ?? index + 1,
+      rewardsToTuples(milestone.rewards),
+    ]),
+    null,
+    2,
+  );
 
 const articleToFormValues = (article: Article): AdminArticleFormValues => ({
   title: article.title,
@@ -129,10 +143,7 @@ const articleToFormValues = (article: Article): AdminArticleFormValues => ({
         statusLabel: article.progress.statusLabel ?? undefined,
         eventId: article.progress.eventId,
         scoreIndex: article.progress.scoreIndex,
-        milestones: article.progress.milestones.map((milestone) => ({
-          target: milestone.target,
-          rewardsJson: rewardsToJson(milestone.rewards),
-        })),
+        milestonesJson: progressMilestonesToJson(article.progress.milestones),
       }
     : defaultProgressValues,
 });
@@ -268,61 +279,97 @@ function AdminArticlesPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const parseRewardJson = (
-    value: string | undefined,
-    milestoneIndex: number,
-  ) => {
+  const parseMilestonesJson = (value: string | undefined) => {
     const text = value?.trim();
-    if (!text) return [] as [number, number, number][];
+    if (!text) throw new Error("Vui lòng nhập Milestones JSON.");
 
     let parsed: unknown;
     try {
       parsed = JSON.parse(text) as unknown;
     } catch {
-      throw new Error(
-        "Quà mốc " + (milestoneIndex + 1) + " không phải JSON hợp lệ.",
-      );
+      throw new Error("Milestones JSON không hợp lệ.");
     }
 
-    if (!Array.isArray(parsed)) {
-      throw new Error(
-        "Quà mốc " + (milestoneIndex + 1) + " phải là mảng JSON.",
-      );
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      throw new Error("Milestones JSON phải là mảng và có ít nhất 1 mốc.");
     }
 
-    return parsed.map((reward, rewardIndex) => {
-      if (!Array.isArray(reward) || reward.length < 3) {
+    return parsed.map((milestone, milestoneIndex) => {
+      if (!Array.isArray(milestone) || milestone.length < 4) {
         throw new Error(
-          "Quà mốc " +
+          "Mốc " +
             (milestoneIndex + 1) +
-            ", item " +
-            (rewardIndex + 1) +
-            " sai định dạng.",
+            " sai định dạng [id, target, sort, rewards].",
         );
       }
 
-      const itemType = Number(reward[0]);
-      const itemId = Number(reward[1]);
-      const count = Number(reward[2]);
+      const tierId = Number(milestone[0]);
+      const target = Number(milestone[1]);
+      const sort = Number(milestone[2]);
+      const rewards = milestone[3];
 
       if (
-        !Number.isInteger(itemType) ||
-        !Number.isInteger(itemId) ||
-        !Number.isInteger(count) ||
-        itemType <= 0 ||
-        itemId < 0 ||
-        count <= 0
+        !Number.isInteger(tierId) ||
+        !Number.isInteger(target) ||
+        !Number.isInteger(sort) ||
+        tierId <= 0 ||
+        target <= 0 ||
+        sort <= 0
       ) {
         throw new Error(
-          "Quà mốc " +
+          "Mốc " +
             (milestoneIndex + 1) +
-            ", item " +
-            (rewardIndex + 1) +
-            " không hợp lệ.",
+            " có id, target hoặc sort không hợp lệ.",
         );
       }
 
-      return [itemType, itemId, count] as [number, number, number];
+      if (!Array.isArray(rewards)) {
+        throw new Error(
+          "Rewards của mốc " + (milestoneIndex + 1) + " phải là mảng.",
+        );
+      }
+
+      const rewardTuples = rewards.map((reward, rewardIndex) => {
+        if (!Array.isArray(reward) || reward.length < 3) {
+          throw new Error(
+            "Mốc " +
+              (milestoneIndex + 1) +
+              ", item " +
+              (rewardIndex + 1) +
+              " sai định dạng [item_type, id, count].",
+          );
+        }
+
+        const itemType = Number(reward[0]);
+        const itemId = Number(reward[1]);
+        const count = Number(reward[2]);
+
+        if (
+          !Number.isInteger(itemType) ||
+          !Number.isInteger(itemId) ||
+          !Number.isInteger(count) ||
+          itemType <= 0 ||
+          itemId < 0 ||
+          count <= 0
+        ) {
+          throw new Error(
+            "Mốc " +
+              (milestoneIndex + 1) +
+              ", item " +
+              (rewardIndex + 1) +
+              " không hợp lệ.",
+          );
+        }
+
+        return [itemType, itemId, count] as [number, number, number];
+      });
+
+      return [tierId, target, sort, rewardTuples] as [
+        number,
+        number,
+        number,
+        [number, number, number][],
+      ];
     });
   };
 
@@ -380,10 +427,7 @@ function AdminArticlesPage() {
           statusLabel: values.progress.statusLabel?.trim() || undefined,
           eventId: Number(values.progress.eventId),
           scoreIndex: Number(values.progress.scoreIndex),
-          milestones: values.progress.milestones.map((milestone, index) => ({
-            target: Number(milestone.target),
-            rewards: parseRewardJson(milestone.rewardsJson, index),
-          })),
+          milestones: parseMilestonesJson(values.progress.milestonesJson),
         };
       } catch (error) {
         toast.error(
@@ -600,86 +644,25 @@ function AdminArticlesPage() {
                   <div className="sm:col-span-2">
                     <div className="mb-2 rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs leading-5 text-slate-500">
                       Số hiện tại và người tham gia sẽ tự tính từ bảng players,
-                      cột event. Reward JSON mỗi mốc nhập theo tuple như
-                      [[4,641,1],[7,12,2]].
+                      cột event. Milestones JSON dùng format đồng bộ:
+                      [id, target, sort, [[item_type, id, count]]].
                     </div>
-                    <Form.List
-                      name={["progress", "milestones"]}
+                    <Form.Item
+                      name={["progress", "milestonesJson"]}
+                      label="Milestones JSON"
                       rules={[
                         {
-                          validator: async (
-                            _,
-                            value?: AdminProgressMilestoneForm[],
-                          ) => {
-                            if (!value?.length) {
-                              throw new Error("Vui lòng thêm ít nhất 1 mốc.");
-                            }
-                          },
+                          required: true,
+                          message: "Vui lòng nhập Milestones JSON.",
                         },
                       ]}
                     >
-                      {(fields, { add, remove }, { errors }) => (
-                        <div className="space-y-3">
-                          {fields.map((field, index) => (
-                            <div
-                              key={field.key}
-                              className="grid gap-2 sm:grid-cols-[160px_minmax(0,1fr)_40px]"
-                            >
-                              <Form.Item
-                                {...field}
-                                name={[field.name, "target"]}
-                                label={index === 0 ? "Mốc target" : undefined}
-                                className="mb-0"
-                                rules={[
-                                  {
-                                    required: true,
-                                    message: "Vui lòng nhập mốc.",
-                                  },
-                                ]}
-                              >
-                                <InputNumber
-                                  min={1}
-                                  precision={0}
-                                  className="w-full"
-                                  placeholder="1000"
-                                />
-                              </Form.Item>
-                              <Form.Item
-                                {...field}
-                                name={[field.name, "rewardsJson"]}
-                                label={index === 0 ? "Quà JSON" : undefined}
-                                className="mb-0"
-                              >
-                                <Input.TextArea
-                                  rows={3}
-                                  placeholder="[[4,641,1],[4,642,1]]"
-                                />
-                              </Form.Item>
-                              <Button
-                                type="text"
-                                danger
-                                icon={<Trash2 size={14} />}
-                                disabled={fields.length <= 1}
-                                className={index === 0 ? "mt-7" : undefined}
-                                aria-label={"Xóa mốc " + (index + 1)}
-                                onClick={() => remove(field.name)}
-                              />
-                            </div>
-                          ))}
-                          <Button
-                            type="dashed"
-                            block
-                            icon={<Plus size={14} />}
-                            onClick={() =>
-                              add({ target: 1000, rewardsJson: "" })
-                            }
-                          >
-                            Thêm mốc
-                          </Button>
-                          <Form.ErrorList errors={errors} />
-                        </div>
-                      )}
-                    </Form.List>
+                      <Input.TextArea
+                        rows={10}
+                        placeholder='[[1,1000,1,[[4,641,1],[7,12,2]]]]'
+                        spellCheck={false}
+                      />
+                    </Form.Item>
                   </div>
                 </div>
               )}

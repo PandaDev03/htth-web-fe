@@ -24,6 +24,10 @@ const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
   minute: "2-digit",
 });
 
+function normalizeTextAreaBreaks(value: string) {
+  return value.replace(/\\r\\n|\\n|\\r/g, "\n");
+}
+
 function ArticlePage() {
   const { id } = useParams<{ id: string }>();
   const articleQuery = useQuery({
@@ -104,18 +108,18 @@ function ArticlePage() {
                     {dateFormatter.format(new Date(article.createdAt))}
                   </time>
                 </div>
-                <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-5xl">
+                <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-5xl !leading-[1.1]">
                   {article.title}
                 </h1>
                 {article.description && (
-                  <p className="mt-5 max-w-3xl text-base leading-7 text-slate-500 sm:text-lg">
-                    {article.description}
+                  <p className="mt-5 max-w-3xl whitespace-pre-line text-base leading-7 text-slate-500 sm:text-lg">
+                    {normalizeTextAreaBreaks(article.description)}
                   </p>
                 )}
               </header>
 
               {article.thumbnailUrl && (
-                <div className="overflow-hidden rounded-2xl bg-slate-100 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
+                <div className="mx-auto mb-8 max-w-4xl overflow-hidden rounded-2xl bg-slate-100 shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
                   <img
                     src={article.thumbnailUrl}
                     alt={article.title}
