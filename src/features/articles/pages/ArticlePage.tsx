@@ -10,7 +10,7 @@ import { useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { getArticle } from "@/features/articles/api/articleApi";
-import { FireworksEventPanel } from "@/features/articles/components/FireworksEventPanel";
+import { ArticleProgressPanel } from "@/features/articles/components/ArticleProgressPanel";
 import { Footer } from "@/shared/components/site/Footer";
 import { Header } from "@/shared/components/site/Header";
 import { PATH } from "@/shared/config/path";
@@ -37,8 +37,6 @@ function ArticlePage() {
   }, [id]);
 
   const article = articleQuery.data;
-  const fireworksProgress =
-    article?.eventKey === "fireworks" ? article.eventProgress : null;
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-white">
@@ -124,8 +122,8 @@ function ArticlePage() {
                 </div>
               )}
 
-              {fireworksProgress && (
-                <FireworksEventPanel progress={fireworksProgress} />
+              {article.progress && (
+                <ArticleProgressPanel progress={article.progress} />
               )}
 
               <div

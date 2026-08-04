@@ -2,11 +2,16 @@
 
 import { httpClient } from "@/shared/api/httpClient";
 
-export type ArticleEventProgress = {
+export type ArticleProgress = {
+  key: string | null;
+  title: string | null;
+  currentLabel: string | null;
+  unit: string | null;
+  statusLabel: string | null;
   current: number;
   target: number;
-  participants: number;
-  nextMilestone: number;
+  participants: number | null;
+  nextMilestone: number | null;
 };
 
 export type Article = {
@@ -18,8 +23,7 @@ export type Article = {
   content: string;
   thumbnailUrl: string;
   published: boolean;
-  eventKey: "fireworks" | null;
-  eventProgress: ArticleEventProgress | null;
+  progress: ArticleProgress | null;
   authorId: number | null;
   createdAt: string;
   updatedAt: string;
@@ -31,8 +35,15 @@ export type CreateArticlePayload = {
   category: string;
   content: string;
   thumbnailUrl: string;
-  eventKey?: "fireworks";
-  eventProgress?: ArticleEventProgress;
+  progress?: Omit<ArticleProgress, "key" | "title" | "currentLabel" | "unit" | "statusLabel" | "participants" | "nextMilestone"> & {
+    key?: string;
+    title?: string;
+    currentLabel?: string;
+    unit?: string;
+    statusLabel?: string;
+    participants?: number;
+    nextMilestone?: number;
+  };
 };
 
 type ApiEnvelope<T> = { message?: string; data: T };

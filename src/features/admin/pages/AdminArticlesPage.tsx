@@ -39,7 +39,12 @@ import { getArticleSummary } from "@/features/articles/utils/articlePresentation
 import { getArticlePath } from "@/shared/config/path";
 
 type AdminArticleFormValues = CreateArticlePayload & {
-  fireworksEnabled?: boolean;
+  progressEnabled?: boolean;
+};
+
+type TinyEditorRef = {
+  getContent: () => string;
+  setContent: (content: string) => void;
 };
 
 const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
@@ -52,11 +57,9 @@ const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
 
 function AdminArticlesPage() {
   const [form] = Form.useForm<AdminArticleFormValues>();
-  const fireworksEnabled = Form.useWatch("fireworksEnabled", form);
+  const progressEnabled = Form.useWatch("progressEnabled", form);
   const queryClient = useQueryClient();
-  const editorRef = useRef<{ setContent: (content: string) => void } | null>(
-    null,
-  );
+  const editorRef = useRef<TinyEditorRef | null>(null);
   const localPreviewRef = useRef<string | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
 
@@ -126,6 +129,11 @@ function AdminArticlesPage() {
     [],
   );
 
+  const syncEditorContent = () => {
+    const content = editorRef.current?.getContent() ?? "";
+    form.setFieldValue("content", content);
+  };
+
   const beforeUpload: UploadProps["beforeUpload"] = (file) => {
     if (
       !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(
@@ -170,13 +178,17 @@ function AdminArticlesPage() {
       thumbnailUrl: values.thumbnailUrl,
     };
 
-    if (values.fireworksEnabled && values.eventProgress) {
-      payload.eventKey = "fireworks";
-      payload.eventProgress = {
-        current: values.eventProgress.current,
-        target: values.eventProgress.target,
-        participants: values.eventProgress.participants,
-        nextMilestone: values.eventProgress.nextMilestone,
+    if (values.progressEnabled && values.progress) {
+      payload.progress = {
+        key: values.progress.key?.trim() || undefined,
+        title: values.progress.title?.trim() || undefined,
+        currentLabel: values.progress.currentLabel?.trim() || undefined,
+        unit: values.progress.unit?.trim() || undefined,
+        statusLabel: values.progress.statusLabel?.trim() || undefined,
+        current: values.progress.current,
+        target: values.progress.target,
+        participants: values.progress.participants ?? undefined,
+        nextMilestone: values.progress.nextMilestone ?? undefined,
       };
     }
 
@@ -207,8 +219,13 @@ function AdminArticlesPage() {
             requiredMark={false}
             initialValues={{
               category: "Cập nhật",
-              fireworksEnabled: false,
-              eventProgress: {
+              progressEnabled: false,
+              progress: {
+                key: "",
+                title: "",
+                currentLabel: "Đã hoàn thành",
+                unit: "lượt",
+                statusLabel: "Đang diễn ra",
                 current: 0,
                 target: 100000,
                 participants: 0,
@@ -216,6 +233,10 @@ function AdminArticlesPage() {
               },
             }}
             onFinish={submitArticle}
+            onFinishFailed={() => {
+              syncEditorContent();
+              toast.error("Vui lòng kiểm tra thumbnail, tiêu đề và nội dung.");
+            }}
           >
             <Form.Item
               name="thumbnailUrl"
@@ -233,7 +254,7 @@ function AdminArticlesPage() {
                 beforeUpload={beforeUpload}
                 customRequest={customUpload}
                 disabled={uploadMutation.isPending}
-                className="block"
+                className="block w-full [&>div]:w-full"
               >
                 <div className="group relative flex aspect-[16/9] w-full cursor-pointer overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50 transition hover:border-amber-400 hover:bg-amber-50/50">
                   {thumbnailPreview ? (
@@ -317,31 +338,55 @@ function AdminArticlesPage() {
                   </span>
                   <div>
                     <p className="text-sm font-bold text-slate-900">
-                      Thanh tiến trình Pháo hoa
+                      Thanh tiến trình sự kiện
                     </p>
                     <p className="mt-1 text-xs leading-5 text-slate-500">
-                      Bật khi bài viết là sự kiện Đốt Pháo toàn server.
+                      Bật khi bài viết cần hiển thị mốc tiến độ riêng.
                     </p>
                   </div>
                 </div>
-                <Form.Item name="fireworksEnabled" valuePropName="checked" noStyle>
+                <Form.Item name="progressEnabled" valuePropName="checked" noStyle>
                   <Switch />
                 </Form.Item>
               </div>
 
-              {fireworksEnabled && (
+              {progressEnabled && (
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <Form.Item name={["progress", "key"]} label="Mã tiến trình">
+                    <Input placeholder="mid-autumn-2026" maxLength={80} />
+                  </Form.Item>
+                  <Form.Item name={["progress", "title"]} label="Tiêu đề panel">
+                    <Input
+                      placeholder="Cùng nhau hoàn thành mục tiêu"
+                      maxLength={255}
+                    />
+                  </Form.Item>
                   <Form.Item
-                    name={["eventProgress", "current"]}
-                    label="Pháo đã đốt"
+                    name={["progress", "currentLabel"]}
+                    label="Nhãn chỉ số"
+                  >
+                    <Input placeholder="Đã hoàn thành" maxLength={120} />
+                  </Form.Item>
+                  <Form.Item name={["progress", "unit"]} label="Đơn vị">
+                    <Input placeholder="lượt" maxLength={40} />
+                  </Form.Item>
+                  <Form.Item
+                    name={["progress", "statusLabel"]}
+                    label="Trạng thái"
+                  >
+                    <Input placeholder="Đang diễn ra" maxLength={80} />
+                  </Form.Item>
+                  <Form.Item
+                    name={["progress", "current"]}
+                    label="Giá trị hiện tại"
                     rules={[
-                      { required: true, message: "Vui lòng nhập số pháo." },
+                      { required: true, message: "Vui lòng nhập giá trị." },
                     ]}
                   >
                     <InputNumber min={0} precision={0} className="w-full" />
                   </Form.Item>
                   <Form.Item
-                    name={["eventProgress", "target"]}
+                    name={["progress", "target"]}
                     label="Mốc tổng"
                     rules={[
                       { required: true, message: "Vui lòng nhập mốc tổng." },
@@ -350,23 +395,14 @@ function AdminArticlesPage() {
                     <InputNumber min={1} precision={0} className="w-full" />
                   </Form.Item>
                   <Form.Item
-                    name={["eventProgress", "participants"]}
+                    name={["progress", "participants"]}
                     label="Người tham gia"
-                    rules={[
-                      {
-                        required: true,
-                        message: "Vui lòng nhập số người tham gia.",
-                      },
-                    ]}
                   >
                     <InputNumber min={0} precision={0} className="w-full" />
                   </Form.Item>
                   <Form.Item
-                    name={["eventProgress", "nextMilestone"]}
+                    name={["progress", "nextMilestone"]}
                     label="Mốc kế tiếp"
-                    rules={[
-                      { required: true, message: "Vui lòng nhập mốc kế tiếp." },
-                    ]}
                   >
                     <InputNumber min={0} precision={0} className="w-full" />
                   </Form.Item>
@@ -412,6 +448,7 @@ function AdminArticlesPage() {
               loading={createMutation.isPending}
               disabled={uploadMutation.isPending}
               className="w-full"
+              onClick={syncEditorContent}
             >
               Đăng bài viết
             </Button>
@@ -485,9 +522,9 @@ function AdminArticlesPage() {
                     <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-500">
                       {getArticleSummary(article)}
                     </p>
-                    {article.eventKey === "fireworks" && (
+                    {article.progress && (
                       <span className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700">
-                        <Sparkles size={12} /> Có progress Pháo hoa
+                        <Sparkles size={12} /> Có progress
                       </span>
                     )}
                     <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
