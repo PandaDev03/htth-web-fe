@@ -1,28 +1,26 @@
 import axios from "axios";
 
 import { httpClient } from "@/shared/api/httpClient";
+import type { RewardIconItem } from "@/shared/types/reward";
 
-export type CoinMilestoneReward = {
-  item_type: 4 | 7 | 105;
-  item_id: number;
+export type CoinMilestoneReward = RewardIconItem & {
   quantity: number;
   name: string;
-  icon_url: string | null;
 };
 
 export type CoinMilestone = {
   season: {
     id: number;
     name: string;
-    start_at: string;
-    end_at: string;
+    startAt: string;
+    endAt: string;
   };
-  total_exchanged: number;
-  claimed_tier_ids: number[];
-  next_milestone: number | null;
-  progress_percent: number;
+  totalExchanged: number;
+  claimedTierIds: number[];
+  nextMilestone: number | null;
+  progressPercent: number;
   tiers: Array<{
-    tier_id: number;
+    tierId: number;
     milestone: number;
     sort: number;
     claimed: boolean;
@@ -33,30 +31,30 @@ export type CoinMilestone = {
 
 export type CoinSummary = {
   wallet: {
-    web_coin: number;
-    reserved_coin: number;
-    available_coin: number;
+    webCoin: number;
+    reservedCoin: number;
+    availableCoin: number;
   };
   player: {
     id: number;
     name: string;
-    game_coin: number;
+    gameCoin: number;
   };
   config: {
     multiplier: number;
-    auto_approve: boolean;
-    min_amount: number;
-    max_amount: number;
+    autoApprove: boolean;
+    minAmount: number;
+    maxAmount: number;
   };
   milestone: CoinMilestone | null;
   history: Array<{
     id: number;
-    web_coin: number;
-    game_coin: number;
+    webCoin: number;
+    gameCoin: number;
     multiplier: number;
     status: string;
-    created_at: string;
-    processed_at: string | null;
+    createdAt: string;
+    processedAt: string | null;
   }>;
 };
 
@@ -85,12 +83,12 @@ export async function createCoinConversion(amount: number) {
   try {
     const response = await httpClient.post<ApiEnvelope<{
       id: number;
-      web_coin: number;
-      game_coin: number;
+      webCoin: number;
+      gameCoin: number;
       multiplier: number;
       status: string;
-      available_coin: number;
-      player_name: string;
+      availableCoin: number;
+      playerName: string;
     }>>("/coin-conversion/requests", { amount });
     return response.data;
   } catch (error) {
@@ -102,8 +100,8 @@ export async function claimCoinMilestone(tierId: number) {
   try {
     const response = await httpClient.post<
       ApiEnvelope<{
-        tier_id: number;
-        pending_gift_id: number;
+        tierId: number;
+        pendingGiftId: number;
         status: string;
       }>
     >(`/coin-conversion/milestones/${tierId}/claim`);
