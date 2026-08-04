@@ -83,7 +83,7 @@ export function Footer() {
               href="https://zalo.me/g/cclw6mvkgskdtmkfj9ik"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-600"
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-600 hover:text-white"
             >
               <Image
                 height={16}

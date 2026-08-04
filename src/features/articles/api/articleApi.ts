@@ -118,6 +118,21 @@ export async function createAdminArticle(payload: CreateArticlePayload) {
   }
 }
 
+export async function updateAdminArticle(
+  id: number,
+  payload: CreateArticlePayload,
+) {
+  try {
+    const { data } = await httpClient.patch<ApiEnvelope<Article>>(
+      `/admin/articles/${id}`,
+      payload,
+    );
+    return data;
+  } catch (error) {
+    throw new Error(errorMessage(error, "Không thể cập nhật bài viết."));
+  }
+}
+
 export async function uploadArticleThumbnail(file: File) {
   const formData = new FormData();
   formData.append("thumbnail", file);

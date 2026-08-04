@@ -49,7 +49,7 @@ const AdminNoticeBoard = () => {
           </div>
           <Link
             to={PATH.ARTICLES}
-            className="group inline-flex items-center gap-2 self-start rounded-lg border border-amber-200 bg-white px-4 py-2.5 text-xs font-bold text-amber-700 transition hover:border-amber-300 hover:bg-amber-50 active:translate-y-px sm:self-auto"
+            className="group inline-flex items-center gap-2 self-start rounded-lg border border-amber-200 bg-white px-4 py-2.5 text-xs font-bold text-amber-700 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700 active:translate-y-px sm:self-auto"
           >
             Xem tất cả bài viết
             <ArrowRight

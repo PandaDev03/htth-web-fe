@@ -38,6 +38,8 @@ function ArticlePage() {
 
   const article = articleQuery.data;
 
+  console.log(article);
+
   return (
     <div className="flex min-h-[100dvh] flex-col bg-white">
       <Header />

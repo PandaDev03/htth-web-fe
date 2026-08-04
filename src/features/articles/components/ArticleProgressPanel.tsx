@@ -2,8 +2,8 @@ import {
   BarChart3,
   CheckCircle2,
   Flag,
+  PartyPopper,
   Target,
-  TrendingUp,
   UsersRound,
 } from "lucide-react";
 
@@ -41,7 +41,7 @@ export function ArticleProgressPanel({ progress }: ArticleProgressPanelProps) {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-sm">
-              <TrendingUp size={22} />
+              <PartyPopper size={22} />
             </div>
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-700">
@@ -95,8 +95,8 @@ export function ArticleProgressPanel({ progress }: ArticleProgressPanelProps) {
         {nextMilestoneRemaining !== null && progress.nextMilestone !== null && (
           <p className="mt-3 flex items-center gap-2 text-sm text-slate-500">
             <Target size={15} className="shrink-0 text-amber-600" />
-            Còn {numberFormatter.format(nextMilestoneRemaining)} {unit} để
-            chạm mốc {numberFormatter.format(progress.nextMilestone)}.
+            Còn {numberFormatter.format(nextMilestoneRemaining)} {unit} để chạm
+            mốc {numberFormatter.format(progress.nextMilestone)}
           </p>
         )}
 
