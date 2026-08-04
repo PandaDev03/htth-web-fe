@@ -4,33 +4,6 @@ import { Link } from "react-router-dom";
 import { useAppSelector } from "@/app/store/hooks";
 import { PATH } from "@/shared/config/path";
 
-// const stats = [
-//   {
-//     icon: <Users size={20} />,
-//     value: "48,291",
-//     label: "Tài Khoản",
-//     color: "text-teal-600",
-//   },
-//   {
-//     icon: <Ship size={20} />,
-//     value: "1,247",
-//     label: "Online Ngay",
-//     color: "text-amber-600",
-//   },
-//   {
-//     icon: <Sword size={20} />,
-//     value: "312",
-//     label: "Guild Hoạt Động",
-//     color: "text-red-500",
-//   },
-//   {
-//     icon: <Download size={20} />,
-//     value: "1.4.2",
-//     label: "Phiên Bản",
-//     color: "text-gray-500",
-//   },
-// ];
-
 const OceanWelcomeHero = () => {
   const isAuthenticated = useAppSelector((state) =>
     Boolean(state.auth.accessToken),

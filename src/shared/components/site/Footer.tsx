@@ -1,5 +1,12 @@
 import { Image } from "antd";
-import { CircleDollarSign, Download, Home, Trophy, User } from "lucide-react";
+import {
+  CircleDollarSign,
+  Download,
+  Home,
+  Newspaper,
+  Trophy,
+  User,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { env } from "@/shared/config/env";
@@ -11,6 +18,11 @@ import { PirateBrandMark } from "@/shared/components/site/BrandMark";
 export function Footer() {
   const links = [
     { label: "Trang Chủ", href: PATH.HOME, icon: <Home size={13} /> },
+    {
+      label: "Bài viết",
+      href: PATH.ARTICLES,
+      icon: <Newspaper size={13} />,
+    },
     {
       label: "Tải Game",
       href: PATH.DOWNLOAD,
@@ -71,7 +83,7 @@ export function Footer() {
               href="https://zalo.me/g/cclw6mvkgskdtmkfj9ik"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-600"
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-600 hover:text-white"
             >
               <Image
                 height={16}
