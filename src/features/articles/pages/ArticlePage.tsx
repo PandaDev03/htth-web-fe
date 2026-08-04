@@ -1,4 +1,4 @@
-﻿import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
   ArrowLeft,
@@ -9,7 +9,11 @@ import {
 import { useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { getArticle } from "@/features/articles/api/articleApi";
+import { useAppSelector } from "@/app/store/hooks";
+import {
+  getArticle,
+  getArticleProgressClaims,
+} from "@/features/articles/api/articleApi";
 import { ArticleProgressPanel } from "@/features/articles/components/ArticleProgressPanel";
 import { Footer } from "@/shared/components/site/Footer";
 import { Header } from "@/shared/components/site/Header";
@@ -30,6 +34,7 @@ function normalizeTextAreaBreaks(value: string) {
 
 function ArticlePage() {
   const { id } = useParams<{ id: string }>();
+  const accessToken = useAppSelector((state) => state.auth.accessToken);
   const articleQuery = useQuery({
     queryKey: ["article", id],
     queryFn: () => getArticle(id ?? ""),
@@ -41,8 +46,12 @@ function ArticlePage() {
   }, [id]);
 
   const article = articleQuery.data;
-
-  console.log(article);
+  const claimStatusQuery = useQuery({
+    queryKey: ["article-progress-claims", id],
+    queryFn: () => getArticleProgressClaims(id ?? ""),
+    enabled: Boolean(id && article?.progress && accessToken),
+    retry: false,
+  });
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-white">
@@ -129,7 +138,20 @@ function ArticlePage() {
               )}
 
               {article.progress && (
-                <ArticleProgressPanel progress={article.progress} />
+                <ArticleProgressPanel
+                  articleIdentifier={id ?? article.slug ?? article.id}
+                  progress={article.progress}
+                  claimStatus={claimStatusQuery.data ?? null}
+                  claimStatusError={
+                    claimStatusQuery.error instanceof Error
+                      ? claimStatusQuery.error.message
+                      : null
+                  }
+                  isAuthenticated={Boolean(accessToken)}
+                  onClaimed={async () => {
+                    await claimStatusQuery.refetch();
+                  }}
+                />
               )}
 
               <div
