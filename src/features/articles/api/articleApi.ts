@@ -1,6 +1,11 @@
 ﻿import axios from "axios";
 
 import { httpClient } from "@/shared/api/httpClient";
+import type { RewardIconItem } from "@/shared/types/reward";
+
+export type ArticleProgressRewardItem = RewardIconItem & {
+  quantity: number;
+};
 
 export type ArticleProgress = {
   key: string | null;
@@ -8,10 +13,17 @@ export type ArticleProgress = {
   currentLabel: string | null;
   unit: string | null;
   statusLabel: string | null;
+  eventId: number;
+  scoreIndex: number;
   current: number;
   target: number;
-  participants: number | null;
+  participants: number;
   nextMilestone: number | null;
+  milestones: {
+    target: number;
+    reached: boolean;
+    rewards: ArticleProgressRewardItem[];
+  }[];
 };
 
 export type Article = {
@@ -35,14 +47,18 @@ export type CreateArticlePayload = {
   category: string;
   content: string;
   thumbnailUrl: string;
-  progress?: Omit<ArticleProgress, "key" | "title" | "currentLabel" | "unit" | "statusLabel" | "participants" | "nextMilestone"> & {
+  progress?: {
     key?: string;
     title?: string;
     currentLabel?: string;
     unit?: string;
     statusLabel?: string;
-    participants?: number;
-    nextMilestone?: number;
+    eventId: number;
+    scoreIndex: number;
+    milestones: {
+      target: number;
+      rewards?: [number, number, number][];
+    }[];
   };
 };
 

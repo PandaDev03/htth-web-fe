@@ -20,6 +20,7 @@ import {
   FileText,
   ImagePlus,
   Loader2,
+  Plus,
   Send,
   Sparkles,
   Trash2,
@@ -38,8 +39,16 @@ import {
 import { getArticleSummary } from "@/features/articles/utils/articlePresentation";
 import { getArticlePath } from "@/shared/config/path";
 
-type AdminArticleFormValues = CreateArticlePayload & {
+type AdminProgressMilestoneForm = {
+  target?: number;
+  rewardsJson?: string;
+};
+
+type AdminArticleFormValues = Omit<CreateArticlePayload, "progress"> & {
   progressEnabled?: boolean;
+  progress?: Omit<NonNullable<CreateArticlePayload["progress"]>, "milestones"> & {
+    milestones: AdminProgressMilestoneForm[];
+  };
 };
 
 type TinyEditorRef = {
@@ -134,6 +143,65 @@ function AdminArticlesPage() {
     form.setFieldValue("content", content);
   };
 
+  const parseRewardJson = (value: string | undefined, milestoneIndex: number) => {
+    const text = value?.trim();
+    if (!text) return [] as [number, number, number][];
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text) as unknown;
+    } catch {
+      throw new Error(
+        "Quà mốc " +
+          (milestoneIndex + 1) +
+          " không phải JSON hợp lệ.",
+      );
+    }
+
+    if (!Array.isArray(parsed)) {
+      throw new Error(
+        "Quà mốc " +
+          (milestoneIndex + 1) +
+          " phải là mảng JSON.",
+      );
+    }
+
+    return parsed.map((reward, rewardIndex) => {
+      if (!Array.isArray(reward) || reward.length < 3) {
+        throw new Error(
+          "Quà mốc " +
+            (milestoneIndex + 1) +
+            ", item " +
+            (rewardIndex + 1) +
+            " sai định dạng.",
+        );
+      }
+
+      const itemType = Number(reward[0]);
+      const itemId = Number(reward[1]);
+      const count = Number(reward[2]);
+
+      if (
+        !Number.isInteger(itemType) ||
+        !Number.isInteger(itemId) ||
+        !Number.isInteger(count) ||
+        itemType <= 0 ||
+        itemId < 0 ||
+        count <= 0
+      ) {
+        throw new Error(
+          "Quà mốc " +
+            (milestoneIndex + 1) +
+            ", item " +
+            (rewardIndex + 1) +
+            " không hợp lệ.",
+        );
+      }
+
+      return [itemType, itemId, count] as [number, number, number];
+    });
+  };
+
   const beforeUpload: UploadProps["beforeUpload"] = (file) => {
     if (
       !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(
@@ -179,19 +247,27 @@ function AdminArticlesPage() {
     };
 
     if (values.progressEnabled && values.progress) {
-      payload.progress = {
-        key: values.progress.key?.trim() || undefined,
-        title: values.progress.title?.trim() || undefined,
-        currentLabel: values.progress.currentLabel?.trim() || undefined,
-        unit: values.progress.unit?.trim() || undefined,
-        statusLabel: values.progress.statusLabel?.trim() || undefined,
-        current: values.progress.current,
-        target: values.progress.target,
-        participants: values.progress.participants ?? undefined,
-        nextMilestone: values.progress.nextMilestone ?? undefined,
-      };
+      try {
+        payload.progress = {
+          key: values.progress.key?.trim() || undefined,
+          title: values.progress.title?.trim() || undefined,
+          currentLabel: values.progress.currentLabel?.trim() || undefined,
+          unit: values.progress.unit?.trim() || undefined,
+          statusLabel: values.progress.statusLabel?.trim() || undefined,
+          eventId: Number(values.progress.eventId),
+          scoreIndex: Number(values.progress.scoreIndex),
+          milestones: values.progress.milestones.map((milestone, index) => ({
+            target: Number(milestone.target),
+            rewards: parseRewardJson(milestone.rewardsJson, index),
+          })),
+        };
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Cấu hình quà mốc không hợp lệ.",
+        );
+        return;
+      }
     }
-
     createMutation.mutate(payload);
   };
 
@@ -221,15 +297,19 @@ function AdminArticlesPage() {
               category: "Cập nhật",
               progressEnabled: false,
               progress: {
-                key: "",
-                title: "",
-                currentLabel: "Đã hoàn thành",
-                unit: "lượt",
+                key: "fireworks-server-2026",
+                title: "Cùng nhau đốt pháo, nhận quà toàn server",
+                currentLabel: "Pháo đã đốt toàn server",
+                unit: "pháo",
                 statusLabel: "Đang diễn ra",
-                current: 0,
-                target: 100000,
-                participants: 0,
-                nextMilestone: 75000,
+                eventId: 12,
+                scoreIndex: 0,
+                milestones: [
+                  { target: 1000, rewardsJson: "" },
+                  { target: 3000, rewardsJson: "" },
+                  { target: 5000, rewardsJson: "" },
+                  { target: 10000, rewardsJson: "" },
+                ],
               },
             }}
             onFinish={submitArticle}
@@ -349,7 +429,6 @@ function AdminArticlesPage() {
                   <Switch />
                 </Form.Item>
               </div>
-
               {progressEnabled && (
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <Form.Item name={["progress", "key"]} label="Mã tiến trình">
@@ -377,35 +456,104 @@ function AdminArticlesPage() {
                     <Input placeholder="Đang diễn ra" maxLength={80} />
                   </Form.Item>
                   <Form.Item
-                    name={["progress", "current"]}
-                    label="Giá trị hiện tại"
+                    name={["progress", "eventId"]}
+                    label="Mã event trong players.event"
                     rules={[
-                      { required: true, message: "Vui lòng nhập giá trị." },
-                    ]}
-                  >
-                    <InputNumber min={0} precision={0} className="w-full" />
-                  </Form.Item>
-                  <Form.Item
-                    name={["progress", "target"]}
-                    label="Mốc tổng"
-                    rules={[
-                      { required: true, message: "Vui lòng nhập mốc tổng." },
+                      { required: true, message: "Vui lòng nhập mã event." },
                     ]}
                   >
                     <InputNumber min={1} precision={0} className="w-full" />
                   </Form.Item>
                   <Form.Item
-                    name={["progress", "participants"]}
-                    label="Người tham gia"
+                    name={["progress", "scoreIndex"]}
+                    label="Vị trí điểm trong event"
+                    tooltip="Ví dụ event 12: index 0 là điểm Đốt Pháo, index 1 là điểm Săn boss."
+                    rules={[
+                      { required: true, message: "Vui lòng nhập vị trí điểm." },
+                    ]}
                   >
                     <InputNumber min={0} precision={0} className="w-full" />
                   </Form.Item>
-                  <Form.Item
-                    name={["progress", "nextMilestone"]}
-                    label="Mốc kế tiếp"
-                  >
-                    <InputNumber min={0} precision={0} className="w-full" />
-                  </Form.Item>
+
+                  <div className="sm:col-span-2">
+                    <div className="mb-2 rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs leading-5 text-slate-500">
+                      Số hiện tại và người tham gia sẽ tự tính từ bảng players,
+                      cột event. Reward JSON mỗi mốc nhập theo tuple như
+                      [[4,641,1],[7,12,2]].
+                    </div>
+                    <Form.List
+                      name={["progress", "milestones"]}
+                      rules={[
+                        {
+                          validator: async (_, value?: AdminProgressMilestoneForm[]) => {
+                            if (!value?.length) {
+                              throw new Error("Vui lòng thêm ít nhất 1 mốc.");
+                            }
+                          },
+                        },
+                      ]}
+                    >
+                      {(fields, { add, remove }, { errors }) => (
+                        <div className="space-y-3">
+                          {fields.map((field, index) => (
+                            <div
+                              key={field.key}
+                              className="grid gap-2 sm:grid-cols-[160px_minmax(0,1fr)_40px]"
+                            >
+                              <Form.Item
+                                {...field}
+                                name={[field.name, "target"]}
+                                label={index === 0 ? "Mốc target" : undefined}
+                                className="mb-0"
+                                rules={[
+                                  {
+                                    required: true,
+                                    message: "Vui lòng nhập mốc.",
+                                  },
+                                ]}
+                              >
+                                <InputNumber
+                                  min={1}
+                                  precision={0}
+                                  className="w-full"
+                                  placeholder="1000"
+                                />
+                              </Form.Item>
+                              <Form.Item
+                                {...field}
+                                name={[field.name, "rewardsJson"]}
+                                label={index === 0 ? "Quà JSON" : undefined}
+                                className="mb-0"
+                              >
+                                <Input.TextArea
+                                  rows={3}
+                                  placeholder="[[4,641,1],[4,642,1]]"
+                                />
+                              </Form.Item>
+                              <Button
+                                type="text"
+                                danger
+                                icon={<Trash2 size={14} />}
+                                disabled={fields.length <= 1}
+                                className={index === 0 ? "mt-7" : undefined}
+                                aria-label={"Xóa mốc " + (index + 1)}
+                                onClick={() => remove(field.name)}
+                              />
+                            </div>
+                          ))}
+                          <Button
+                            type="dashed"
+                            block
+                            icon={<Plus size={14} />}
+                            onClick={() => add({ target: 1000, rewardsJson: "" })}
+                          >
+                            Thêm mốc
+                          </Button>
+                          <Form.ErrorList errors={errors} />
+                        </div>
+                      )}
+                    </Form.List>
+                  </div>
                 </div>
               )}
             </div>
@@ -524,7 +672,7 @@ function AdminArticlesPage() {
                     </p>
                     {article.progress && (
                       <span className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700">
-                        <Sparkles size={12} /> Có progress
+                        <Sparkles size={12} /> Event {article.progress.eventId} / index {article.progress.scoreIndex}
                       </span>
                     )}
                     <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">

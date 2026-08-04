@@ -1,6 +1,14 @@
-﻿import { BarChart3, Target, TrendingUp, UsersRound } from "lucide-react";
+import {
+  BarChart3,
+  CheckCircle2,
+  Flag,
+  Target,
+  TrendingUp,
+  UsersRound,
+} from "lucide-react";
 
 import type { ArticleProgress } from "@/features/articles/api/articleApi";
+import { RewardIcon } from "@/shared/components/RewardIcon";
 
 type ArticleProgressPanelProps = {
   progress: ArticleProgress;
@@ -9,16 +17,20 @@ type ArticleProgressPanelProps = {
 const numberFormatter = new Intl.NumberFormat("vi-VN");
 
 export function ArticleProgressPanel({ progress }: ArticleProgressPanelProps) {
+  const unit = progress.unit?.trim() || "lượt";
   const safeTarget = Math.max(1, progress.target);
+  const safeCurrent = Math.min(progress.current, safeTarget);
   const percentage = Math.min(
     100,
-    Math.max(0, (progress.current / safeTarget) * 100),
+    Math.max(0, (safeCurrent / safeTarget) * 100),
   );
   const remaining = Math.max(0, progress.target - progress.current);
   const nextMilestoneRemaining = progress.nextMilestone
     ? Math.max(0, progress.nextMilestone - progress.current)
     : null;
-  const unit = progress.unit?.trim() || "lượt";
+  const reachedMilestones = progress.milestones.filter(
+    (milestone) => milestone.reached,
+  ).length;
 
   return (
     <section
@@ -72,20 +84,81 @@ export function ArticleProgressPanel({ progress }: ArticleProgressPanelProps) {
           aria-label="Tiến độ sự kiện"
           aria-valuemin={0}
           aria-valuemax={progress.target}
-          aria-valuenow={progress.current}
+          aria-valuenow={safeCurrent}
         >
           <div
             className="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-600 transition-[width] duration-700"
-            style={{ width: `${percentage}%` }}
+            style={{ width: percentage + "%" }}
           />
         </div>
 
         {nextMilestoneRemaining !== null && progress.nextMilestone !== null && (
           <p className="mt-3 flex items-center gap-2 text-sm text-slate-500">
             <Target size={15} className="shrink-0 text-amber-600" />
-            Còn {numberFormatter.format(nextMilestoneRemaining)} {unit} để chạm
-            mốc {numberFormatter.format(progress.nextMilestone)}.
+            Còn {numberFormatter.format(nextMilestoneRemaining)} {unit} để
+            chạm mốc {numberFormatter.format(progress.nextMilestone)}.
           </p>
+        )}
+
+        {progress.milestones.length > 0 && (
+          <div className="mt-6">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                <Flag size={16} className="text-amber-600" /> Mốc tiến trình
+              </p>
+              <p className="text-xs font-semibold text-slate-400">
+                {reachedMilestones}/{progress.milestones.length} mốc đã đạt
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {progress.milestones.map((milestone, index) => (
+                <div
+                  key={milestone.target}
+                  className={[
+                    "rounded-xl border px-3 py-3",
+                    milestone.reached
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border-slate-200 bg-white text-slate-500",
+                  ].join(" ")}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wide">
+                      Mốc {index + 1}
+                    </span>
+                    {milestone.reached && <CheckCircle2 size={15} />}
+                  </div>
+                  <p className="mt-1 text-lg font-extrabold tabular-nums text-slate-900">
+                    {numberFormatter.format(milestone.target)}
+                  </p>
+                  <p className="mt-0.5 text-xs font-semibold">
+                    {milestone.reached ? "Đã đạt" : "Chưa đạt"}
+                  </p>
+
+                  {milestone.rewards.length > 0 && (
+                    <div className="mt-3 grid gap-2">
+                      {milestone.rewards.map((reward) => (
+                        <div
+                          key={reward.source + ":" + String(reward.itemId)}
+                          className="flex items-center gap-2 rounded-lg border border-amber-100 bg-white px-2 py-1.5"
+                          title={reward.description ?? reward.name ?? undefined}
+                        >
+                          <RewardIcon item={reward} className="h-10 w-10" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-semibold text-slate-700">
+                              {reward.name ?? "Vật phẩm"}
+                            </p>
+                            <p className="text-[11px] font-medium text-slate-500">
+                              x{numberFormatter.format(reward.quantity)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
@@ -107,7 +180,7 @@ export function ArticleProgressPanel({ progress }: ArticleProgressPanelProps) {
             <UsersRound size={13} /> Người tham gia
           </p>
           <p className="mt-1 font-extrabold tabular-nums text-slate-800">
-            {numberFormatter.format(progress.participants ?? 0)}
+            {numberFormatter.format(progress.participants)}
           </p>
         </div>
       </div>
