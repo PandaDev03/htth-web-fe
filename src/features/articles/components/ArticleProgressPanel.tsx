@@ -144,7 +144,7 @@ export function ArticleProgressPanel({ progress }: ArticleProgressPanelProps) {
                         >
                           <RewardIcon item={reward} className="h-10 w-10" />
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs font-semibold text-slate-700">
+                            <p className="truncate text-xs font-semibold text-slate-700 text-wrap">
                               {reward.name ?? "Vật phẩm"}
                             </p>
                             <p className="text-[11px] font-medium text-slate-500">
