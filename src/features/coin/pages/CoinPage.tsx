@@ -19,7 +19,7 @@ import {
 import { CoinMilestonePanel } from "@/features/coin/components/CoinMilestonePanel";
 import { Footer } from "@/shared/components/site/Footer";
 import { Header } from "@/shared/components/site/Header";
-import { scrollToTop } from "@/shared/utils/utils";
+import { scrollToTop, formatDateTime } from "@/shared/utils/utils";
 import { UserOutlined } from "@ant-design/icons";
 
 const T = {
@@ -43,7 +43,8 @@ const STATUS: Record<string, string> = {
   rejected: "Đã từ chối",
   failed: "Thất bại",
 };
-const fmt = (n: number) => n.toLocaleString("vi-VN");
+
+const fmt = (n: number) => n?.toLocaleString("vi-VN");
 const coin = (n: number) => fmt(n) + " Coin";
 
 function CoinExchangePage() {
@@ -72,16 +73,16 @@ function CoinExchangePage() {
   const amount = Number.parseInt(input.replace(/\D/g, ""), 10) || 0;
   const config = summary?.config ?? {
     multiplier: 1,
-    auto_approve: false,
-    min_amount: 1,
-    max_amount: 0,
+    autoApprove: false,
+    minAmount: 1,
+    maxAmount: 0,
   };
-  const available = summary?.wallet.available_coin || 0;
+  const available = summary?.wallet.availableCoin || 0;
   const gameAmount = config ? Math.floor(amount * config.multiplier) : 0;
   const valid = Boolean(
     config &&
-    amount >= config.min_amount &&
-    amount <= config.max_amount &&
+    amount >= config.minAmount &&
+    amount <= config.maxAmount &&
     amount <= available &&
     gameAmount > 0,
   );
@@ -138,7 +139,7 @@ function CoinExchangePage() {
                       </span>
                     </div>
                     <div className="text-3xl font-bold tracking-tight">
-                      {fmt(summary.wallet.available_coin)}
+                      {fmt(summary.wallet.availableCoin)}
                       <span className="ml-2 text-lg font-semibold opacity-80">
                         Coin
                       </span>
@@ -180,8 +181,8 @@ function CoinExchangePage() {
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   {[
-                    ["Tối thiểu", coin(summary.config.min_amount)],
-                    ["Tối đa", coin(summary.config.max_amount)],
+                    ["Tối thiểu", coin(summary.config.minAmount)],
+                    ["Tối đa", coin(summary.config.maxAmount)],
                   ].map(([label, value]) => (
                     <div
                       key={label}
@@ -232,7 +233,7 @@ function CoinExchangePage() {
                 ) : (
                   <>
                     <div className="mb-4 flex flex-wrap gap-2">
-                      {[summary.config.min_amount, 50_000, 100_000, 500_000]
+                      {[summary.config.minAmount, 50_000, 100_000, 500_000]
                         .filter(
                           (n, i, a) => n <= available && a.indexOf(n) === i,
                         )
@@ -261,9 +262,9 @@ function CoinExchangePage() {
                         className="w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 text-sm font-semibold text-gray-800 placeholder:font-normal placeholder:text-gray-400 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
                       />
                     </div>
-                    {amount > 0 && amount < config.min_amount && (
+                    {amount > 0 && amount < config.minAmount && (
                       <p className="mb-3 text-xs text-red-500">
-                        {"Tối thiểu " + coin(config.min_amount)}
+                        {"Tối thiểu " + coin(config.minAmount)}
                       </p>
                     )}
                     {amount > available && (
@@ -271,9 +272,9 @@ function CoinExchangePage() {
                         {"Vượt quá số dư ví khả dụng"}
                       </p>
                     )}
-                    {amount > config.max_amount && (
+                    {amount > config.maxAmount && (
                       <p className="mb-3 text-xs text-red-500">
-                        {"Tối đa " + coin(config.max_amount) + " mỗi lần"}
+                        {"Tối đa " + coin(config.maxAmount) + " mỗi lần"}
                       </p>
                     )}
                     {valid && (
@@ -331,15 +332,15 @@ function CoinExchangePage() {
                       >
                         <div>
                           <p className="font-bold text-gray-700">
-                            {coin(item.web_coin)}{" "}
+                            {coin(item.webCoin)}{" "}
                             <ArrowRight
                               className="mx-1 inline text-amber-400"
                               size={12}
                             />{" "}
-                            {coin(item.game_coin)}
+                            {coin(item.gameCoin)}
                           </p>
                           <p className="mt-1 text-gray-400">
-                            {new Date(item.created_at).toLocaleString("vi-VN")}
+                            {formatDateTime(item?.createdAt)}
                           </p>
                         </div>
                         <span className="rounded-full bg-white px-2 py-1 font-semibold text-amber-600">

@@ -1,38 +1,61 @@
-import { RankingRewardItem } from "@/features/ranking/api/rankingApi";
 import { PackageOpen } from "lucide-react";
+import { useEffect, useState } from "react";
 
-const getRewardIconUrl = (item: RankingRewardItem) => {
-  return item.iconUrl || undefined;
+import type { RewardIconItem, RewardIconSource } from "@/shared/types/reward";
+
+export type RewardIconProps = {
+  item?: RewardIconItem | null;
+  className?: string;
 };
 
-export const RewardIcon = ({ item }: { item: RankingRewardItem }) => {
+const firstFrameSources = new Set<RewardIconSource>(["item4"]);
+
+function cx(...classes: Array<string | undefined>) {
+  return classes.filter(Boolean).join(" ");
+}
+
+const getRewardIconUrl = (item?: RewardIconItem | null) => {
+  return item?.iconUrl || undefined;
+};
+
+export const RewardIcon = ({ item, className }: RewardIconProps) => {
   const iconUrl = getRewardIconUrl(item);
-  const shouldCropFirstFrame = item.source === "item4";
+  const [hasImageError, setHasImageError] = useState(false);
+  const shouldCropFirstFrame = Boolean(
+    item?.source && firstFrameSources.has(item.source),
+  );
+  const shouldShowImage = Boolean(iconUrl && !hasImageError);
+
+  useEffect(() => {
+    setHasImageError(false);
+  }, [iconUrl]);
 
   return (
-    <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-amber-100 bg-amber-50 text-amber-600">
-      {iconUrl && shouldCropFirstFrame ? (
-        <span
-          aria-hidden="true"
-          className="absolute inset-1.5 bg-top bg-no-repeat"
-          style={{
-            backgroundImage: `url("${iconUrl}")`,
-            backgroundSize: "100% auto",
-          }}
+    <span
+      className={cx(
+        "relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-amber-100 bg-amber-50 text-amber-600",
+        className,
+      )}
+      title={item?.description ?? item?.name ?? undefined}
+    >
+      {!shouldShowImage && <PackageOpen size={20} aria-hidden="true" />}
+      {shouldShowImage && shouldCropFirstFrame ? (
+        <img
+          src={iconUrl}
+          alt=""
+          loading="lazy"
+          className="absolute left-1.5 top-1.5 h-auto w-[calc(100%_-_0.75rem)] max-w-none"
+          onError={() => setHasImageError(true)}
         />
-      ) : iconUrl ? (
+      ) : shouldShowImage ? (
         <img
           src={iconUrl}
           alt=""
           loading="lazy"
           className="absolute inset-0 h-full w-full object-contain p-1.5"
-          onError={(event) => {
-            event.currentTarget.hidden = true;
-          }}
+          onError={() => setHasImageError(true)}
         />
-      ) : (
-        <PackageOpen size={20} aria-hidden="true" />
-      )}
+      ) : null}
     </span>
   );
 };
