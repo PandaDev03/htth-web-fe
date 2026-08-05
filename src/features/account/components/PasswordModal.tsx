@@ -29,7 +29,7 @@ function getPasswordError(value: string) {
   }
 
   if (!GAME_ACCOUNT_PASSWORD_PATTERN.test(value)) {
-    return "Chỉ chấp nhận chữ cái và số";
+    return "Chỉ chấp nhận chữ thường và số";
   }
 
   return null;
