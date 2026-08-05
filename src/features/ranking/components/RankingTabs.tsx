@@ -1,8 +1,14 @@
-import { Flame, Swords } from "lucide-react";
+import { Flame, Swords, Trophy } from "lucide-react";
 
-export type RankingTabId = "fireworks" | "boss";
+export type RankingTabId = "fireworks" | "boss" | "deposit";
 
 const rankingTabs = [
+  {
+    id: "deposit" as const,
+    label: "Top Nạp",
+    status: "Theo mùa",
+    icon: Trophy,
+  },
   {
     id: "fireworks" as const,
     label: "Top Đốt pháo",

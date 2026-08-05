@@ -35,7 +35,7 @@ interface RegisterPanelProps {
 const inputClassName =
   "h-12 w-full rounded-xl border border-gray-200 bg-gray-50/90 pl-11 pr-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100 motion-reduce:transition-none";
 
-const normalizeUsername = (value: string) => value.trim().toLowerCase();
+const normalizeUsername = (value: string) => value.trim();
 
 function getInputClassName(hasError: boolean, hasTrailingAction = false) {
   return [
@@ -68,7 +68,7 @@ export function PlayerRegisterPanel({ onLogin, redirectTo }: RegisterPanelProps)
     try {
       await dispatch(
         registerUser({
-          username: data.username.trim().toLowerCase(),
+          username: data.username.trim(),
           password: data.password,
         }),
       ).unwrap();
@@ -145,7 +145,7 @@ export function PlayerRegisterPanel({ onLogin, redirectTo }: RegisterPanelProps)
               },
               pattern: {
                 value: GAME_ACCOUNT_USERNAME_PATTERN,
-                message: "Chỉ chấp nhận chữ cái và số",
+                message: "Chỉ chấp nhận chữ thường, số, @ hoặc dấu chấm",
               },
               setValueAs: normalizeUsername,
             })}
@@ -188,7 +188,7 @@ export function PlayerRegisterPanel({ onLogin, redirectTo }: RegisterPanelProps)
             },
             pattern: {
               value: GAME_ACCOUNT_PASSWORD_PATTERN,
-              message: "Chỉ chấp nhận chữ cái và số",
+              message: "Chỉ chấp nhận chữ thường và số",
             },
           }}
           render={({ field }) => (
