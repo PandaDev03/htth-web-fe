@@ -13,7 +13,14 @@ export type RankingEntry = {
 export type DepositRanking = {
   category: "top-deposit";
   limit: number;
+  season?: {
+    id: number;
+    name: string;
+    startAt: string;
+    endAt: string;
+  } | null;
   updatedAt: string;
+  rewards?: RankingRewardSet | null;
   items: RankingEntry[];
 };
 
