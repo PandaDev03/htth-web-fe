@@ -59,6 +59,9 @@ export function CoinMilestonePanel({
 
   const nextTarget = milestone.nextMilestone;
   const allCompleted = nextTarget === null;
+  const cycleProgress = milestone.cycleProgress ?? milestone.totalExchanged;
+  const currentCycle = milestone.currentCycle ?? 1;
+  const resetCount = milestone.resetCount ?? 0;
 
   return (
     <section className="mb-5 overflow-hidden rounded-2xl border border-amber-100 bg-white shadow-sm">
@@ -79,11 +82,19 @@ export function CoinMilestonePanel({
             </div>
           </div>
           <div className="text-left sm:text-right">
-            <p className="text-[11px] font-medium text-gray-500">Đã đổi</p>
+            <p className="text-[11px] font-medium text-gray-500">
+              Đã đổi vòng hiện tại
+            </p>
             <p className="mt-0.5 text-lg font-extrabold text-amber-700">
-              {formatNumber(milestone?.totalExchanged)}
+              {formatNumber(cycleProgress)}
               <span className="ml-1 text-xs font-semibold">Coin</span>
             </p>
+            {resetCount > 0 && (
+              <p className="mt-1 text-[11px] font-medium text-gray-500">
+                Vòng {currentCycle} / tổng mùa:{" "}
+                {formatNumber(milestone.totalExchanged)} Coin
+              </p>
+            )}
           </div>
         </div>
 
@@ -95,7 +106,7 @@ export function CoinMilestonePanel({
             <span>
               {allCompleted
                 ? "100%"
-                : `${formatNumber(milestone.totalExchanged)} / ${formatNumber(nextTarget ?? 0)} Coin`}
+                : `${formatNumber(cycleProgress)} / ${formatNumber(nextTarget ?? 0)} Coin`}
             </span>
           </div>
           <div

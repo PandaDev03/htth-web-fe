@@ -16,6 +16,11 @@ export type CoinMilestone = {
     endAt: string;
   };
   totalExchanged: number;
+  cycleProgress: number;
+  cycleProgressRaw: number;
+  resetCount: number;
+  currentCycle: number;
+  maxMilestone: number;
   claimedTierIds: number[];
   nextMilestone: number | null;
   progressPercent: number;
