@@ -124,16 +124,41 @@ type PreviewDragSession = {
   startDy: number;
   baseDx: number;
   baseDy: number;
+  logicalWidth: number;
+  direction: PreviewDirection;
   nextDx: number;
   nextDy: number;
 };
 
+type ResourceScale = 1 | 2 | 3 | 4;
+type PreviewDirection = "left" | "right";
+type PreviewFrameMode = "game" | "custom";
+
+const getLogicalSize = (physicalSize: number, resourceScale: ResourceScale) =>
+  Math.floor(physicalSize / resourceScale);
+
+const getRenderTranslation = (
+  baseDx: number,
+  baseDy: number,
+  dx: number,
+  dy: number,
+  logicalWidth: number,
+  direction: PreviewDirection,
+) => ({
+  x: direction === "left" ? baseDx + dx : -baseDx - dx - logicalWidth,
+  y: baseDy + dy,
+});
+
 const mwearOptions = [
   { value: -1, label: "Không gắn vào mwear" },
-  ...Array.from({ length: 8 }, (_, index) => ({
-    value: index,
-    label: `Slot ${index}`,
-  })),
+  { value: 0, label: "Slot 0 · Weapon" },
+  { value: 1, label: "Slot 1 · Hat / Phụ kiện" },
+  { value: 2, label: "Slot 2" },
+  { value: 3, label: "Slot 3 · Body" },
+  { value: 4, label: "Slot 4" },
+  { value: 5, label: "Slot 5 · Legs" },
+  { value: 6, label: "Slot 6 · Head" },
+  { value: 7, label: "Slot 7 · Hair" },
 ];
 
 function FieldLabel({ children, hint }: { children: string; hint?: string }) {
@@ -421,13 +446,11 @@ function ComposerPreview({
   visibility,
   selectedLayer,
   zoom,
-  accessoryFront,
   onChangeFrame,
   onSelectLayer,
   onChangeOffset,
   onToggleVisibility,
   onChangeZoom,
-  onChangeAccessoryLayer,
 }: {
   parts: ComposerParts;
   assets: ComposerAssets;
@@ -435,7 +458,6 @@ function ComposerPreview({
   visibility: Record<PartKey, boolean>;
   selectedLayer: PartKey;
   zoom: number;
-  accessoryFront: boolean;
   onChangeFrame: (key: PartKey, frame: number) => void;
   onSelectLayer: (key: PartKey) => void;
   onChangeOffset: (
@@ -446,7 +468,6 @@ function ComposerPreview({
   ) => void;
   onToggleVisibility: (key: PartKey) => void;
   onChangeZoom: (zoom: number) => void;
-  onChangeAccessoryLayer: (front: boolean) => void;
 }) {
   const [dragging, setDragging] = useState(false);
   const [animationEnabled, setAnimationEnabled] = useState(false);
@@ -456,13 +477,17 @@ function ComposerPreview({
   const [animationSpeed, setAnimationSpeed] = useState(120);
   const [isPlaying, setIsPlaying] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [resourceScale, setResourceScale] = useState<ResourceScale>(4);
+  const [direction, setDirection] = useState<PreviewDirection>("left");
+  const [frameMode, setFrameMode] = useState<PreviewFrameMode>("game");
+  const [referenceCharacterFrame, setReferenceCharacterFrame] = useState(0);
   const dragSessionRef = useRef<PreviewDragSession | null>(null);
   const layerRefs = useRef<Partial<Record<PartKey, HTMLDivElement | null>>>({});
   const selectionBoxRef = useRef<HTMLDivElement | null>(null);
   const coordinatesRef = useRef<HTMLSpanElement | null>(null);
-  const layerOrder: PartKey[] = accessoryFront
-    ? ["legs", "body", "head", "accessory"]
-    : ["accessory", "legs", "body", "head"];
+  // MainObject.mSortPaint and mSortPaintRight resolve to this order for
+  // the four slots supported by the composer.
+  const layerOrder: PartKey[] = ["legs", "body", "head", "accessory"];
   const poseValidation = useMemo(
     () =>
       Object.fromEntries(
@@ -474,11 +499,18 @@ function ComposerPreview({
     [poseInputs],
   );
   const currentPoseSequence = poseValidation[selectedPose].frames;
+  const animationCharacterFrame = currentPoseSequence.length
+    ? currentPoseSequence[animationStep % currentPoseSequence.length]
+    : undefined;
   const characterFrame =
-    currentPoseSequence[animationStep % currentPoseSequence.length];
-  const characterPoseFrame = CHARACTER_POSE_FRAMES[characterFrame];
+    animationEnabled && animationCharacterFrame !== undefined
+      ? animationCharacterFrame
+      : referenceCharacterFrame;
+  const characterPoseFrame =
+    CHARACTER_POSE_FRAMES[characterFrame] ?? CHARACTER_POSE_FRAMES[0];
+  const followsGameFrame = animationEnabled || frameMode === "game";
   const effectivePreviewFrames =
-    animationEnabled && characterPoseFrame
+    followsGameFrame
       ? (Object.fromEntries(
           PART_SPECS.map((spec) => [
             spec.key,
@@ -486,10 +518,7 @@ function ComposerPreview({
           ]),
         ) as Record<PartKey, number>)
       : previewFrames;
-  const getBaseOffset = (key: PartKey) =>
-    animationEnabled && characterPoseFrame
-      ? characterPoseFrame[key]
-      : { baseDx: 0, baseDy: 0 };
+  const getBaseOffset = (key: PartKey) => characterPoseFrame[key];
   const selectedBaseOffset = getBaseOffset(selectedLayer);
   const selectedConfiguration = parts[selectedLayer];
   const selectedFrameIndex = effectivePreviewFrames[selectedLayer];
@@ -503,6 +532,22 @@ function ComposerPreview({
     selectedFrame &&
     selectedAsset,
   );
+  const selectedLogicalWidth = selectedAsset
+    ? getLogicalSize(selectedAsset.width, resourceScale)
+    : 0;
+  const selectedLogicalHeight = selectedAsset
+    ? getLogicalSize(selectedAsset.height, resourceScale)
+    : 0;
+  const selectedRenderPosition = selectedFrame
+    ? getRenderTranslation(
+        selectedBaseOffset.baseDx,
+        selectedBaseOffset.baseDy,
+        selectedFrame.dx,
+        selectedFrame.dy,
+        selectedLogicalWidth,
+        direction,
+      )
+    : { x: 0, y: 0 };
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -540,7 +585,15 @@ function ComposerPreview({
   }, [selectedPose]);
 
   const updateDraggedElements = (session: PreviewDragSession) => {
-    const transform = `translate(${session.baseDx + session.nextDx}px, ${session.baseDy + session.nextDy}px)`;
+    const position = getRenderTranslation(
+      session.baseDx,
+      session.baseDy,
+      session.nextDx,
+      session.nextDy,
+      session.logicalWidth,
+      session.direction,
+    );
+    const transform = `translate(${position.x}px, ${position.y}px)`;
     const layer = layerRefs.current[session.partKey];
     if (layer) layer.style.transform = transform;
     if (selectionBoxRef.current) {
@@ -589,6 +642,8 @@ function ComposerPreview({
       startDy: frame.dy,
       baseDx,
       baseDy,
+      logicalWidth: getLogicalSize(asset.width, resourceScale),
+      direction,
       nextDx: frame.dx,
       nextDy: frame.dy,
     };
@@ -599,9 +654,11 @@ function ComposerPreview({
     const session = dragSessionRef.current;
     if (!session || session.pointerId !== event.pointerId) return;
 
+    const horizontalDirection = session.direction === "left" ? 1 : -1;
     session.nextDx = clampOffset(
       session.startDx +
-        Math.round((event.clientX - session.startClientX) / zoom),
+        Math.round((event.clientX - session.startClientX) / zoom) *
+          horizontalDirection,
     );
     session.nextDy = clampOffset(
       session.startDy +
@@ -630,13 +687,13 @@ function ComposerPreview({
   const handlePreviewKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!canMoveSelected || !selectedFrame) return;
 
-    const direction = {
+    const keyDirection = {
       ArrowLeft: [-1, 0],
       ArrowRight: [1, 0],
       ArrowUp: [0, -1],
       ArrowDown: [0, 1],
     }[event.key];
-    if (!direction) return;
+    if (!keyDirection) return;
 
     event.preventDefault();
     if (animationEnabled) {
@@ -646,11 +703,14 @@ function ComposerPreview({
       }
     }
     const step = event.shiftKey ? 5 : 1;
+    const horizontalDirection = direction === "left" ? 1 : -1;
     onChangeOffset(
       selectedLayer,
       selectedFrameIndex,
-      clampOffset(selectedFrame.dx + direction[0] * step),
-      clampOffset(selectedFrame.dy + direction[1] * step),
+      clampOffset(
+        selectedFrame.dx + keyDirection[0] * step * horizontalDirection,
+      ),
+      clampOffset(selectedFrame.dy + keyDirection[1] * step),
     );
   };
 
@@ -669,13 +729,15 @@ function ComposerPreview({
                 Nhấn trực tiếp part hoặc chọn layer bên dưới, sau đó kéo để căn.
               </p>
             </div>
-            <Tag color="gold">{zoom}x</Tag>
+            <Tag color="gold">
+              Ảnh x{resourceScale} · Preview {zoom}x
+            </Tag>
           </div>
           <div
             role="group"
             tabIndex={0}
             aria-label={`Preview ${PART_SPEC_BY_KEY[selectedLayer].label} frame ${selectedFrameIndex}. Kéo hoặc dùng phím mũi tên để chỉnh offset.`}
-            className={`relative mx-auto aspect-[5/6] w-full max-w-[520px] overflow-hidden rounded-xl border border-slate-300 bg-[#f8fafc] bg-[linear-gradient(45deg,#e2e8f0_25%,transparent_25%),linear-gradient(-45deg,#e2e8f0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e2e8f0_75%),linear-gradient(-45deg,transparent_75%,#e2e8f0_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0px] focus-visible:border-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/25 ${canMoveSelected ? (dragging ? "cursor-grabbing" : "cursor-grab") : "cursor-default"}`}
+            className={`relative mx-auto aspect-[4/5] min-h-[520px] w-full max-w-[620px] overflow-hidden rounded-xl border border-slate-300 bg-[#f8fafc] bg-[linear-gradient(45deg,#e2e8f0_25%,transparent_25%),linear-gradient(-45deg,#e2e8f0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e2e8f0_75%),linear-gradient(-45deg,transparent_75%,#e2e8f0_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0px] focus-visible:border-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/25 ${canMoveSelected ? (dragging ? "cursor-grabbing" : "cursor-grab") : "cursor-default"}`}
             style={{ touchAction: "none" }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
@@ -709,6 +771,22 @@ function ComposerPreview({
                   return null;
                 }
                 const { baseDx, baseDy } = getBaseOffset(key);
+                const logicalWidth = getLogicalSize(
+                  asset.width,
+                  resourceScale,
+                );
+                const logicalHeight = getLogicalSize(
+                  asset.height,
+                  resourceScale,
+                );
+                const position = getRenderTranslation(
+                  baseDx,
+                  baseDy,
+                  frame.dx,
+                  frame.dy,
+                  logicalWidth,
+                  direction,
+                );
                 return (
                   <div
                     key={key}
@@ -718,7 +796,9 @@ function ComposerPreview({
                     data-preview-part={key}
                     className="pointer-events-auto absolute left-0 top-0 cursor-grab select-none active:cursor-grabbing"
                     style={{
-                      transform: `translate(${baseDx + frame.dx}px, ${baseDy + frame.dy}px)`,
+                      width: logicalWidth,
+                      height: logicalHeight,
+                      transform: `translate(${position.x}px, ${position.y}px)`,
                       willChange:
                         key === selectedLayer ? "transform" : undefined,
                     }}
@@ -728,6 +808,12 @@ function ComposerPreview({
                       alt={`${PART_SPEC_BY_KEY[key].label} frame ${frameIndex}`}
                       draggable={false}
                       className="block max-w-none [image-rendering:pixelated]"
+                      style={{
+                        width: logicalWidth,
+                        height: logicalHeight,
+                        transform:
+                          direction === "right" ? "scaleX(-1)" : undefined,
+                      }}
                     />
                   </div>
                 );
@@ -737,9 +823,9 @@ function ComposerPreview({
                   ref={selectionBoxRef}
                   className="pointer-events-none absolute left-0 top-0 border border-dashed border-amber-600 bg-amber-400/5"
                   style={{
-                    width: selectedAsset.width,
-                    height: selectedAsset.height,
-                    transform: `translate(${selectedBaseOffset.baseDx + selectedFrame.dx}px, ${selectedBaseOffset.baseDy + selectedFrame.dy}px)`,
+                    width: selectedLogicalWidth,
+                    height: selectedLogicalHeight,
+                    transform: `translate(${selectedRenderPosition.x}px, ${selectedRenderPosition.y}px)`,
                     willChange: "transform",
                   }}
                 />
@@ -757,11 +843,79 @@ function ComposerPreview({
             </span>
           </div>
           <p className="mt-2 text-[11px] leading-4 text-slate-400">
-            Giao điểm là gốc render nhân vật, thường trùng điểm đứng trên mặt
-            đất. Kéo bằng chuột hoặc cảm ứng. Phím mũi tên chỉnh 1px, giữ Shift
-            để chỉnh 5px.
+            Giao điểm là tọa độ x/y truyền vào MainObject.paintBody, tức điểm
+            đứng của nhân vật. Offset luôn tính theo pixel logic x1. Kéo bằng
+            chuột hoặc cảm ứng. Phím mũi tên chỉnh 1px, giữ Shift để chỉnh 5px.
           </p>
-          <div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <span className="mb-2 block text-xs font-semibold text-slate-600">
+                Scale resource
+              </span>
+              <Segmented<ResourceScale>
+                block
+                value={resourceScale}
+                options={[1, 2, 3, 4].map((value) => ({
+                  value: value as ResourceScale,
+                  label: `x${value}`,
+                }))}
+                onChange={setResourceScale}
+              />
+            </div>
+            <div>
+              <span className="mb-2 block text-xs font-semibold text-slate-600">
+                Hướng nhân vật
+              </span>
+              <Segmented<PreviewDirection>
+                block
+                value={direction}
+                options={[
+                  { value: "left", label: "Trái" },
+                  { value: "right", label: "Phải" },
+                ]}
+                onChange={setDirection}
+              />
+            </div>
+            <div>
+              <span className="mb-2 block text-xs font-semibold text-slate-600">
+                Chọn frame part
+              </span>
+              <Segmented<PreviewFrameMode>
+                block
+                disabled={animationEnabled}
+                value={frameMode}
+                options={[
+                  { value: "game", label: "Theo game" },
+                  { value: "custom", label: "Tùy chỉnh" },
+                ]}
+                onChange={setFrameMode}
+              />
+            </div>
+            <div>
+              <span className="mb-2 block text-xs font-semibold text-slate-600">
+                Frame nhân vật
+              </span>
+              <Select
+                size="small"
+                showSearch
+                className="w-full"
+                value={characterFrame}
+                disabled={animationEnabled}
+                options={SUPPORTED_CHARACTER_FRAMES.map((frame) => ({
+                  value: frame,
+                  label: `Frame ${frame}`,
+                }))}
+                onChange={setReferenceCharacterFrame}
+              />
+            </div>
+          </div>
+          <p className="mt-2 text-[11px] leading-4 text-slate-400">
+            Chọn đúng thư mục resource đang upload. PC x4 dùng x4, mobile x1-x3
+            dùng scale tương ứng. Animation luôn ép frame part theo CharInfo game.
+          </p>
+
+          <div className="mt-4">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-600">
                 Độ phóng
@@ -794,8 +948,8 @@ function ComposerPreview({
                 </button>
                 <Select
                   size="small"
-                  value={previewFrames[spec.key]}
-                  disabled={!parts[spec.key].enabled}
+                  value={effectivePreviewFrames[spec.key]}
+                  disabled={!parts[spec.key].enabled || followsGameFrame}
                   options={Array.from(
                     { length: spec.frameCount },
                     (_, index) => ({
@@ -824,21 +978,6 @@ function ComposerPreview({
                 />
               </div>
             ))}
-          </div>
-
-          <div className="mt-4 border-t border-slate-200 pt-4">
-            <span className="mb-2 block text-xs font-semibold text-slate-600">
-              Layer phụ kiện
-            </span>
-            <Segmented
-              block
-              value={accessoryFront ? "front" : "back"}
-              options={[
-                { value: "back", label: "Phía sau" },
-                { value: "front", label: "Phía trước" },
-              ]}
-              onChange={(value) => onChangeAccessoryLayer(value === "front")}
-            />
           </div>
 
           <div className="mt-5 border-t border-slate-200 pt-5">
@@ -1049,8 +1188,7 @@ function AdminFashionComposerPage() {
   const [activePart, setActivePart] = useState<PartKey>("head");
   const [previewFrames, setPreviewFrames] = useState(EMPTY_PREVIEW_FRAMES);
   const [visibility, setVisibility] = useState(EMPTY_VISIBILITY);
-  const [zoom, setZoom] = useState(3);
-  const [accessoryFront, setAccessoryFront] = useState(false);
+  const [zoom, setZoom] = useState(4);
   const [previewResetVersion, setPreviewResetVersion] = useState(0);
   const assetsRef = useRef(assets);
 
@@ -1222,8 +1360,7 @@ function AdminFashionComposerPage() {
     setActivePart("head");
     setPreviewFrames({ ...EMPTY_PREVIEW_FRAMES });
     setVisibility({ ...EMPTY_VISIBILITY });
-    setZoom(3);
-    setAccessoryFront(false);
+    setZoom(4);
     setPreviewResetVersion((current) => current + 1);
     toast.success("Đã tạo bản nháp mới.");
   };
@@ -1364,7 +1501,7 @@ function AdminFashionComposerPage() {
           </div>
       </Card>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_480px] 2xl:grid-cols-[minmax(0,1fr)_560px]">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_560px] 2xl:grid-cols-[minmax(0,1fr)_640px]">
         <Card
           className="min-w-0 border-slate-200 shadow-sm"
           styles={{ body: { padding: 24 } }}
@@ -1486,7 +1623,6 @@ function AdminFashionComposerPage() {
             visibility={visibility}
             selectedLayer={activePart}
             zoom={zoom}
-            accessoryFront={accessoryFront}
             onChangeFrame={(key, frame) =>
               setPreviewFrames((current) => ({ ...current, [key]: frame }))
             }
@@ -1501,7 +1637,6 @@ function AdminFashionComposerPage() {
               }))
             }
             onChangeZoom={setZoom}
-            onChangeAccessoryLayer={setAccessoryFront}
           />
         </aside>
       </div>

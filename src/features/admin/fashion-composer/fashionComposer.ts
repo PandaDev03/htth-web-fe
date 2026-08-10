@@ -86,7 +86,7 @@ export const PART_SPECS: PartSpec[] = [
     label: "Phụ kiện",
     type: 4,
     frameCount: 2,
-    defaultMwearSlot: 4,
+    defaultMwearSlot: 1,
     description: "Cánh hoặc part bổ sung, 2 frame",
   },
 ];
@@ -114,81 +114,105 @@ export const DEFAULT_POSE_SEQUENCES: Record<PoseKey, number[]> = {
 };
 
 // MainObject.CharInfo[characterFrame][slot] = [partFrame, baseDx, baseDy].
-// Slots used here: 0 head, 1 legs, 2 body, 4 hat/accessory.
-export const CHARACTER_POSE_FRAMES: Record<number, CharacterPoseFrame> = {
-  0: {
-    head: { frame: 0, baseDx: -5, baseDy: -42 },
-    legs: { frame: 0, baseDx: -11, baseDy: -18 },
-    body: { frame: 0, baseDx: -8, baseDy: -30 },
-    accessory: { frame: 0, baseDx: -9, baseDy: -44 },
-  },
-  1: {
-    head: { frame: 0, baseDx: -5, baseDy: -41 },
-    legs: { frame: 0, baseDx: -11, baseDy: -18 },
-    body: { frame: 0, baseDx: -8, baseDy: -29 },
-    accessory: { frame: 0, baseDx: -9, baseDy: -43 },
-  },
-  2: {
-    head: { frame: 0, baseDx: -11, baseDy: -40 },
-    legs: { frame: 1, baseDx: -18, baseDy: -18 },
-    body: { frame: 1, baseDx: -11, baseDy: -31 },
-    accessory: { frame: 0, baseDx: -15, baseDy: -42 },
-  },
-  3: {
-    head: { frame: 0, baseDx: -11, baseDy: -41 },
-    legs: { frame: 2, baseDx: -6, baseDy: -18 },
-    body: { frame: 2, baseDx: -7, baseDy: -30 },
-    accessory: { frame: 0, baseDx: -15, baseDy: -43 },
-  },
-  4: {
-    head: { frame: 0, baseDx: -11, baseDy: -43 },
-    legs: { frame: 3, baseDx: -6, baseDy: -22 },
-    body: { frame: 3, baseDx: -17, baseDy: -37 },
-    accessory: { frame: 0, baseDx: -15, baseDy: -45 },
-  },
-  5: {
-    head: { frame: 0, baseDx: -11, baseDy: -41 },
-    legs: { frame: 4, baseDx: -14, baseDy: -20 },
-    body: { frame: 3, baseDx: -17, baseDy: -35 },
-    accessory: { frame: 0, baseDx: -15, baseDy: -43 },
-  },
-  6: {
-    head: { frame: 0, baseDx: -11, baseDy: -42 },
-    legs: { frame: 5, baseDx: -5, baseDy: -19 },
-    body: { frame: 2, baseDx: -7, baseDy: -31 },
-    accessory: { frame: 0, baseDx: -15, baseDy: -44 },
-  },
-  7: {
-    head: { frame: 0, baseDx: -11, baseDy: -44 },
-    legs: { frame: 6, baseDx: -9, baseDy: -23 },
-    body: { frame: 4, baseDx: -13, baseDy: -35 },
-    accessory: { frame: 0, baseDx: -15, baseDy: -46 },
-  },
-  8: {
-    head: { frame: 1, baseDx: -7, baseDy: -40 },
-    legs: { frame: 7, baseDx: -12, baseDy: -17 },
-    body: { frame: 5, baseDx: -15, baseDy: -29 },
-    accessory: { frame: 0, baseDx: -11, baseDy: -42 },
-  },
-  9: {
-    head: { frame: 1, baseDx: -7, baseDy: -39 },
-    legs: { frame: 7, baseDx: -12, baseDy: -17 },
-    body: { frame: 5, baseDx: -15, baseDy: -28 },
-    accessory: { frame: 0, baseDx: -11, baseDy: -41 },
-  },
-  10: {
-    head: { frame: 3, baseDx: -6, baseDy: -39 },
-    legs: { frame: 7, baseDx: -12, baseDy: -17 },
-    body: { frame: 5, baseDx: -15, baseDy: -28 },
-    accessory: { frame: 0, baseDx: -10, baseDy: -41 },
-  },
-  38: {
-    head: { frame: 1, baseDx: -4, baseDy: -41 },
-    legs: { frame: 14, baseDx: -9, baseDy: -17 },
-    body: { frame: 17, baseDx: -15, baseDy: -34 },
-    accessory: { frame: 0, baseDx: -8, baseDy: -43 },
-  },
-};
+// Tuple order below: head(slot 0), legs(slot 1), body(slot 2), hat(slot 4).
+type CharacterPartTuple = readonly [frame: number, baseDx: number, baseDy: number];
+type CharacterPoseTuple = readonly [
+  head: CharacterPartTuple,
+  legs: CharacterPartTuple,
+  body: CharacterPartTuple,
+  accessory: CharacterPartTuple,
+];
+
+const CHARACTER_POSE_DATA: readonly CharacterPoseTuple[] = [
+  [[0, -5, -42], [0, -11, -18], [0, -8, -30], [0, -9, -44]], // 0
+  [[0, -5, -41], [0, -11, -18], [0, -8, -29], [0, -9, -43]], // 1
+  [[0, -11, -40], [1, -18, -18], [1, -11, -31], [0, -15, -42]], // 2
+  [[0, -11, -41], [2, -6, -18], [2, -7, -30], [0, -15, -43]], // 3
+  [[0, -11, -43], [3, -6, -22], [3, -17, -37], [0, -15, -45]], // 4
+  [[0, -11, -41], [4, -14, -20], [3, -17, -35], [0, -15, -43]], // 5
+  [[0, -11, -42], [5, -5, -19], [2, -7, -31], [0, -15, -44]], // 6
+  [[0, -11, -44], [6, -9, -23], [4, -13, -35], [0, -15, -46]], // 7
+  [[1, -7, -40], [7, -12, -17], [5, -15, -29], [0, -11, -42]], // 8
+  [[1, -7, -39], [7, -12, -17], [5, -15, -28], [0, -11, -41]], // 9
+  [[3, -6, -39], [7, -12, -17], [5, -15, -28], [0, -10, -41]], // 10
+  [[2, -7, -42], [6, -9, -18], [5, -15, -31], [0, -11, -44]], // 11
+  [[1, -7, -41], [5, -4, -16], [5, -15, -30], [0, -11, -43]], // 12
+  [[1, -10, -41], [8, -17, -18], [2, -6, -30], [0, -14, -43]], // 13
+  [[1, -10, -42], [6, -8, -18], [2, -6, -31], [0, -14, -44]], // 14
+  [[2, -13, -39], [9, -21, -18], [6, -19, -28], [0, -17, -41]], // 15
+  [[2, -13, -39], [14, -9, -18], [6, -19, -28], [0, -17, -41]], // 16
+  [[4, -13, -40], [9, -21, -18], [7, -19, -29], [1, -17, -42]], // 17
+  [[4, -13, -40], [14, -9, -18], [7, -19, -29], [1, -17, -42]], // 18
+  [[1, -10, -41], [8, -17, -18], [8, -2, -46], [0, -14, -43]], // 19
+  [[1, -10, -41], [6, -8, -18], [8, -2, -46], [0, -14, -43]], // 20
+  [[1, -10, -41], [8, -17, -18], [9, -2, -48], [0, -14, -43]], // 21
+  [[1, -10, -41], [6, -8, -18], [9, -2, -48], [0, -14, -43]], // 22
+  [[1, -12, -39], [8, -17, -18], [10, -4, -32], [0, -16, -41]], // 23
+  [[1, -12, -39], [6, -8, -18], [10, -4, -32], [0, -16, -41]], // 24
+  [[2, -10, -40], [9, -21, -18], [11, -18, -29], [0, -14, -42]], // 25
+  [[2, -10, -40], [14, -9, -18], [11, -18, -29], [0, -14, -42]], // 26
+  [[1, -5, -44], [10, -21, -27], [12, -9, -32], [0, -9, -46]], // 27
+  [[2, -7, -44], [11, -23, -29], [13, -12, -32], [0, -11, -46]], // 28
+  [[2, -7, -44], [12, -28, -25], [13, -12, -32], [0, -11, -46]], // 29
+  [[2, -7, -44], [13, -17, -37], [13, -12, -32], [0, -11, -46]], // 30
+  [[1, -7, -41], [8, -17, -18], [14, -16, -29], [0, -11, -43]], // 31
+  [[1, -7, -41], [14, -9, -17], [14, -16, -29], [0, -11, -43]], // 32
+  [[1, -4, -41], [8, -17, -18], [15, -11, -34], [0, -8, -43]], // 33
+  [[1, -4, -41], [14, -9, -17], [15, -11, -34], [0, -8, -43]], // 34
+  [[1, -7, -41], [8, -17, -18], [16, -19, -30], [0, -11, -43]], // 35
+  [[1, -7, -41], [14, -9, -17], [16, -19, -30], [0, -11, -43]], // 36
+  [[1, -4, -41], [8, -17, -18], [17, -15, -34], [0, -8, -43]], // 37
+  [[1, -4, -41], [14, -9, -17], [17, -15, -34], [0, -8, -43]], // 38
+  [[2, -7, -41], [8, -17, -18], [18, -13, -29], [0, -11, -43]], // 39
+  [[2, -7, -41], [14, -9, -17], [18, -13, -29], [0, -11, -43]], // 40
+  [[2, -2, -41], [9, -19, -18], [19, -9, -29], [0, -6, -43]], // 41
+  [[2, -2, -41], [14, -8, -17], [19, -9, -29], [0, -6, -43]], // 42
+  [[1, -13, -39], [1, -18, -17], [10, -5, -32], [0, -17, -41]], // 43
+  [[1, -13, -40], [2, -6, -18], [10, -5, -33], [0, -17, -42]], // 44
+  [[1, -13, -42], [3, -6, -22], [10, -5, -35], [0, -17, -44]], // 45
+  [[1, -13, -40], [4, -14, -19], [10, -5, -33], [0, -17, -42]], // 46
+  [[1, -13, -41], [5, -5, -19], [10, -5, -34], [0, -17, -43]], // 47
+  [[1, -13, -44], [6, -9, -23], [10, -5, -37], [0, -17, -46]], // 48
+  [[3, -3, -41], [8, -17, -18], [17, -14, -34], [0, -7, -43]], // 49
+  [[3, -4, -41], [14, -9, -17], [17, -15, -34], [0, -8, -43]], // 50
+  [[3, -4, -42], [5, -5, -19], [17, -15, -35], [0, -8, -44]], // 51
+  [[2, -13, -39], [1, -18, -17], [6, -19, -28], [0, -17, -41]], // 52
+  [[4, -13, -40], [1, -18, -17], [7, -19, -29], [1, -17, -42]], // 53
+  [[2, -10, -40], [1, -18, -17], [11, -18, -29], [0, -14, -42]], // 54
+  [[0, -17, -44], [11, -23, -29], [4, -19, -35], [0, -21, -46]], // 55
+  [[2, -15, -44], [12, -28, -25], [4, -18, -34], [0, -19, -46]], // 56
+  [[2, -20, -43], [12, -28, -25], [6, -26, -32], [0, -24, -45]], // 57
+  [[4, -19, -44], [12, -28, -25], [7, -25, -33], [1, -23, -46]], // 58
+  [[4, -19, -44], [11, -23, -29], [7, -25, -33], [1, -23, -46]], // 59
+  [[1, -11, -40], [14, -9, -18], [1, -11, -31], [0, -15, -42]], // 60
+  [[1, -8, -42], [0, -11, -18], [5, -16, -31], [0, -12, -44]], // 61
+];
+
+const POSE_PART_KEYS: readonly PartKey[] = [
+  "head",
+  "legs",
+  "body",
+  "accessory",
+];
+
+const toPosePartFrame = ([frame, baseDx, baseDy]: CharacterPartTuple) => ({
+  frame,
+  baseDx,
+  baseDy,
+});
+
+export const CHARACTER_POSE_FRAMES: Record<number, CharacterPoseFrame> =
+  Object.fromEntries(
+    CHARACTER_POSE_DATA.map((pose, characterFrame) => [
+      characterFrame,
+      Object.fromEntries(
+        POSE_PART_KEYS.map((key, index) => [
+          key,
+          toPosePartFrame(pose[index]),
+        ]),
+      ) as CharacterPoseFrame,
+    ]),
+  );
 
 export const SUPPORTED_CHARACTER_FRAMES = Object.keys(CHARACTER_POSE_FRAMES).map(
   Number,
