@@ -68,6 +68,7 @@ const EMPTY_PREVIEW_FRAMES: Record<PartKey, number> = {
   body: 0,
   legs: 0,
   accessory: 0,
+  cloak: 0,
 };
 
 const EMPTY_VISIBILITY: Record<PartKey, boolean> = {
@@ -75,6 +76,7 @@ const EMPTY_VISIBILITY: Record<PartKey, boolean> = {
   body: true,
   legs: true,
   accessory: true,
+  cloak: true,
 };
 
 const createInitialPoseInputs = (): Record<PoseKey, string> =>
@@ -155,7 +157,7 @@ const mwearOptions = [
   { value: 1, label: "Slot 1 · Hat / Phụ kiện" },
   { value: 2, label: "Slot 2" },
   { value: 3, label: "Slot 3 · Body" },
-  { value: 4, label: "Slot 4" },
+  { value: 4, label: "Slot 4 · Cloak" },
   { value: 5, label: "Slot 5 · Legs" },
   { value: 6, label: "Slot 6 · Head" },
   { value: 7, label: "Slot 7 · Hair" },
@@ -485,9 +487,15 @@ function ComposerPreview({
   const layerRefs = useRef<Partial<Record<PartKey, HTMLDivElement | null>>>({});
   const selectionBoxRef = useRef<HTMLDivElement | null>(null);
   const coordinatesRef = useRef<HTMLSpanElement | null>(null);
-  // MainObject.mSortPaint and mSortPaintRight resolve to this order for
-  // the four slots supported by the composer.
-  const layerOrder: PartKey[] = ["legs", "body", "head", "accessory"];
+  // Cloak uses paint index 7 and CharInfo slot 4, then renders behind the
+  // standard character parts in both directions.
+  const layerOrder: PartKey[] = [
+    "cloak",
+    "legs",
+    "body",
+    "head",
+    "accessory",
+  ];
   const poseValidation = useMemo(
     () =>
       Object.fromEntries(

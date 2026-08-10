@@ -1,4 +1,4 @@
-export type PartKey = "head" | "body" | "legs" | "accessory";
+export type PartKey = "head" | "body" | "legs" | "accessory" | "cloak";
 
 export type PoseKey = "stand" | "run" | "attack" | "die";
 
@@ -83,11 +83,19 @@ export const PART_SPECS: PartSpec[] = [
   },
   {
     key: "accessory",
-    label: "Phụ kiện",
+    label: "Hat / Phụ kiện",
     type: 4,
     frameCount: 2,
     defaultMwearSlot: 1,
-    description: "Cánh hoặc part bổ sung, 2 frame",
+    description: "Mũ hoặc part phủ phía trước nhân vật, 2 frame",
+  },
+  {
+    key: "cloak",
+    label: "Cloak",
+    type: 4,
+    frameCount: 2,
+    defaultMwearSlot: 4,
+    description: "Áo choàng, mây hoặc part nền phía sau nhân vật, 2 frame",
   },
 ];
 
@@ -203,15 +211,21 @@ const toPosePartFrame = ([frame, baseDx, baseDy]: CharacterPartTuple) => ({
 
 export const CHARACTER_POSE_FRAMES: Record<number, CharacterPoseFrame> =
   Object.fromEntries(
-    CHARACTER_POSE_DATA.map((pose, characterFrame) => [
-      characterFrame,
-      Object.fromEntries(
+    CHARACTER_POSE_DATA.map((pose, characterFrame) => {
+      const basePose = Object.fromEntries(
         POSE_PART_KEYS.map((key, index) => [
           key,
           toPosePartFrame(pose[index]),
         ]),
-      ) as CharacterPoseFrame,
-    ]),
+      ) as Omit<CharacterPoseFrame, "cloak">;
+      return [
+        characterFrame,
+        {
+          ...basePose,
+          cloak: { ...basePose.accessory },
+        },
+      ];
+    }),
   );
 
 export const SUPPORTED_CHARACTER_FRAMES = Object.keys(CHARACTER_POSE_FRAMES).map(
@@ -239,6 +253,7 @@ export const createInitialAssets = (): ComposerAssets => ({
   body: [],
   legs: [],
   accessory: [],
+  cloak: [],
 });
 
 export const DEFAULT_FASHION: FashionConfiguration = {
