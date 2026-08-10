@@ -28,6 +28,9 @@ const AdminDashboardPage = lazy(
 const AdminArticlesPage = lazy(
   () => import("@/features/admin/pages/AdminArticlesPage"),
 );
+const AdminFashionComposerPage = lazy(
+  () => import("@/features/admin/pages/AdminFashionComposerPage"),
+);
 
 export const appRoutes: AppRoute[] = [
   { path: PATH.HOME, element: <PirateLandingPage />, isPublic: true },
@@ -68,6 +71,13 @@ export const appRoutes: AppRoute[] = [
         path: "articles",
         title: "Bài viết",
         element: <AdminArticlesPage />,
+        allowedRoles: ["admin"],
+        showInMenu: true,
+      },
+      {
+        path: "fashion-composer",
+        title: "Ghép fashion",
+        element: <AdminFashionComposerPage />,
         allowedRoles: ["admin"],
         showInMenu: true,
       },
