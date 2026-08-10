@@ -182,8 +182,9 @@ function AssetLibrary({
           Kho ảnh part
         </h3>
         <p className="mt-1 text-xs leading-5 text-slate-500">
-          Chọn nhiều PNG. File chỉ nằm trong trình duyệt, không upload lên
-          server. Tên file 10xxx sẽ tự bỏ offset 10000, Icon ID vẫn sửa được.
+          Ảnh đầu tiên tự điền toàn bộ frame còn trống. Sau đó vẫn có thể đổi
+          từng frame bằng dropdown. File chỉ nằm trong trình duyệt, không upload
+          lên server. Tên file 10xxx sẽ tự bỏ offset 10000, Icon ID vẫn sửa được.
         </p>
       </div>
 
@@ -306,6 +307,8 @@ function FrameEditor({
           </h3>
           <p className="mt-1 text-xs text-slate-500">
             {spec.frameCount} frame bắt buộc cho parts.type = {spec.type}.
+            Auto-fill không ghi đè lựa chọn hiện có; dropdown dùng để custom
+            từng frame.
           </p>
         </div>
         <Tag color="gold">
@@ -1125,6 +1128,20 @@ function AdminFashionComposerPage() {
         ...current,
         [key]: [...current[key], asset],
       }));
+      setParts((current) => {
+        const frames = current[key].frames;
+        if (frames.every((frame) => frame.assetId !== null)) return current;
+
+        return {
+          ...current,
+          [key]: {
+            ...current[key],
+            frames: frames.map((frame) =>
+              frame.assetId === null ? { ...frame, assetId: asset.id } : frame,
+            ),
+          },
+        };
+      });
     } catch {
       URL.revokeObjectURL(url);
       toast.error(`${file.name}: không thể đọc ảnh.`);
