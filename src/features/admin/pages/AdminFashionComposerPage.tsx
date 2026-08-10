@@ -93,7 +93,10 @@ const parsePoseSequence = (value: string) => {
 
   const frames = tokens.map(Number);
   if (frames.some((frame) => !Number.isInteger(frame))) {
-    return { frames: [] as number[], error: "Chỉ nhập số nguyên, cách nhau bằng dấu phẩy." };
+    return {
+      frames: [] as number[],
+      error: "Chỉ nhập số nguyên, cách nhau bằng dấu phẩy.",
+    };
   }
 
   const unsupported = frames.find(
@@ -133,13 +136,7 @@ const mwearOptions = [
   })),
 ];
 
-function FieldLabel({
-  children,
-  hint,
-}: {
-  children: string;
-  hint?: string;
-}) {
+function FieldLabel({ children, hint }: { children: string; hint?: string }) {
   return (
     <label className="mb-1.5 block text-sm font-semibold text-slate-700">
       {children}
@@ -219,8 +216,7 @@ function AssetLibrary({
               key={asset.id}
               className="flex min-w-0 gap-3 rounded-xl border border-slate-200 bg-white p-3"
             >
-              <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg border border-slate-200 bg-[linear-gradient(45deg,#f1f5f9_25%,transparent_25%),linear-gradient(-45deg,#f1f5f9_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f1f5f9_75%),linear-gradient(-45deg,transparent_75%,#f1f5f9_75%)] bg-[length:12px_12px] bg-[position:0_0,0_6px,6px_-6px,-6px_0px]"
-              >
+              <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg border border-slate-200 bg-[linear-gradient(45deg,#f1f5f9_25%,transparent_25%),linear-gradient(-45deg,#f1f5f9_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f1f5f9_75%),linear-gradient(-45deg,transparent_75%,#f1f5f9_75%)] bg-[length:12px_12px] bg-[position:0_0,0_6px,6px_-6px,-6px_0px]">
                 <img
                   src={asset.url}
                   alt={asset.name}
@@ -351,7 +347,9 @@ function FrameEditor({
                   allowClear
                   showSearch
                   optionFilterProp="label"
-                  placeholder={assets.length ? "Chọn ảnh part" : "Upload ảnh trước"}
+                  placeholder={
+                    assets.length ? "Chọn ảnh part" : "Upload ảnh trước"
+                  }
                   className="w-full"
                   onChange={(assetId) =>
                     onChange(index, { assetId: assetId ?? null })
@@ -469,24 +467,22 @@ function ComposerPreview({
           pose.key,
           parsePoseSequence(poseInputs[pose.key]),
         ]),
-      ) as Record<
-        PoseKey,
-        ReturnType<typeof parsePoseSequence>
-      >,
+      ) as Record<PoseKey, ReturnType<typeof parsePoseSequence>>,
     [poseInputs],
   );
   const currentPoseSequence = poseValidation[selectedPose].frames;
   const characterFrame =
     currentPoseSequence[animationStep % currentPoseSequence.length];
   const characterPoseFrame = CHARACTER_POSE_FRAMES[characterFrame];
-  const effectivePreviewFrames = animationEnabled && characterPoseFrame
-    ? Object.fromEntries(
-        PART_SPECS.map((spec) => [
-          spec.key,
-          characterPoseFrame[spec.key].frame,
-        ]),
-      ) as Record<PartKey, number>
-    : previewFrames;
+  const effectivePreviewFrames =
+    animationEnabled && characterPoseFrame
+      ? (Object.fromEntries(
+          PART_SPECS.map((spec) => [
+            spec.key,
+            characterPoseFrame[spec.key].frame,
+          ]),
+        ) as Record<PartKey, number>)
+      : previewFrames;
   const getBaseOffset = (key: PartKey) =>
     animationEnabled && characterPoseFrame
       ? characterPoseFrame[key]
@@ -500,9 +496,9 @@ function ComposerPreview({
   );
   const canMoveSelected = Boolean(
     selectedConfiguration.enabled &&
-      visibility[selectedLayer] &&
-      selectedFrame &&
-      selectedAsset,
+    visibility[selectedLayer] &&
+    selectedFrame &&
+    selectedAsset,
   );
 
   useEffect(() => {
@@ -524,9 +520,7 @@ function ComposerPreview({
     }
 
     const timer = window.setInterval(() => {
-      setAnimationStep((current) =>
-        (current + 1) % currentPoseSequence.length,
-      );
+      setAnimationStep((current) => (current + 1) % currentPoseSequence.length);
     }, animationSpeed);
     return () => window.clearInterval(timer);
   }, [
@@ -568,12 +562,7 @@ function ComposerPreview({
     const frame = configuration.frames[frameIndex];
     const asset = assets[partKey].find((item) => item.id === frame?.assetId);
 
-    if (
-      !configuration.enabled ||
-      !visibility[partKey] ||
-      !frame ||
-      !asset
-    ) {
+    if (!configuration.enabled || !visibility[partKey] || !frame || !asset) {
       return;
     }
 
@@ -667,361 +656,383 @@ function ComposerPreview({
       className="border-slate-200 shadow-sm xl:sticky xl:top-24"
       styles={{ body: { padding: 20 } }}
     >
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 text-base font-bold text-slate-800">
-            <Layers3 size={18} className="text-amber-700" />
-            Preview ghép layer
-          </h2>
-          <p className="mt-1 text-xs leading-5 text-slate-500">
-            Nhấn trực tiếp part hoặc chọn layer bên dưới, sau đó kéo để căn.
-          </p>
-        </div>
-        <Tag color="gold">{zoom}x</Tag>
-      </div>
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-base font-bold text-slate-800">
+                <Layers3 size={18} className="text-amber-700" />
+                Preview ghép layer
+              </h2>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Nhấn trực tiếp part hoặc chọn layer bên dưới, sau đó kéo để căn.
+              </p>
+            </div>
+            <Tag color="gold">{zoom}x</Tag>
+          </div>
+          <div
+            role="group"
+            tabIndex={0}
+            aria-label={`Preview ${PART_SPEC_BY_KEY[selectedLayer].label} frame ${selectedFrameIndex}. Kéo hoặc dùng phím mũi tên để chỉnh offset.`}
+            className={`relative mx-auto aspect-[5/6] w-full max-w-[520px] overflow-hidden rounded-xl border border-slate-300 bg-[#f8fafc] bg-[linear-gradient(45deg,#e2e8f0_25%,transparent_25%),linear-gradient(-45deg,#e2e8f0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e2e8f0_75%),linear-gradient(-45deg,transparent_75%,#e2e8f0_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0px] focus-visible:border-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/25 ${canMoveSelected ? (dragging ? "cursor-grabbing" : "cursor-grab") : "cursor-default"}`}
+            style={{ touchAction: "none" }}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={finishPointerDrag}
+            onPointerCancel={finishPointerDrag}
+            onKeyDown={handlePreviewKeyDown}
+          >
+            <div className="pointer-events-none absolute left-1/2 top-[72%] h-px w-full -translate-x-1/2 bg-amber-600/35" />
+            <div className="pointer-events-none absolute left-1/2 top-[72%] h-full w-px -translate-y-1/2 bg-amber-600/35" />
+            <div className="pointer-events-none absolute left-1/2 top-[72%] h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-700 bg-amber-100" />
+            <span className="pointer-events-none absolute left-[calc(50%+8px)] top-[calc(72%+6px)] rounded bg-white/80 px-1 py-0.5 font-mono text-[9px] text-amber-800">
+              Gốc render (0,0)
+            </span>
+            <div
+              className="absolute left-1/2 top-[72%]"
+              style={{ transform: `scale(${zoom})`, transformOrigin: "0 0" }}
+            >
+              {layerOrder.map((key) => {
+                const configuration = parts[key];
+                const frameIndex = effectivePreviewFrames[key];
+                const frame = configuration.frames[frameIndex];
+                const asset = assets[key].find(
+                  (item) => item.id === frame?.assetId,
+                );
+                if (
+                  !configuration.enabled ||
+                  !visibility[key] ||
+                  !asset ||
+                  !frame
+                ) {
+                  return null;
+                }
+                const { baseDx, baseDy } = getBaseOffset(key);
+                return (
+                  <div
+                    key={key}
+                    ref={(node) => {
+                      layerRefs.current[key] = node;
+                    }}
+                    data-preview-part={key}
+                    className="pointer-events-auto absolute left-0 top-0 cursor-grab select-none active:cursor-grabbing"
+                    style={{
+                      transform: `translate(${baseDx + frame.dx}px, ${baseDy + frame.dy}px)`,
+                      willChange:
+                        key === selectedLayer ? "transform" : undefined,
+                    }}
+                  >
+                    <img
+                      src={asset.url}
+                      alt={`${PART_SPEC_BY_KEY[key].label} frame ${frameIndex}`}
+                      draggable={false}
+                      className="block max-w-none [image-rendering:pixelated]"
+                    />
+                  </div>
+                );
+              })}
+              {canMoveSelected && selectedFrame && selectedAsset && (
+                <div
+                  ref={selectionBoxRef}
+                  className="pointer-events-none absolute left-0 top-0 border border-dashed border-amber-600 bg-amber-400/5"
+                  style={{
+                    width: selectedAsset.width,
+                    height: selectedAsset.height,
+                    transform: `translate(${selectedBaseOffset.baseDx + selectedFrame.dx}px, ${selectedBaseOffset.baseDy + selectedFrame.dy}px)`,
+                    willChange: "transform",
+                  }}
+                />
+              )}
+            </div>
+          </div>
 
-      <div
-        role="group"
-        tabIndex={0}
-        aria-label={`Preview ${PART_SPEC_BY_KEY[selectedLayer].label} frame ${selectedFrameIndex}. Kéo hoặc dùng phím mũi tên để chỉnh offset.`}
-        className={`relative mx-auto aspect-[5/6] w-full max-w-[520px] overflow-hidden rounded-xl border border-slate-300 bg-[#f8fafc] bg-[linear-gradient(45deg,#e2e8f0_25%,transparent_25%),linear-gradient(-45deg,#e2e8f0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e2e8f0_75%),linear-gradient(-45deg,transparent_75%,#e2e8f0_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0px] focus-visible:border-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/25 ${canMoveSelected ? (dragging ? "cursor-grabbing" : "cursor-grab") : "cursor-default"}`}
-        style={{ touchAction: "none" }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={finishPointerDrag}
-        onPointerCancel={finishPointerDrag}
-        onKeyDown={handlePreviewKeyDown}
-      >
-        <div className="pointer-events-none absolute left-1/2 top-[72%] h-px w-full -translate-x-1/2 bg-amber-600/35" />
-        <div className="pointer-events-none absolute left-1/2 top-[72%] h-full w-px -translate-y-1/2 bg-amber-600/35" />
-        <div className="pointer-events-none absolute left-1/2 top-[72%] h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-700 bg-amber-100" />
-        <span className="pointer-events-none absolute left-[calc(50%+8px)] top-[calc(72%+6px)] rounded bg-white/80 px-1 py-0.5 font-mono text-[9px] text-amber-800">
-          Gốc render (0,0)
-        </span>
-        <div
-          className="absolute left-1/2 top-[72%]"
-          style={{ transform: `scale(${zoom})`, transformOrigin: "0 0" }}
-        >
-          {layerOrder.map((key) => {
-            const configuration = parts[key];
-            const frameIndex = effectivePreviewFrames[key];
-            const frame = configuration.frames[frameIndex];
-            const asset = assets[key].find(
-              (item) => item.id === frame?.assetId,
-            );
-            if (!configuration.enabled || !visibility[key] || !asset || !frame) {
-              return null;
-            }
-            const { baseDx, baseDy } = getBaseOffset(key);
-            return (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs">
+            <span className="font-semibold text-amber-800">
+              {PART_SPEC_BY_KEY[selectedLayer].label} / Frame{" "}
+              {selectedFrameIndex}
+            </span>
+            <span ref={coordinatesRef} className="font-mono text-amber-700">
+              Offset X {selectedFrame?.dx ?? 0}, Y {selectedFrame?.dy ?? 0}
+            </span>
+          </div>
+          <p className="mt-2 text-[11px] leading-4 text-slate-400">
+            Giao điểm là gốc render nhân vật, thường trùng điểm đứng trên mặt
+            đất. Kéo bằng chuột hoặc cảm ứng. Phím mũi tên chỉnh 1px, giữ Shift
+            để chỉnh 5px.
+          </p>
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-600">
+                Độ phóng
+              </span>
+              <span className="font-mono text-xs text-slate-500">{zoom}x</span>
+            </div>
+            <Slider
+              min={1}
+              max={6}
+              step={1}
+              value={zoom}
+              onChange={onChangeZoom}
+              tooltip={{ formatter: (value) => `${value}x` }}
+            />
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {PART_SPECS.map((spec) => (
               <div
-                key={key}
-                ref={(node) => {
-                  layerRefs.current[key] = node;
-                }}
-                data-preview-part={key}
-                className="pointer-events-auto absolute left-0 top-0 cursor-grab select-none active:cursor-grabbing"
-                style={{
-                  transform: `translate(${baseDx + frame.dx}px, ${baseDy + frame.dy}px)`,
-                  willChange: key === selectedLayer ? "transform" : undefined,
-                }}
+                key={spec.key}
+                className={`grid grid-cols-[minmax(88px,1fr)_118px_36px] items-center gap-2 rounded-lg px-1 py-1 ${selectedLayer === spec.key ? "bg-amber-50" : ""}`}
               >
-                <img
-                  src={asset.url}
-                  alt={`${PART_SPEC_BY_KEY[key].label} frame ${frameIndex}`}
-                  draggable={false}
-                  className="block max-w-none [image-rendering:pixelated]"
+                <button
+                  type="button"
+                  disabled={!parts[spec.key].enabled}
+                  onClick={() => onSelectLayer(spec.key)}
+                  className={`truncate rounded-md px-2 py-1 text-left text-xs font-semibold disabled:cursor-not-allowed disabled:text-slate-300 ${selectedLayer === spec.key ? "text-amber-800" : "text-slate-600 hover:bg-slate-100"}`}
+                >
+                  {spec.label}
+                </button>
+                <Select
+                  size="small"
+                  value={previewFrames[spec.key]}
+                  disabled={!parts[spec.key].enabled}
+                  options={Array.from(
+                    { length: spec.frameCount },
+                    (_, index) => ({
+                      value: index,
+                      label: `Frame ${index}`,
+                    }),
+                  )}
+                  onChange={(value) => {
+                    onSelectLayer(spec.key);
+                    onChangeFrame(spec.key, value);
+                  }}
+                />
+                <Button
+                  type="text"
+                  size="small"
+                  disabled={!parts[spec.key].enabled}
+                  aria-label={`${visibility[spec.key] ? "Ẩn" : "Hiện"} ${spec.label}`}
+                  icon={
+                    visibility[spec.key] ? (
+                      <Eye size={15} />
+                    ) : (
+                      <EyeOff size={15} />
+                    )
+                  }
+                  onClick={() => onToggleVisibility(spec.key)}
                 />
               </div>
-            );
-          })}
-          {canMoveSelected && selectedFrame && selectedAsset && (
-            <div
-              ref={selectionBoxRef}
-              className="pointer-events-none absolute left-0 top-0 border border-dashed border-amber-600 bg-amber-400/5"
-              style={{
-                width: selectedAsset.width,
-                height: selectedAsset.height,
-                transform: `translate(${selectedBaseOffset.baseDx + selectedFrame.dx}px, ${selectedBaseOffset.baseDy + selectedFrame.dy}px)`,
-                willChange: "transform",
-              }}
+            ))}
+          </div>
+
+          <div className="mt-4 border-t border-slate-200 pt-4">
+            <span className="mb-2 block text-xs font-semibold text-slate-600">
+              Layer phụ kiện
+            </span>
+            <Segmented
+              block
+              value={accessoryFront ? "front" : "back"}
+              options={[
+                { value: "back", label: "Phía sau" },
+                { value: "front", label: "Phía trước" },
+              ]}
+              onChange={(value) => onChangeAccessoryLayer(value === "front")}
             />
-          )}
-        </div>
-      </div>
+          </div>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs">
-        <span className="font-semibold text-amber-800">
-          {PART_SPEC_BY_KEY[selectedLayer].label} / Frame {selectedFrameIndex}
-        </span>
-        <span ref={coordinatesRef} className="font-mono text-amber-700">
-          Offset X {selectedFrame?.dx ?? 0}, Y {selectedFrame?.dy ?? 0}
-        </span>
-      </div>
-      <p className="mt-2 text-[11px] leading-4 text-slate-400">
-        Giao điểm là gốc render nhân vật, thường trùng điểm đứng trên mặt đất.
-        Kéo bằng chuột hoặc cảm ứng. Phím mũi tên chỉnh 1px, giữ Shift để chỉnh
-        5px.
-      </p>
+          <div className="mt-5 border-t border-slate-200 pt-5">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">
+                  Preview animation
+                </h3>
+                <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                  Preset lấy từ frame nhân vật và CharInfo của Unity.
+                </p>
+              </div>
+              <Switch
+                size="small"
+                checked={animationEnabled}
+                aria-label="Bật preview animation"
+                onChange={(checked) => {
+                  setAnimationEnabled(checked);
+                  setAnimationStep(0);
+                  setIsPlaying(false);
+                }}
+              />
+            </div>
 
-      <div className="mt-5">
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-600">Độ phóng</span>
-          <span className="font-mono text-xs text-slate-500">{zoom}x</span>
-        </div>
-        <Slider
-          min={1}
-          max={6}
-          step={1}
-          value={zoom}
-          onChange={onChangeZoom}
-          tooltip={{ formatter: (value) => `${value}x` }}
-        />
-      </div>
-
-      <div className="mt-4 space-y-2">
-        {PART_SPECS.map((spec) => (
-          <div
-            key={spec.key}
-            className={`grid grid-cols-[minmax(88px,1fr)_118px_36px] items-center gap-2 rounded-lg px-1 py-1 ${selectedLayer === spec.key ? "bg-amber-50" : ""}`}
-          >
-            <button
-              type="button"
-              disabled={!parts[spec.key].enabled}
-              onClick={() => onSelectLayer(spec.key)}
-              className={`truncate rounded-md px-2 py-1 text-left text-xs font-semibold disabled:cursor-not-allowed disabled:text-slate-300 ${selectedLayer === spec.key ? "text-amber-800" : "text-slate-600 hover:bg-slate-100"}`}
-            >
-              {spec.label}
-            </button>
-            <Select
-              size="small"
-              value={previewFrames[spec.key]}
-              disabled={!parts[spec.key].enabled}
-              options={Array.from({ length: spec.frameCount }, (_, index) => ({
-                value: index,
-                label: `Frame ${index}`,
+            <Segmented<PoseKey>
+              block
+              disabled={!animationEnabled}
+              value={selectedPose}
+              options={POSE_SPECS.map((pose) => ({
+                value: pose.key,
+                label: pose.label,
               }))}
-              onChange={(value) => {
-                onSelectLayer(spec.key);
-                onChangeFrame(spec.key, value);
-              }}
+              onChange={setSelectedPose}
             />
-            <Button
-              type="text"
-              size="small"
-              disabled={!parts[spec.key].enabled}
-              aria-label={`${visibility[spec.key] ? "Ẩn" : "Hiện"} ${spec.label}`}
-              icon={
-                visibility[spec.key] ? <Eye size={15} /> : <EyeOff size={15} />
-              }
-              onClick={() => onToggleVisibility(spec.key)}
-            />
-          </div>
-        ))}
-      </div>
 
-      <div className="mt-4 border-t border-slate-200 pt-4">
-        <span className="mb-2 block text-xs font-semibold text-slate-600">
-          Layer phụ kiện
-        </span>
-        <Segmented
-          block
-          value={accessoryFront ? "front" : "back"}
-          options={[
-            { value: "back", label: "Phía sau" },
-            { value: "front", label: "Phía trước" },
-          ]}
-          onChange={(value) => onChangeAccessoryLayer(value === "front")}
-        />
-      </div>
-
-      <div className="mt-5 border-t border-slate-200 pt-5">
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-bold text-slate-800">
-              Preview animation
-            </h3>
-            <p className="mt-1 text-[11px] leading-4 text-slate-500">
-              Preset lấy từ frame nhân vật và CharInfo của Unity.
-            </p>
-          </div>
-          <Switch
-            size="small"
-            checked={animationEnabled}
-            aria-label="Bật preview animation"
-            onChange={(checked) => {
-              setAnimationEnabled(checked);
-              setAnimationStep(0);
-              setIsPlaying(false);
-            }}
-          />
-        </div>
-
-        <Segmented<PoseKey>
-          block
-          disabled={!animationEnabled}
-          value={selectedPose}
-          options={POSE_SPECS.map((pose) => ({
-            value: pose.key,
-            label: pose.label,
-          }))}
-          onChange={setSelectedPose}
-        />
-
-        <div className="mt-3 grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-2">
-          <div className="flex items-center">
-            <Tooltip title="Frame trước">
-              <Button
-                size="small"
-                disabled={!animationEnabled || !currentPoseSequence.length}
-                aria-label="Xem frame animation trước"
-                icon={<SkipBack size={14} />}
-                onClick={() => {
-                  setIsPlaying(false);
-                  setAnimationStep((current) =>
-                    (current - 1 + currentPoseSequence.length) %
-                    currentPoseSequence.length,
-                  );
-                }}
-              />
-            </Tooltip>
-            <Tooltip title="Frame tiếp theo">
-              <Button
-                size="small"
-                disabled={!animationEnabled || !currentPoseSequence.length}
-                aria-label="Xem frame animation tiếp theo"
-                icon={<SkipForward size={14} />}
-                onClick={() => {
-                  setIsPlaying(false);
-                  setAnimationStep((current) =>
-                    (current + 1) % currentPoseSequence.length,
-                  );
-                }}
-              />
-            </Tooltip>
-          </div>
-          <Tooltip
-            title={
-              prefersReducedMotion
-                ? "Trình duyệt đang bật giảm chuyển động. Dùng nút xem từng frame."
-                : undefined
-            }
-          >
-            <Button
-              size="small"
-              type={isPlaying ? "default" : "primary"}
-              disabled={
-                !animationEnabled ||
-                prefersReducedMotion ||
-                currentPoseSequence.length <= 1
-              }
-              icon={isPlaying ? <Pause size={14} /> : <Play size={14} />}
-              onClick={() => setIsPlaying((current) => !current)}
-            >
-              {isPlaying ? "Dừng" : "Chạy"}
-            </Button>
-          </Tooltip>
-          <Select
-            size="small"
-            value={animationSpeed}
-            disabled={!animationEnabled}
-            aria-label="Tốc độ preview animation"
-            options={[
-              { value: 80, label: "Nhanh 80ms" },
-              { value: 120, label: "Chuẩn 120ms" },
-              { value: 180, label: "Chậm 180ms" },
-              { value: 240, label: "Rất chậm 240ms" },
-            ]}
-            onChange={setAnimationSpeed}
-          />
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
-          <span>
-            {POSE_SPECS.find((pose) => pose.key === selectedPose)?.description}
-          </span>
-          <span className="font-mono">
-            Bước {currentPoseSequence.length ? animationStep + 1 : 0}/
-            {currentPoseSequence.length} | Frame nhân vật {characterFrame ?? "?"}
-          </span>
-        </div>
-
-        <details className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
-          <summary className="cursor-pointer select-none text-xs font-semibold text-slate-700">
-            Gán pose thủ công
-          </summary>
-          <p className="mt-2 text-[11px] leading-4 text-slate-500">
-            Nhập chuỗi frame nhân vật. Có thể lặp frame để giữ pose lâu hơn.
-            Tool tự đổi sang frame từng part và base offset tương ứng.
-          </p>
-          <div className="mt-3 space-y-3">
-            {POSE_SPECS.map((pose) => {
-              const validation = poseValidation[pose.key];
-              return (
-                <div key={pose.key}>
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <label
-                      htmlFor={`pose-${pose.key}`}
-                      className="text-[11px] font-semibold text-slate-600"
-                    >
-                      {pose.label}
-                    </label>
-                    <Button
-                      type="link"
-                      size="small"
-                      className="!h-auto !p-0 text-[11px]"
-                      onClick={() => {
-                        setPoseInputs((current) => ({
-                          ...current,
-                          [pose.key]: DEFAULT_POSE_SEQUENCES[pose.key].join(", "),
-                        }));
-                        if (pose.key === selectedPose) {
-                          setAnimationStep(0);
-                          setIsPlaying(false);
-                        }
-                      }}
-                    >
-                      Đặt lại preset
-                    </Button>
-                  </div>
-                  <Input
-                    id={`pose-${pose.key}`}
+            <div className="mt-3 grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-2">
+              <div className="flex items-center">
+                <Tooltip title="Frame trước">
+                  <Button
                     size="small"
-                    value={poseInputs[pose.key]}
-                    status={validation.error ? "error" : undefined}
-                    className="font-mono text-xs"
-                    aria-describedby={
-                      validation.error ? `pose-${pose.key}-error` : undefined
-                    }
-                    onChange={(event) => {
-                      setPoseInputs((current) => ({
-                        ...current,
-                        [pose.key]: event.target.value,
-                      }));
-                      if (pose.key === selectedPose) {
-                        setAnimationStep(0);
-                        setIsPlaying(false);
-                      }
+                    disabled={!animationEnabled || !currentPoseSequence.length}
+                    aria-label="Xem frame animation trước"
+                    icon={<SkipBack size={14} />}
+                    onClick={() => {
+                      setIsPlaying(false);
+                      setAnimationStep(
+                        (current) =>
+                          (current - 1 + currentPoseSequence.length) %
+                          currentPoseSequence.length,
+                      );
                     }}
                   />
-                  {validation.error && (
-                    <p
-                      id={`pose-${pose.key}-error`}
-                      className="mt-1 text-[11px] text-red-600"
-                    >
-                      {validation.error}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
+                </Tooltip>
+                <Tooltip title="Frame tiếp theo">
+                  <Button
+                    size="small"
+                    disabled={!animationEnabled || !currentPoseSequence.length}
+                    aria-label="Xem frame animation tiếp theo"
+                    icon={<SkipForward size={14} />}
+                    onClick={() => {
+                      setIsPlaying(false);
+                      setAnimationStep(
+                        (current) => (current + 1) % currentPoseSequence.length,
+                      );
+                    }}
+                  />
+                </Tooltip>
+              </div>
+              <Tooltip
+                title={
+                  prefersReducedMotion
+                    ? "Trình duyệt đang bật giảm chuyển động. Dùng nút xem từng frame."
+                    : undefined
+                }
+              >
+                <Button
+                  size="small"
+                  type={isPlaying ? "default" : "primary"}
+                  disabled={
+                    !animationEnabled ||
+                    prefersReducedMotion ||
+                    currentPoseSequence.length <= 1
+                  }
+                  icon={isPlaying ? <Pause size={14} /> : <Play size={14} />}
+                  onClick={() => setIsPlaying((current) => !current)}
+                >
+                  {isPlaying ? "Dừng" : "Chạy"}
+                </Button>
+              </Tooltip>
+              <Select
+                size="small"
+                value={animationSpeed}
+                disabled={!animationEnabled}
+                aria-label="Tốc độ preview animation"
+                options={[
+                  { value: 80, label: "Nhanh 80ms" },
+                  { value: 120, label: "Chuẩn 120ms" },
+                  { value: 180, label: "Chậm 180ms" },
+                  { value: 240, label: "Rất chậm 240ms" },
+                ]}
+                onChange={setAnimationSpeed}
+              />
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
+              <span>
+                {
+                  POSE_SPECS.find((pose) => pose.key === selectedPose)
+                    ?.description
+                }
+              </span>
+              <span className="font-mono">
+                Bước {currentPoseSequence.length ? animationStep + 1 : 0}/
+                {currentPoseSequence.length} | Frame nhân vật{" "}
+                {characterFrame ?? "?"}
+              </span>
+            </div>
+
+            <details className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
+              <summary className="cursor-pointer select-none text-xs font-semibold text-slate-700">
+                Gán pose thủ công
+              </summary>
+              <p className="mt-2 text-[11px] leading-4 text-slate-500">
+                Nhập chuỗi frame nhân vật. Có thể lặp frame để giữ pose lâu hơn.
+                Tool tự đổi sang frame từng part và base offset tương ứng.
+              </p>
+              <div className="mt-3 space-y-3">
+                {POSE_SPECS.map((pose) => {
+                  const validation = poseValidation[pose.key];
+                  return (
+                    <div key={pose.key}>
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <label
+                          htmlFor={`pose-${pose.key}`}
+                          className="text-[11px] font-semibold text-slate-600"
+                        >
+                          {pose.label}
+                        </label>
+                        <Button
+                          type="link"
+                          size="small"
+                          className="!h-auto !p-0 text-[11px]"
+                          onClick={() => {
+                            setPoseInputs((current) => ({
+                              ...current,
+                              [pose.key]:
+                                DEFAULT_POSE_SEQUENCES[pose.key].join(", "),
+                            }));
+                            if (pose.key === selectedPose) {
+                              setAnimationStep(0);
+                              setIsPlaying(false);
+                            }
+                          }}
+                        >
+                          Đặt lại preset
+                        </Button>
+                      </div>
+                      <Input
+                        id={`pose-${pose.key}`}
+                        size="small"
+                        value={poseInputs[pose.key]}
+                        status={validation.error ? "error" : undefined}
+                        className="font-mono text-xs"
+                        aria-describedby={
+                          validation.error
+                            ? `pose-${pose.key}-error`
+                            : undefined
+                        }
+                        onChange={(event) => {
+                          setPoseInputs((current) => ({
+                            ...current,
+                            [pose.key]: event.target.value,
+                          }));
+                          if (pose.key === selectedPose) {
+                            setAnimationStep(0);
+                            setIsPlaying(false);
+                          }
+                        }}
+                      />
+                      {validation.error && (
+                        <p
+                          id={`pose-${pose.key}-error`}
+                          className="mt-1 text-[11px] text-red-600"
+                        >
+                          {validation.error}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-3 text-[10px] leading-4 text-slate-400">
+                Frame hỗ trợ: {SUPPORTED_CHARACTER_FRAMES.join(", ")}. Attack là
+                preset đánh cơ bản, skill riêng có thể dùng chuỗi khác.
+              </p>
+            </details>
           </div>
-          <p className="mt-3 text-[10px] leading-4 text-slate-400">
-            Frame hỗ trợ: {SUPPORTED_CHARACTER_FRAMES.join(", ")}. Attack là
-            preset đánh cơ bản, skill riêng có thể dùng chuỗi khác.
-          </p>
-        </details>
-      </div>
     </Card>
   );
 }
@@ -1140,7 +1151,9 @@ function AdminFashionComposerPage() {
         frames: current[key].frames.map((frame) => ({ ...frame, assetId })),
       },
     }));
-    toast.success(`Đã gán part cho toàn bộ frame ${PART_SPEC_BY_KEY[key].label}.`);
+    toast.success(
+      `Đã gán part cho toàn bộ frame ${PART_SPEC_BY_KEY[key].label}.`,
+    );
   };
 
   const removeAsset = (key: PartKey, assetId: string) => {
@@ -1183,7 +1196,9 @@ function AdminFashionComposerPage() {
   };
 
   const resetComposer = () => {
-    Object.values(assets).flat().forEach((asset) => URL.revokeObjectURL(asset.url));
+    Object.values(assets)
+      .flat()
+      .forEach((asset) => URL.revokeObjectURL(asset.url));
     setFashion({ ...DEFAULT_FASHION });
     setParts(createInitialParts());
     setAssets(createInitialAssets());
@@ -1198,139 +1213,146 @@ function AdminFashionComposerPage() {
 
   return (
     <div className="space-y-6">
-      <Alert
+      {/* <Alert
         type="info"
         showIcon
         message="Công cụ tạo dữ liệu, không ghi trực tiếp vào game server"
         description="Ảnh part chỉ dùng để căn preview trong phiên hiện tại. SQL cần được review trước khi chạy trên database và ảnh resource vẫn phải upload theo quy trình game."
-      />
+      /> */}
+
+      <Card
+          className="min-w-0 border-slate-200 shadow-sm"
+          styles={{ body: { padding: 24 } }}
+        >
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-bold text-slate-800">
+                Fashiontemplate
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Khai báo dữ liệu item và các slot part sẽ mặc.
+              </p>
+            </div>
+            <Popconfirm
+              title="Tạo lại bản nháp?"
+              description="Toàn bộ ảnh, frame và offset hiện tại sẽ bị xóa."
+              okText="Tạo lại"
+              cancelText="Hủy"
+              onConfirm={resetComposer}
+            >
+              <Button icon={<RotateCcw size={15} />}>Bản nháp mới</Button>
+            </Popconfirm>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div>
+              <FieldLabel hint="0-255">Fashion ID</FieldLabel>
+              <InputNumber<number>
+                value={fashion.id ?? undefined}
+                min={0}
+                max={255}
+                precision={0}
+                controls={false}
+                placeholder="Ví dụ: 132"
+                className="w-full"
+                onChange={(value) => updateFashion("id", value)}
+              />
+            </div>
+            <div>
+              <FieldLabel hint="raw ID">Icon item</FieldLabel>
+              <InputNumber<number>
+                value={fashion.icon ?? undefined}
+                min={-32_768}
+                max={32_767}
+                precision={0}
+                controls={false}
+                placeholder="Không cộng 20000"
+                className="w-full"
+                onChange={(value) => updateFashion("icon", value)}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <FieldLabel>Tên fashion</FieldLabel>
+              <Input
+                value={fashion.name}
+                maxLength={255}
+                placeholder="Tên hiển thị trong game"
+                onChange={(event) => updateFashion("name", event.target.value)}
+              />
+            </div>
+            <div className="sm:col-span-2 xl:col-span-4">
+              <FieldLabel>Thông tin</FieldLabel>
+              <Input.TextArea
+                value={fashion.info}
+                autoSize={{ minRows: 2, maxRows: 4 }}
+                placeholder="Mô tả fashion"
+                onChange={(event) => updateFashion("info", event.target.value)}
+              />
+            </div>
+            <div>
+              <FieldLabel>Giá</FieldLabel>
+              <InputNumber<number>
+                value={fashion.price}
+                min={0}
+                max={2_147_483_647}
+                precision={0}
+                controls={false}
+                className="w-full"
+                onChange={(value) => updateFashion("price", value ?? 0)}
+              />
+            </div>
+            <div>
+              <FieldLabel hint="-1 là vĩnh viễn">Hạn sử dụng</FieldLabel>
+              <InputNumber<number>
+                value={fashion.hsd}
+                min={-1}
+                max={2_147_483_647}
+                precision={0}
+                controls={false}
+                className="w-full"
+                onChange={(value) => updateFashion("hsd", value ?? -1)}
+              />
+            </div>
+            <div className="flex items-end sm:col-span-2">
+              <div className="flex h-8 items-center gap-3">
+                <Switch
+                  checked={fashion.shopSale}
+                  onChange={(value) => updateFashion("shopSale", value)}
+                />
+                <span className="text-sm font-semibold text-slate-700">
+                  Mở bán trong shop
+                </span>
+              </div>
+            </div>
+            <div className="sm:col-span-2">
+              <FieldLabel hint="JSON array">op</FieldLabel>
+              <Input.TextArea
+                value={fashion.op}
+                autoSize={{ minRows: 3, maxRows: 8 }}
+                className="font-mono text-xs"
+                onChange={(event) => updateFashion("op", event.target.value)}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <FieldLabel hint="JSON array">spec_op</FieldLabel>
+              <Input.TextArea
+                value={fashion.specOp}
+                autoSize={{ minRows: 3, maxRows: 8 }}
+                className="font-mono text-xs"
+                onChange={(event) =>
+                  updateFashion("specOp", event.target.value)
+                }
+              />
+            </div>
+          </div>
+      </Card>
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_480px] 2xl:grid-cols-[minmax(0,1fr)_560px]">
         <Card
           className="min-w-0 border-slate-200 shadow-sm"
           styles={{ body: { padding: 24 } }}
         >
-        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-bold text-slate-800">
-              Cấu hình fashion
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Thiết lập fashiontemplate, parts và frame trong cùng một luồng.
-            </p>
-          </div>
-          <Popconfirm
-            title="Tạo lại bản nháp?"
-            description="Toàn bộ ảnh, frame và offset hiện tại sẽ bị xóa."
-            okText="Tạo lại"
-            cancelText="Hủy"
-            onConfirm={resetComposer}
-          >
-            <Button icon={<RotateCcw size={15} />}>Bản nháp mới</Button>
-          </Popconfirm>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <div>
-            <FieldLabel hint="0-255">Fashion ID</FieldLabel>
-            <InputNumber<number>
-              value={fashion.id ?? undefined}
-              min={0}
-              max={255}
-              precision={0}
-              controls={false}
-              placeholder="Ví dụ: 132"
-              className="w-full"
-              onChange={(value) => updateFashion("id", value)}
-            />
-          </div>
-          <div>
-            <FieldLabel hint="raw ID">Icon item</FieldLabel>
-            <InputNumber<number>
-              value={fashion.icon ?? undefined}
-              min={-32_768}
-              max={32_767}
-              precision={0}
-              controls={false}
-              placeholder="Không cộng 20000"
-              className="w-full"
-              onChange={(value) => updateFashion("icon", value)}
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <FieldLabel>Tên fashion</FieldLabel>
-            <Input
-              value={fashion.name}
-              maxLength={255}
-              placeholder="Tên hiển thị trong game"
-              onChange={(event) => updateFashion("name", event.target.value)}
-            />
-          </div>
-          <div className="sm:col-span-2 xl:col-span-4">
-            <FieldLabel>Thông tin</FieldLabel>
-            <Input.TextArea
-              value={fashion.info}
-              autoSize={{ minRows: 2, maxRows: 4 }}
-              placeholder="Mô tả fashion"
-              onChange={(event) => updateFashion("info", event.target.value)}
-            />
-          </div>
-          <div>
-            <FieldLabel>Giá</FieldLabel>
-            <InputNumber<number>
-              value={fashion.price}
-              min={0}
-              max={2_147_483_647}
-              precision={0}
-              controls={false}
-              className="w-full"
-              onChange={(value) => updateFashion("price", value ?? 0)}
-            />
-          </div>
-          <div>
-            <FieldLabel hint="-1 là vĩnh viễn">Hạn sử dụng</FieldLabel>
-            <InputNumber<number>
-              value={fashion.hsd}
-              min={-1}
-              max={2_147_483_647}
-              precision={0}
-              controls={false}
-              className="w-full"
-              onChange={(value) => updateFashion("hsd", value ?? -1)}
-            />
-          </div>
-          <div className="flex items-end sm:col-span-2">
-            <div className="flex h-8 items-center gap-3">
-              <Switch
-                checked={fashion.shopSale}
-                onChange={(value) => updateFashion("shopSale", value)}
-              />
-              <span className="text-sm font-semibold text-slate-700">
-                Mở bán trong shop
-              </span>
-            </div>
-          </div>
-          <div className="sm:col-span-2">
-            <FieldLabel hint="JSON array">op</FieldLabel>
-            <Input.TextArea
-              value={fashion.op}
-              autoSize={{ minRows: 3, maxRows: 8 }}
-              className="font-mono text-xs"
-              onChange={(event) => updateFashion("op", event.target.value)}
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <FieldLabel hint="JSON array">spec_op</FieldLabel>
-            <Input.TextArea
-              value={fashion.specOp}
-              autoSize={{ minRows: 3, maxRows: 8 }}
-              className="font-mono text-xs"
-              onChange={(event) => updateFashion("specOp", event.target.value)}
-            />
-          </div>
-        </div>
-
-          <div className="mb-5 mt-8 border-t border-slate-200 pt-6">
+          <div className="mb-5">
             <h2 className="text-base font-bold text-slate-800">
               Parts và frame
             </h2>
@@ -1393,8 +1415,8 @@ function AdminFashionComposerPage() {
               </Checkbox>
             </div>
             <p className="mt-3 text-xs text-slate-500">
-              {activeSpec.description}. Slot mặc định theo cấu trúc hiện tại,
-              có thể đổi hoặc chọn không gắn vào mwear.
+              {activeSpec.description}. Slot mặc định theo cấu trúc hiện tại, có
+              thể đổi hoặc chọn không gắn vào mwear.
             </p>
           </div>
 
@@ -1407,9 +1429,7 @@ function AdminFashionComposerPage() {
                 onChangeIcon={(assetId, iconId) =>
                   changeAssetIcon(activePart, assetId, iconId)
                 }
-                onAssignAll={(assetId) =>
-                  assignAllFrames(activePart, assetId)
-                }
+                onAssignAll={(assetId) => assignAllFrames(activePart, assetId)}
                 onRemove={(assetId) => removeAsset(activePart, assetId)}
               />
               <FrameEditor
