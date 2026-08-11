@@ -212,9 +212,10 @@ function AssetLibrary({
           Kho ảnh part
         </h3>
         <p className="mt-1 text-xs leading-5 text-slate-500">
-          Ảnh đầu tiên tự điền toàn bộ frame còn trống. Sau đó vẫn có thể đổi
-          từng frame bằng dropdown. File chỉ nằm trong trình duyệt, không upload
-          lên server. Tên file 10xxx sẽ tự bỏ offset 10000, Icon ID vẫn sửa được.
+          Mỗi ảnh mới tự gán vào frame trống kế tiếp, không duplicate để lấp đầy
+          các frame còn lại. Sau đó vẫn có thể đổi từng frame bằng dropdown. File
+          chỉ nằm trong trình duyệt, không upload lên server. Tên file 10xxx sẽ
+          tự bỏ offset 10000, Icon ID vẫn sửa được.
         </p>
       </div>
 
@@ -337,8 +338,8 @@ function FrameEditor({
           </h3>
           <p className="mt-1 text-xs text-slate-500">
             {spec.frameCount} frame bắt buộc cho parts.type = {spec.type}.
-            Auto-fill không ghi đè lựa chọn hiện có; dropdown dùng để custom
-            từng frame.
+            Auto-fill gán tuần tự đến ảnh cuối cùng, không ghi đè lựa chọn hiện
+            có; dropdown dùng để custom từng frame.
           </p>
         </div>
         <Tag color="gold">
@@ -1334,14 +1335,19 @@ function AdminFashionComposerPage() {
       }));
       setParts((current) => {
         const frames = current[key].frames;
-        if (frames.every((frame) => frame.assetId !== null)) return current;
+        const nextEmptyFrame = frames.findIndex(
+          (frame) => frame.assetId === null,
+        );
+        if (nextEmptyFrame === -1) return current;
 
         return {
           ...current,
           [key]: {
             ...current[key],
-            frames: frames.map((frame) =>
-              frame.assetId === null ? { ...frame, assetId: asset.id } : frame,
+            frames: frames.map((frame, frameIndex) =>
+              frameIndex === nextEmptyFrame
+                ? { ...frame, assetId: asset.id }
+                : frame,
             ),
           },
         };
