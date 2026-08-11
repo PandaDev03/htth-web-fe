@@ -135,6 +135,9 @@ type PreviewDragSession = {
 type ResourceScale = 1 | 2 | 3 | 4;
 type PreviewDirection = "left" | "right";
 type PreviewFrameMode = "game" | "custom";
+type CharacterFrameOverrides = Partial<
+  Record<number, Record<PartKey, number>>
+>;
 
 const getLogicalSize = (physicalSize: number, resourceScale: ResourceScale) =>
   Math.floor(physicalSize / resourceScale);
@@ -444,7 +447,6 @@ function FrameEditor({
 function ComposerPreview({
   parts,
   assets,
-  previewFrames,
   visibility,
   selectedLayer,
   zoom,
@@ -456,7 +458,6 @@ function ComposerPreview({
 }: {
   parts: ComposerParts;
   assets: ComposerAssets;
-  previewFrames: Record<PartKey, number>;
   visibility: Record<PartKey, boolean>;
   selectedLayer: PartKey;
   zoom: number;
@@ -481,7 +482,9 @@ function ComposerPreview({
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [resourceScale, setResourceScale] = useState<ResourceScale>(4);
   const [direction, setDirection] = useState<PreviewDirection>("left");
-  const [frameMode, setFrameMode] = useState<PreviewFrameMode>("game");
+  const [frameOverrides, setFrameOverrides] =
+    useState<CharacterFrameOverrides>({});
+  const [selectionVisible, setSelectionVisible] = useState(true);
   const [referenceCharacterFrame, setReferenceCharacterFrame] = useState(0);
   const dragSessionRef = useRef<PreviewDragSession | null>(null);
   const layerRefs = useRef<Partial<Record<PartKey, HTMLDivElement | null>>>({});
@@ -516,16 +519,15 @@ function ComposerPreview({
       : referenceCharacterFrame;
   const characterPoseFrame =
     CHARACTER_POSE_FRAMES[characterFrame] ?? CHARACTER_POSE_FRAMES[0];
-  const followsGameFrame = animationEnabled || frameMode === "game";
-  const effectivePreviewFrames =
-    followsGameFrame
-      ? (Object.fromEntries(
-          PART_SPECS.map((spec) => [
-            spec.key,
-            characterPoseFrame[spec.key].frame,
-          ]),
-        ) as Record<PartKey, number>)
-      : previewFrames;
+  const gamePreviewFrames = Object.fromEntries(
+    PART_SPECS.map((spec) => [
+      spec.key,
+      characterPoseFrame[spec.key].frame,
+    ]),
+  ) as Record<PartKey, number>;
+  const currentFrameOverride = frameOverrides[characterFrame];
+  const isCurrentFrameCustom = Boolean(currentFrameOverride);
+  const effectivePreviewFrames = currentFrameOverride ?? gamePreviewFrames;
   const getBaseOffset = (key: PartKey) => characterPoseFrame[key];
   const selectedBaseOffset = getBaseOffset(selectedLayer);
   const selectedConfiguration = parts[selectedLayer];
@@ -535,6 +537,7 @@ function ComposerPreview({
     (item) => item.id === selectedFrame?.assetId,
   );
   const canMoveSelected = Boolean(
+    selectionVisible &&
     selectedConfiguration.enabled &&
     visibility[selectedLayer] &&
     selectedFrame &&
@@ -592,6 +595,42 @@ function ComposerPreview({
     setIsPlaying(false);
   }, [selectedPose]);
 
+  useEffect(() => {
+    setSelectionVisible(true);
+  }, [selectedLayer]);
+
+  const changeCurrentFrameMode = (mode: PreviewFrameMode) => {
+    setIsPlaying(false);
+    setFrameOverrides((current) => {
+      if (mode === "custom") {
+        return current[characterFrame]
+          ? current
+          : {
+              ...current,
+              [characterFrame]: { ...gamePreviewFrames },
+            };
+      }
+
+      const next = { ...current };
+      delete next[characterFrame];
+      return next;
+    });
+  };
+
+  const changeCurrentPartFrame = (partKey: PartKey, frameIndex: number) => {
+    setIsPlaying(false);
+    setSelectionVisible(true);
+    setFrameOverrides((current) => ({
+      ...current,
+      [characterFrame]: {
+        ...(current[characterFrame] ?? gamePreviewFrames),
+        [partKey]: frameIndex,
+      },
+    }));
+    onSelectLayer(partKey);
+    onChangeFrame(partKey, frameIndex);
+  };
+
   const updateDraggedElements = (session: PreviewDragSession) => {
     const position = getRenderTranslation(
       session.baseDx,
@@ -620,7 +659,13 @@ function ComposerPreview({
         ? event.target.closest<HTMLElement>("[data-preview-part]")
         : null;
     const hitPartKey = hitTarget?.dataset.previewPart as PartKey | undefined;
-    const partKey = hitPartKey ?? selectedLayer;
+    if (!hitPartKey) {
+      event.preventDefault();
+      setSelectionVisible(false);
+      return;
+    }
+
+    const partKey = hitPartKey;
     const configuration = parts[partKey];
     const frameIndex = effectivePreviewFrames[partKey];
     const frame = configuration.frames[frameIndex];
@@ -632,12 +677,10 @@ function ComposerPreview({
 
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
+    setSelectionVisible(true);
     if (partKey !== selectedLayer) onSelectLayer(partKey);
     if (animationEnabled) {
       setIsPlaying(false);
-      if (previewFrames[partKey] !== frameIndex) {
-        onChangeFrame(partKey, frameIndex);
-      }
     }
     const { baseDx, baseDy } = getBaseOffset(partKey);
     dragSessionRef.current = {
@@ -693,6 +736,12 @@ function ComposerPreview({
   };
 
   const handlePreviewKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setSelectionVisible(false);
+      return;
+    }
+
     if (!canMoveSelected || !selectedFrame) return;
 
     const keyDirection = {
@@ -706,9 +755,6 @@ function ComposerPreview({
     event.preventDefault();
     if (animationEnabled) {
       setIsPlaying(false);
-      if (previewFrames[selectedLayer] !== selectedFrameIndex) {
-        onChangeFrame(selectedLayer, selectedFrameIndex);
-      }
     }
     const step = event.shiftKey ? 5 : 1;
     const horizontalDirection = direction === "left" ? 1 : -1;
@@ -843,17 +889,21 @@ function ComposerPreview({
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs">
             <span className="font-semibold text-amber-800">
-              {PART_SPEC_BY_KEY[selectedLayer].label} / Frame{" "}
-              {selectedFrameIndex}
+              {selectionVisible
+                ? `${PART_SPEC_BY_KEY[selectedLayer].label} / Frame ${selectedFrameIndex}`
+                : "Không chọn layer"}
             </span>
             <span ref={coordinatesRef} className="font-mono text-amber-700">
-              Offset X {selectedFrame?.dx ?? 0}, Y {selectedFrame?.dy ?? 0}
+              {selectionVisible
+                ? `Offset X ${selectedFrame?.dx ?? 0}, Y ${selectedFrame?.dy ?? 0}`
+                : "Click part để chọn lại"}
             </span>
           </div>
           <p className="mt-2 text-[11px] leading-4 text-slate-400">
             Giao điểm là tọa độ x/y truyền vào MainObject.paintBody, tức điểm
             đứng của nhân vật. Offset luôn tính theo pixel logic x1. Kéo bằng
             chuột hoặc cảm ứng. Phím mũi tên chỉnh 1px, giữ Shift để chỉnh 5px.
+            Click vùng trống hoặc nhấn Esc để ẩn khung chọn.
           </p>
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -891,13 +941,12 @@ function ComposerPreview({
               </span>
               <Segmented<PreviewFrameMode>
                 block
-                disabled={animationEnabled}
-                value={frameMode}
+                value={isCurrentFrameCustom ? "custom" : "game"}
                 options={[
                   { value: "game", label: "Theo game" },
                   { value: "custom", label: "Tùy chỉnh" },
                 ]}
-                onChange={setFrameMode}
+                onChange={changeCurrentFrameMode}
               />
             </div>
             <div>
@@ -920,8 +969,15 @@ function ComposerPreview({
           </div>
           <p className="mt-2 text-[11px] leading-4 text-slate-400">
             Chọn đúng thư mục resource đang upload. PC x4 dùng x4, mobile x1-x3
-            dùng scale tương ứng. Animation luôn ép frame part theo CharInfo game.
+            dùng scale tương ứng. Tùy chỉnh chỉ áp dụng riêng Frame nhân vật{" "}
+            {characterFrame}; frame khác vẫn giữ mapping của chính nó.
           </p>
+          {isCurrentFrameCustom && (
+            <p className="mt-1 text-[11px] leading-4 text-amber-700">
+              Override chỉ đổi mapping kiểm tra trong Preview. SQL parts không
+              lưu mapping thay thế CharInfo của client.
+            </p>
+          )}
 
           <div className="mt-4">
             <div className="mb-2 flex items-center justify-between">
@@ -944,20 +1000,23 @@ function ComposerPreview({
             {PART_SPECS.map((spec) => (
               <div
                 key={spec.key}
-                className={`grid grid-cols-[minmax(88px,1fr)_118px_36px] items-center gap-2 rounded-lg px-1 py-1 ${selectedLayer === spec.key ? "bg-amber-50" : ""}`}
+                className={`grid grid-cols-[minmax(88px,1fr)_118px_36px] items-center gap-2 rounded-lg px-1 py-1 ${selectionVisible && selectedLayer === spec.key ? "bg-amber-50" : ""}`}
               >
                 <button
                   type="button"
                   disabled={!parts[spec.key].enabled}
-                  onClick={() => onSelectLayer(spec.key)}
-                  className={`truncate rounded-md px-2 py-1 text-left text-xs font-semibold disabled:cursor-not-allowed disabled:text-slate-300 ${selectedLayer === spec.key ? "text-amber-800" : "text-slate-600 hover:bg-slate-100"}`}
+                  onClick={() => {
+                    setSelectionVisible(true);
+                    onSelectLayer(spec.key);
+                  }}
+                  className={`truncate rounded-md px-2 py-1 text-left text-xs font-semibold disabled:cursor-not-allowed disabled:text-slate-300 ${selectionVisible && selectedLayer === spec.key ? "text-amber-800" : "text-slate-600 hover:bg-slate-100"}`}
                 >
                   {spec.label}
                 </button>
                 <Select
                   size="small"
                   value={effectivePreviewFrames[spec.key]}
-                  disabled={!parts[spec.key].enabled || followsGameFrame}
+                  disabled={!parts[spec.key].enabled || !isCurrentFrameCustom}
                   options={Array.from(
                     { length: spec.frameCount },
                     (_, index) => ({
@@ -965,10 +1024,9 @@ function ComposerPreview({
                       label: `Frame ${index}`,
                     }),
                   )}
-                  onChange={(value) => {
-                    onSelectLayer(spec.key);
-                    onChangeFrame(spec.key, value);
-                  }}
+                  onChange={(value) =>
+                    changeCurrentPartFrame(spec.key, value)
+                  }
                 />
                 <Button
                   type="text"
@@ -1627,7 +1685,6 @@ function AdminFashionComposerPage() {
             key={previewResetVersion}
             parts={parts}
             assets={assets}
-            previewFrames={previewFrames}
             visibility={visibility}
             selectedLayer={activePart}
             zoom={zoom}
