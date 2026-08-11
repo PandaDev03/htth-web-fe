@@ -119,7 +119,9 @@ const clampOffset = (value: number) => Math.max(-128, Math.min(127, value));
 type PreviewDragSession = {
   pointerId: number;
   partKey: PartKey;
+  characterFrame: number;
   frameIndex: number;
+  runtimeCharacterFrames: number[];
   startClientX: number;
   startClientY: number;
   startDx: number;
@@ -138,6 +140,16 @@ type PreviewFrameMode = "game" | "custom";
 type CharacterFrameOverrides = Partial<
   Record<number, Record<PartKey, number>>
 >;
+type OffsetEditOwners = Partial<
+  Record<PartKey, Partial<Record<number, number>>>
+>;
+type OffsetChangeContext = {
+  source: "preview-drag" | "preview-keyboard";
+  characterFrame: number;
+  baseDx: number;
+  baseDy: number;
+  runtimeCharacterFrames: number[];
+};
 
 const getLogicalSize = (physicalSize: number, resourceScale: ResourceScale) =>
   Math.floor(physicalSize / resourceScale);
@@ -153,6 +165,20 @@ const getRenderTranslation = (
   x: direction === "left" ? baseDx + dx : -baseDx - dx - logicalWidth,
   y: baseDy + dy,
 });
+
+const getRuntimeCharacterFrames = (
+  partKey: PartKey,
+  partFrame: number,
+) =>
+  SUPPORTED_CHARACTER_FRAMES.filter(
+    (frame) => CHARACTER_POSE_FRAMES[frame][partKey].frame === partFrame,
+  );
+
+const formatCharacterFrames = (frames: number[]) => {
+  const visibleFrames = frames.slice(0, 12).join(", ");
+  const remaining = frames.length - 12;
+  return remaining > 0 ? `${visibleFrames}, +${remaining} frame` : visibleFrames;
+};
 
 const mwearOptions = [
   { value: -1, label: "Không gắn vào mwear" },
@@ -469,6 +495,7 @@ function ComposerPreview({
     frameIndex: number,
     dx: number,
     dy: number,
+    context: OffsetChangeContext,
   ) => void;
   onToggleVisibility: (key: PartKey) => void;
   onChangeZoom: (zoom: number) => void;
@@ -486,6 +513,8 @@ function ComposerPreview({
   const [frameOverrides, setFrameOverrides] =
     useState<CharacterFrameOverrides>({});
   const [selectionVisible, setSelectionVisible] = useState(true);
+  const [offsetEditOwners, setOffsetEditOwners] =
+    useState<OffsetEditOwners>({});
   const [referenceCharacterFrame, setReferenceCharacterFrame] = useState(0);
   const dragSessionRef = useRef<PreviewDragSession | null>(null);
   const layerRefs = useRef<Partial<Record<PartKey, HTMLDivElement | null>>>({});
@@ -520,12 +549,16 @@ function ComposerPreview({
       : referenceCharacterFrame;
   const characterPoseFrame =
     CHARACTER_POSE_FRAMES[characterFrame] ?? CHARACTER_POSE_FRAMES[0];
-  const gamePreviewFrames = Object.fromEntries(
-    PART_SPECS.map((spec) => [
-      spec.key,
-      characterPoseFrame[spec.key].frame,
-    ]),
-  ) as Record<PartKey, number>;
+  const gamePreviewFrames = useMemo(
+    () =>
+      Object.fromEntries(
+        PART_SPECS.map((spec) => [
+          spec.key,
+          characterPoseFrame[spec.key].frame,
+        ]),
+      ) as Record<PartKey, number>,
+    [characterPoseFrame],
+  );
   const currentFrameOverride = frameOverrides[characterFrame];
   const isCurrentFrameCustom = Boolean(currentFrameOverride);
   const effectivePreviewFrames = currentFrameOverride ?? gamePreviewFrames;
@@ -537,8 +570,18 @@ function ComposerPreview({
   const selectedAsset = assets[selectedLayer].find(
     (item) => item.id === selectedFrame?.assetId,
   );
+  const selectedRuntimeCharacterFrames = getRuntimeCharacterFrames(
+    selectedLayer,
+    selectedFrameIndex,
+  );
+  const selectedOffsetOwner =
+    offsetEditOwners[selectedLayer]?.[selectedFrameIndex];
+  const isSelectedOffsetLocked =
+    selectedOffsetOwner !== undefined &&
+    selectedOffsetOwner !== characterFrame;
   const canMoveSelected = Boolean(
     selectionVisible &&
+    !isSelectedOffsetLocked &&
     selectedConfiguration.enabled &&
     visibility[selectedLayer] &&
     selectedFrame &&
@@ -599,6 +642,72 @@ function ComposerPreview({
   useEffect(() => {
     setSelectionVisible(true);
   }, [selectedLayer]);
+
+  useEffect(() => {
+    const snapshot = PART_SPECS.map((spec) => {
+      const partFrame = effectivePreviewFrames[spec.key];
+      const storedOffset = parts[spec.key].frames[partFrame];
+      const baseOffset = characterPoseFrame[spec.key];
+      return {
+        part: spec.key,
+        characterFrame,
+        partFrame,
+        baseDx: baseOffset.baseDx,
+        baseDy: baseOffset.baseDy,
+        storedDx: storedOffset?.dx ?? null,
+        storedDy: storedOffset?.dy ?? null,
+        renderX: baseOffset.baseDx + (storedOffset?.dx ?? 0),
+        renderY: baseOffset.baseDy + (storedOffset?.dy ?? 0),
+        runtimeConsumers: getRuntimeCharacterFrames(spec.key, partFrame).join(
+          ",",
+        ),
+      };
+    });
+    console.groupCollapsed(
+      `[FashionComposer][preview] characterFrame=${characterFrame}`,
+    );
+    console.table(snapshot);
+    console.groupEnd();
+  }, [characterFrame, characterPoseFrame, effectivePreviewFrames, parts]);
+
+  const claimOffsetOwner = (
+    partKey: PartKey,
+    partFrame: number,
+    ownerCharacterFrame: number,
+  ) =>
+    setOffsetEditOwners((current) => ({
+      ...current,
+      [partKey]: {
+        ...current[partKey],
+        [partFrame]: ownerCharacterFrame,
+      },
+    }));
+
+  const warnOffsetLocked = (
+    partKey: PartKey,
+    partFrame: number,
+    ownerCharacterFrame: number,
+    attemptedCharacterFrame: number,
+    source: "preview-drag" | "preview-keyboard",
+  ) => {
+    const runtimeCharacterFrames = getRuntimeCharacterFrames(
+      partKey,
+      partFrame,
+    );
+    console.warn("[FashionComposer][offset:blocked]", {
+      source,
+      partKey,
+      partFrame,
+      ownerCharacterFrame,
+      attemptedCharacterFrame,
+      runtimeCharacterFrames,
+      reason: "Shared PartImage.dx/dy is owned by another character frame",
+    });
+    toast.warning(
+      `${PART_SPEC_BY_KEY[partKey].label} frame ${partFrame} đã căn tại character frame ${ownerCharacterFrame}. Frame ${attemptedCharacterFrame} dùng chung offset nên thao tác đã bị chặn.`,
+      { id: `offset-lock-${partKey}-${partFrame}` },
+    );
+  };
 
   const changeCurrentFrameMode = (mode: PreviewFrameMode) => {
     setIsPlaying(false);
@@ -671,15 +780,29 @@ function ComposerPreview({
     const frameIndex = effectivePreviewFrames[partKey];
     const frame = configuration.frames[frameIndex];
     const asset = assets[partKey].find((item) => item.id === frame?.assetId);
+    const offsetOwner = offsetEditOwners[partKey]?.[frameIndex];
 
     if (!configuration.enabled || !visibility[partKey] || !frame || !asset) {
       return;
     }
 
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
     setSelectionVisible(true);
     if (partKey !== selectedLayer) onSelectLayer(partKey);
+
+    if (offsetOwner !== undefined && offsetOwner !== characterFrame) {
+      event.preventDefault();
+      warnOffsetLocked(
+        partKey,
+        frameIndex,
+        offsetOwner,
+        characterFrame,
+        "preview-drag",
+      );
+      return;
+    }
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
     if (animationEnabled) {
       setIsPlaying(false);
     }
@@ -687,7 +810,9 @@ function ComposerPreview({
     dragSessionRef.current = {
       pointerId: event.pointerId,
       partKey,
+      characterFrame,
       frameIndex,
+      runtimeCharacterFrames: getRuntimeCharacterFrames(partKey, frameIndex),
       startClientX: event.clientX,
       startClientY: event.clientY,
       startDx: frame.dx,
@@ -728,11 +853,28 @@ function ComposerPreview({
     }
     dragSessionRef.current = null;
     setDragging(false);
+    if (
+      session.nextDx !== session.startDx ||
+      session.nextDy !== session.startDy
+    ) {
+      claimOffsetOwner(
+        session.partKey,
+        session.frameIndex,
+        session.characterFrame,
+      );
+    }
     onChangeOffset(
       session.partKey,
       session.frameIndex,
       session.nextDx,
       session.nextDy,
+      {
+        source: "preview-drag",
+        characterFrame: session.characterFrame,
+        baseDx: session.baseDx,
+        baseDy: session.baseDy,
+        runtimeCharacterFrames: session.runtimeCharacterFrames,
+      },
     );
   };
 
@@ -740,6 +882,29 @@ function ComposerPreview({
     if (event.key === "Escape") {
       event.preventDefault();
       setSelectionVisible(false);
+      return;
+    }
+
+    const isOffsetKey = [
+      "ArrowLeft",
+      "ArrowRight",
+      "ArrowUp",
+      "ArrowDown",
+    ].includes(event.key);
+    if (
+      isOffsetKey &&
+      selectionVisible &&
+      isSelectedOffsetLocked &&
+      selectedOffsetOwner !== undefined
+    ) {
+      event.preventDefault();
+      warnOffsetLocked(
+        selectedLayer,
+        selectedFrameIndex,
+        selectedOffsetOwner,
+        characterFrame,
+        "preview-keyboard",
+      );
       return;
     }
 
@@ -759,13 +924,25 @@ function ComposerPreview({
     }
     const step = event.shiftKey ? 5 : 1;
     const horizontalDirection = direction === "left" ? 1 : -1;
+    const nextDx = clampOffset(
+      selectedFrame.dx + keyDirection[0] * step * horizontalDirection,
+    );
+    const nextDy = clampOffset(selectedFrame.dy + keyDirection[1] * step);
+    if (nextDx === selectedFrame.dx && nextDy === selectedFrame.dy) return;
+
+    claimOffsetOwner(selectedLayer, selectedFrameIndex, characterFrame);
     onChangeOffset(
       selectedLayer,
       selectedFrameIndex,
-      clampOffset(
-        selectedFrame.dx + keyDirection[0] * step * horizontalDirection,
-      ),
-      clampOffset(selectedFrame.dy + keyDirection[1] * step),
+      nextDx,
+      nextDy,
+      {
+        source: "preview-keyboard",
+        characterFrame,
+        baseDx: selectedBaseOffset.baseDx,
+        baseDy: selectedBaseOffset.baseDy,
+        runtimeCharacterFrames: selectedRuntimeCharacterFrames,
+      },
     );
   };
 
@@ -900,6 +1077,31 @@ function ComposerPreview({
                 : "Click part để chọn lại"}
             </span>
           </div>
+          {selectionVisible && selectedRuntimeCharacterFrames.length > 1 && (
+            <Alert
+              className="mt-3"
+              type={isSelectedOffsetLocked ? "warning" : "info"}
+              showIcon
+              message={
+                isSelectedOffsetLocked
+                  ? "Offset dùng chung đang bị khóa"
+                  : "Part frame này dùng chung offset"
+              }
+              description={
+                <span className="text-xs leading-5">
+                  {PART_SPEC_BY_KEY[selectedLayer].label} frame{" "}
+                  {selectedFrameIndex} được dùng bởi{" "}
+                  {selectedRuntimeCharacterFrames.length} character frame:{" "}
+                  {formatCharacterFrames(selectedRuntimeCharacterFrames)}.{" "}
+                  {isSelectedOffsetLocked
+                    ? `Tool đã lấy character frame ${selectedOffsetOwner} làm mốc và chặn chỉnh tại frame ${characterFrame} để không làm lệch dữ liệu cũ.`
+                    : selectedOffsetOwner === characterFrame
+                      ? `Character frame ${characterFrame} đang là mốc. Các frame dùng chung khác sẽ không được sửa offset này.`
+                      : `Lần chỉnh đầu tại character frame ${characterFrame} sẽ được dùng làm mốc cho offset này.`}
+                </span>
+              }
+            />
+          )}
           <p className="mt-2 text-[11px] leading-4 text-slate-400">
             Giao điểm là tọa độ x/y truyền vào MainObject.paintBody, tức điểm
             đứng của nhân vật. Offset luôn tính theo pixel logic x1. Kéo bằng
@@ -1298,16 +1500,54 @@ function AdminFashionComposerPage() {
     key: PartKey,
     index: number,
     patch: Partial<FrameAssignment>,
+    context?: OffsetChangeContext,
   ) =>
-    setParts((current) => ({
-      ...current,
-      [key]: {
-        ...current[key],
-        frames: current[key].frames.map((frame, frameIndex) =>
-          frameIndex === index ? { ...frame, ...patch } : frame,
-        ),
-      },
-    }));
+    setParts((current) => {
+      const before = current[key].frames[index];
+      const after = { ...before, ...patch };
+      const offsetChanged =
+        before && (before.dx !== after.dx || before.dy !== after.dy);
+
+      if (offsetChanged) {
+        const runtimeCharacterFrames =
+          context?.runtimeCharacterFrames ??
+          getRuntimeCharacterFrames(key, index);
+        const payload = {
+          source: context?.source ?? "frame-editor",
+          partKey: key,
+          partFrame: index,
+          characterFrame: context?.characterFrame ?? null,
+          runtimeCharacterFrames,
+          baseDx: context?.baseDx ?? null,
+          baseDy: context?.baseDy ?? null,
+          before: { dx: before.dx, dy: before.dy },
+          after: { dx: after.dx, dy: after.dy },
+          affectedCount: runtimeCharacterFrames.length,
+        };
+        console.groupCollapsed(
+          `[FashionComposer][offset:commit] ${key} partFrame=${index}`,
+        );
+        console.table([payload]);
+        console.debug("[FashionComposer][offset:detail]", payload);
+        if (runtimeCharacterFrames.length > 1) {
+          console.warn(
+            "[FashionComposer][offset:shared] Stored offset affects every listed character frame.",
+            runtimeCharacterFrames,
+          );
+        }
+        console.groupEnd();
+      }
+
+      return {
+        ...current,
+        [key]: {
+          ...current[key],
+          frames: current[key].frames.map((frame, frameIndex) =>
+            frameIndex === index ? after : frame,
+          ),
+        },
+      };
+    });
 
   const handleUpload = async (key: PartKey, file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -1698,8 +1938,8 @@ function AdminFashionComposerPage() {
               setPreviewFrames((current) => ({ ...current, [key]: frame }))
             }
             onSelectLayer={setActivePart}
-            onChangeOffset={(key, frameIndex, dx, dy) =>
-              updateFrame(key, frameIndex, { dx, dy })
+            onChangeOffset={(key, frameIndex, dx, dy, context) =>
+              updateFrame(key, frameIndex, { dx, dy }, context)
             }
             onToggleVisibility={(key) =>
               setVisibility((current) => ({
