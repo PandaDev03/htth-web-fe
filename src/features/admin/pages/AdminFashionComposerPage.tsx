@@ -21,16 +21,20 @@ import {
   Eye,
   EyeOff,
   FileCode2,
+  FileUp,
+  FolderOpen,
   ImagePlus,
   Layers3,
   Pause,
   Play,
   RotateCcw,
+  Save,
   SkipBack,
   SkipForward,
   Trash2,
 } from "lucide-react";
 import {
+  type ChangeEvent,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   useEffect,
@@ -121,6 +125,7 @@ type PreviewDragSession = {
   partKey: PartKey;
   characterFrame: number;
   frameIndex: number;
+  previewCharacterFrames: number[];
   runtimeCharacterFrames: number[];
   startClientX: number;
   startClientY: number;
@@ -148,8 +153,235 @@ type OffsetChangeContext = {
   characterFrame: number;
   baseDx: number;
   baseDy: number;
+  previewCharacterFrames: number[];
   runtimeCharacterFrames: number[];
 };
+
+type SavedAssetReference = {
+  name: string;
+  iconId: number | null;
+};
+
+type SavedFrameAssignment = {
+  asset: SavedAssetReference | null;
+  dx: number;
+  dy: number;
+};
+
+type SavedPartConfiguration = Omit<
+  ComposerParts[PartKey],
+  "frames"
+> & {
+  frames: SavedFrameAssignment[];
+};
+
+type ComposerConfigFile = {
+  schema: "htth-fashion-composer";
+  version: 1;
+  exportedAt: string;
+  mappingMode: "game";
+  fashion: FashionConfiguration;
+  parts: Record<PartKey, SavedPartConfiguration>;
+  preview: {
+    activePart: PartKey;
+    previewFrames: Record<PartKey, number>;
+    visibility: Record<PartKey, boolean>;
+    zoom: number;
+  };
+};
+
+type PendingAssetBindings = Record<
+  PartKey,
+  Array<SavedAssetReference | null>
+>;
+
+const COMPOSER_CONFIG_SCHEMA = "htth-fashion-composer";
+const COMPOSER_CONFIG_VERSION = 1;
+
+const createEmptyAssetBindings = (): PendingAssetBindings =>
+  Object.fromEntries(
+    PART_SPECS.map((spec) => [
+      spec.key,
+      Array.from({ length: spec.frameCount }, () => null),
+    ]),
+  ) as PendingAssetBindings;
+
+const normalizeAssetName = (name: string) => name.trim().toLocaleLowerCase();
+
+const assetMatchesReference = (
+  asset: Pick<UploadedPartAsset, "name" | "iconId">,
+  reference: SavedAssetReference,
+) =>
+  (reference.iconId !== null && asset.iconId === reference.iconId) ||
+  normalizeAssetName(asset.name) === normalizeAssetName(reference.name);
+
+const findAssetByReference = (
+  assets: UploadedPartAsset[],
+  reference: SavedAssetReference,
+) => {
+  if (reference.iconId !== null) {
+    const iconMatch = assets.find(
+      (asset) => asset.iconId === reference.iconId,
+    );
+    if (iconMatch) return iconMatch;
+  }
+  return assets.find(
+    (asset) =>
+      normalizeAssetName(asset.name) === normalizeAssetName(reference.name),
+  );
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isPartKey = (value: unknown): value is PartKey =>
+  typeof value === "string" && value in PART_SPEC_BY_KEY;
+
+const requireInteger = (value: unknown, label: string) => {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    throw new Error(`${label} phải là số nguyên.`);
+  }
+  return value;
+};
+
+const requireNullableInteger = (value: unknown, label: string) =>
+  value === null ? null : requireInteger(value, label);
+
+const requireBoolean = (value: unknown, label: string) => {
+  if (typeof value !== "boolean") {
+    throw new Error(`${label} phải là true hoặc false.`);
+  }
+  return value;
+};
+
+function parseComposerConfigFile(value: unknown): ComposerConfigFile {
+  if (!isRecord(value)) throw new Error("File config không phải JSON object.");
+  if (
+    value.schema !== COMPOSER_CONFIG_SCHEMA ||
+    value.version !== COMPOSER_CONFIG_VERSION
+  ) {
+    throw new Error("File config không đúng loại hoặc chưa được hỗ trợ.");
+  }
+  if (value.mappingMode !== "game") {
+    throw new Error("Config phải sử dụng mapping Theo game.");
+  }
+
+  const rawFashion = value.fashion;
+  if (!isRecord(rawFashion)) throw new Error("Thiếu cấu hình fashion.");
+  const fashion: FashionConfiguration = {
+    id: requireNullableInteger(rawFashion.id, "Fashion ID"),
+    icon: requireNullableInteger(rawFashion.icon, "Fashion icon"),
+    name: typeof rawFashion.name === "string" ? rawFashion.name : "",
+    info: typeof rawFashion.info === "string" ? rawFashion.info : "",
+    price: requireInteger(rawFashion.price, "Giá"),
+    hsd: requireInteger(rawFashion.hsd, "Hạn sử dụng"),
+    shopSale: requireBoolean(rawFashion.shopSale, "Trạng thái mở bán"),
+    op: typeof rawFashion.op === "string" ? rawFashion.op : "[]",
+    specOp:
+      typeof rawFashion.specOp === "string" ? rawFashion.specOp : "[]",
+  };
+
+  const rawParts = value.parts;
+  if (!isRecord(rawParts)) throw new Error("Thiếu cấu hình parts.");
+  const parts = Object.fromEntries(
+    PART_SPECS.map((spec) => {
+      const rawPart = rawParts[spec.key];
+      if (!isRecord(rawPart) || !Array.isArray(rawPart.frames)) {
+        throw new Error(`${spec.label}: cấu hình part không hợp lệ.`);
+      }
+      if (rawPart.frames.length !== spec.frameCount) {
+        throw new Error(`${spec.label}: sai số lượng frame trong config.`);
+      }
+      const frames = rawPart.frames.map((rawFrame, index) => {
+        if (!isRecord(rawFrame)) {
+          throw new Error(`${spec.label} frame ${index}: dữ liệu không hợp lệ.`);
+        }
+        let asset: SavedAssetReference | null = null;
+        if (rawFrame.asset !== null && rawFrame.asset !== undefined) {
+          if (!isRecord(rawFrame.asset) || typeof rawFrame.asset.name !== "string") {
+            throw new Error(`${spec.label} frame ${index}: asset không hợp lệ.`);
+          }
+          asset = {
+            name: rawFrame.asset.name,
+            iconId: requireNullableInteger(
+              rawFrame.asset.iconId,
+              `${spec.label} frame ${index} icon ID`,
+            ),
+          };
+        }
+        const dx = requireInteger(rawFrame.dx, `${spec.label} frame ${index} dx`);
+        const dy = requireInteger(rawFrame.dy, `${spec.label} frame ${index} dy`);
+        if (dx < -128 || dx > 127 || dy < -128 || dy > 127) {
+          throw new Error(`${spec.label} frame ${index}: offset vượt giới hạn byte.`);
+        }
+        return { asset, dx, dy };
+      });
+      return [
+        spec.key,
+        {
+          enabled: requireBoolean(
+            rawPart.enabled,
+            `${spec.label} trạng thái xuất part`,
+          ),
+          partId: requireNullableInteger(
+            rawPart.partId,
+            `${spec.label} Part ID`,
+          ),
+          mwearSlot: requireInteger(
+            rawPart.mwearSlot,
+            `${spec.label} mwear slot`,
+          ),
+          frames,
+        },
+      ];
+    }),
+  ) as Record<PartKey, SavedPartConfiguration>;
+
+  const rawPreview = value.preview;
+  if (!isRecord(rawPreview) || !isPartKey(rawPreview.activePart)) {
+    throw new Error("Thiếu cấu hình Preview.");
+  }
+  if (!isRecord(rawPreview.previewFrames) || !isRecord(rawPreview.visibility)) {
+    throw new Error("Cấu hình frame Preview không hợp lệ.");
+  }
+  const rawPreviewFrames = rawPreview.previewFrames;
+  const rawVisibility = rawPreview.visibility;
+  const previewFrames = Object.fromEntries(
+    PART_SPECS.map((spec) => {
+      const frame = requireInteger(
+        rawPreviewFrames[spec.key],
+        `${spec.label} preview frame`,
+      );
+      return [spec.key, Math.max(0, Math.min(spec.frameCount - 1, frame))];
+    }),
+  ) as Record<PartKey, number>;
+  const visibility = Object.fromEntries(
+    PART_SPECS.map((spec) => [
+      spec.key,
+      requireBoolean(
+        rawVisibility[spec.key],
+        `${spec.label} trạng thái hiển thị`,
+      ),
+    ]),
+  ) as Record<PartKey, boolean>;
+  const zoom = requireInteger(rawPreview.zoom, "Độ phóng Preview");
+
+  return {
+    schema: COMPOSER_CONFIG_SCHEMA,
+    version: COMPOSER_CONFIG_VERSION,
+    exportedAt:
+      typeof value.exportedAt === "string" ? value.exportedAt : "",
+    mappingMode: "game",
+    fashion,
+    parts,
+    preview: {
+      activePart: rawPreview.activePart,
+      previewFrames,
+      visibility,
+      zoom: Math.max(1, Math.min(6, zoom)),
+    },
+  };
+}
 
 const getLogicalSize = (physicalSize: number, resourceScale: ResourceScale) =>
   Math.floor(physicalSize / resourceScale);
@@ -173,6 +405,39 @@ const getRuntimeCharacterFrames = (
   SUPPORTED_CHARACTER_FRAMES.filter(
     (frame) => CHARACTER_POSE_FRAMES[frame][partKey].frame === partFrame,
   );
+
+const getEffectivePreviewPartFrame = (
+  frameOverrides: CharacterFrameOverrides,
+  characterFrame: number,
+  partKey: PartKey,
+) =>
+  frameOverrides[characterFrame]?.[partKey] ??
+  CHARACTER_POSE_FRAMES[characterFrame][partKey].frame;
+
+const getPreviewCharacterFrames = (
+  frameOverrides: CharacterFrameOverrides,
+  partKey: PartKey,
+  partFrame: number,
+) =>
+  SUPPORTED_CHARACTER_FRAMES.filter(
+    (frame) =>
+      getEffectivePreviewPartFrame(frameOverrides, frame, partKey) ===
+      partFrame,
+  );
+
+const getValidOffsetOwner = (
+  owners: OffsetEditOwners,
+  frameOverrides: CharacterFrameOverrides,
+  partKey: PartKey,
+  partFrame: number,
+) => {
+  const owner = owners[partKey]?.[partFrame];
+  if (owner === undefined) return undefined;
+  return getEffectivePreviewPartFrame(frameOverrides, owner, partKey) ===
+    partFrame
+    ? owner
+    : undefined;
+};
 
 const formatCharacterFrames = (frames: number[]) => {
   const visibleFrames = frames.slice(0, 12).join(", ");
@@ -241,7 +506,8 @@ function AssetLibrary({
           Mỗi ảnh mới tự gán vào frame trống kế tiếp, không duplicate để lấp đầy
           các frame còn lại. Sau đó vẫn có thể đổi từng frame bằng dropdown. File
           chỉ nằm trong trình duyệt, không upload lên server. Tên file 10xxx sẽ
-          tự bỏ offset 10000, Icon ID vẫn sửa được.
+          tự bỏ offset 10000, Icon ID vẫn sửa được. Nếu đã import config, asset
+          chờ khớp sẽ được ưu tiên trước auto-fill.
         </p>
       </div>
 
@@ -574,11 +840,28 @@ function ComposerPreview({
     selectedLayer,
     selectedFrameIndex,
   );
-  const selectedOffsetOwner =
-    offsetEditOwners[selectedLayer]?.[selectedFrameIndex];
+  const selectedPreviewCharacterFrames = getPreviewCharacterFrames(
+    frameOverrides,
+    selectedLayer,
+    selectedFrameIndex,
+  );
+  const selectedOffsetOwner = getValidOffsetOwner(
+    offsetEditOwners,
+    frameOverrides,
+    selectedLayer,
+    selectedFrameIndex,
+  );
   const isSelectedOffsetLocked =
     selectedOffsetOwner !== undefined &&
     selectedOffsetOwner !== characterFrame;
+  const isSelectedPreviewShared = selectedPreviewCharacterFrames.length > 1;
+  const isSelectedRuntimeShared = selectedRuntimeCharacterFrames.length > 1;
+  const previewMatchesRuntime =
+    selectedPreviewCharacterFrames.length ===
+      selectedRuntimeCharacterFrames.length &&
+    selectedPreviewCharacterFrames.every(
+      (frame, index) => frame === selectedRuntimeCharacterFrames[index],
+    );
   const canMoveSelected = Boolean(
     selectionVisible &&
     !isSelectedOffsetLocked &&
@@ -648,6 +931,13 @@ function ComposerPreview({
       const partFrame = effectivePreviewFrames[spec.key];
       const storedOffset = parts[spec.key].frames[partFrame];
       const baseOffset = characterPoseFrame[spec.key];
+      const rawOwner = offsetEditOwners[spec.key]?.[partFrame];
+      const activeOwner = getValidOffsetOwner(
+        offsetEditOwners,
+        frameOverrides,
+        spec.key,
+        partFrame,
+      );
       return {
         part: spec.key,
         characterFrame,
@@ -658,17 +948,35 @@ function ComposerPreview({
         storedDy: storedOffset?.dy ?? null,
         renderX: baseOffset.baseDx + (storedOffset?.dx ?? 0),
         renderY: baseOffset.baseDy + (storedOffset?.dy ?? 0),
+        activeOwner: activeOwner ?? null,
+        staleOwner:
+          rawOwner !== undefined && activeOwner === undefined
+            ? rawOwner
+            : null,
+        previewConsumers: getPreviewCharacterFrames(
+          frameOverrides,
+          spec.key,
+          partFrame,
+        ).join(","),
         runtimeConsumers: getRuntimeCharacterFrames(spec.key, partFrame).join(
           ",",
         ),
       };
     });
+
     console.groupCollapsed(
       `[FashionComposer][preview] characterFrame=${characterFrame}`,
     );
     console.table(snapshot);
     console.groupEnd();
-  }, [characterFrame, characterPoseFrame, effectivePreviewFrames, parts]);
+  }, [
+    characterFrame,
+    characterPoseFrame,
+    effectivePreviewFrames,
+    frameOverrides,
+    offsetEditOwners,
+    parts,
+  ]);
 
   const claimOffsetOwner = (
     partKey: PartKey,
@@ -694,17 +1002,23 @@ function ComposerPreview({
       partKey,
       partFrame,
     );
+    const previewCharacterFrames = getPreviewCharacterFrames(
+      frameOverrides,
+      partKey,
+      partFrame,
+    );
     console.warn("[FashionComposer][offset:blocked]", {
       source,
       partKey,
       partFrame,
       ownerCharacterFrame,
       attemptedCharacterFrame,
+      previewCharacterFrames,
       runtimeCharacterFrames,
       reason: "Shared PartImage.dx/dy is owned by another character frame",
     });
     toast.warning(
-      `${PART_SPEC_BY_KEY[partKey].label} frame ${partFrame} đã căn tại character frame ${ownerCharacterFrame}. Frame ${attemptedCharacterFrame} dùng chung offset nên thao tác đã bị chặn.`,
+      `${PART_SPEC_BY_KEY[partKey].label} frame ${partFrame} đã căn tại character frame ${ownerCharacterFrame}. Frame ${attemptedCharacterFrame} đang dùng chung part frame trong Preview nên thao tác đã bị chặn.`,
       { id: `offset-lock-${partKey}-${partFrame}` },
     );
   };
@@ -780,7 +1094,12 @@ function ComposerPreview({
     const frameIndex = effectivePreviewFrames[partKey];
     const frame = configuration.frames[frameIndex];
     const asset = assets[partKey].find((item) => item.id === frame?.assetId);
-    const offsetOwner = offsetEditOwners[partKey]?.[frameIndex];
+    const offsetOwner = getValidOffsetOwner(
+      offsetEditOwners,
+      frameOverrides,
+      partKey,
+      frameIndex,
+    );
 
     if (!configuration.enabled || !visibility[partKey] || !frame || !asset) {
       return;
@@ -812,6 +1131,11 @@ function ComposerPreview({
       partKey,
       characterFrame,
       frameIndex,
+      previewCharacterFrames: getPreviewCharacterFrames(
+        frameOverrides,
+        partKey,
+        frameIndex,
+      ),
       runtimeCharacterFrames: getRuntimeCharacterFrames(partKey, frameIndex),
       startClientX: event.clientX,
       startClientY: event.clientY,
@@ -873,6 +1197,7 @@ function ComposerPreview({
         characterFrame: session.characterFrame,
         baseDx: session.baseDx,
         baseDy: session.baseDy,
+        previewCharacterFrames: session.previewCharacterFrames,
         runtimeCharacterFrames: session.runtimeCharacterFrames,
       },
     );
@@ -941,6 +1266,7 @@ function ComposerPreview({
         characterFrame,
         baseDx: selectedBaseOffset.baseDx,
         baseDy: selectedBaseOffset.baseDy,
+        previewCharacterFrames: selectedPreviewCharacterFrames,
         runtimeCharacterFrames: selectedRuntimeCharacterFrames,
       },
     );
@@ -1077,31 +1403,48 @@ function ComposerPreview({
                 : "Click part để chọn lại"}
             </span>
           </div>
-          {selectionVisible && selectedRuntimeCharacterFrames.length > 1 && (
+          {selectionVisible &&
+            (isSelectedPreviewShared || isSelectedRuntimeShared) && (
             <Alert
               className="mt-3"
-              type={isSelectedOffsetLocked ? "warning" : "info"}
+              type={
+                isSelectedOffsetLocked || !previewMatchesRuntime
+                  ? "warning"
+                  : "info"
+              }
               showIcon
               message={
                 isSelectedOffsetLocked
-                  ? "Offset dùng chung đang bị khóa"
-                  : "Part frame này dùng chung offset"
+                  ? "Offset dùng chung trong Preview đang bị khóa"
+                  : !previewMatchesRuntime
+                    ? "Preview tùy chỉnh khác CharInfo của Game"
+                    : "Part frame này dùng chung offset"
               }
               description={
                 <span className="text-xs leading-5">
-                  {PART_SPEC_BY_KEY[selectedLayer].label} frame{" "}
-                  {selectedFrameIndex} được dùng bởi{" "}
-                  {selectedRuntimeCharacterFrames.length} character frame:{" "}
-                  {formatCharacterFrames(selectedRuntimeCharacterFrames)}.{" "}
+                  Trong Preview hiện tại, {PART_SPEC_BY_KEY[selectedLayer].label}{" "}
+                  frame {selectedFrameIndex} được dùng bởi character frame:{" "}
+                  {formatCharacterFrames(selectedPreviewCharacterFrames)}.{" "}
+                  {!previewMatchesRuntime && (
+                    <>
+                      Theo CharInfo của Game, part frame này vẫn được dùng bởi:{" "}
+                      {formatCharacterFrames(selectedRuntimeCharacterFrames)}.
+                      Override chỉ tách mapping trong Preview; SQL parts không
+                      thay CharInfo của client.{" "}
+                    </>
+                  )}
                   {isSelectedOffsetLocked
-                    ? `Tool đã lấy character frame ${selectedOffsetOwner} làm mốc và chặn chỉnh tại frame ${characterFrame} để không làm lệch dữ liệu cũ.`
-                    : selectedOffsetOwner === characterFrame
-                      ? `Character frame ${characterFrame} đang là mốc. Các frame dùng chung khác sẽ không được sửa offset này.`
-                      : `Lần chỉnh đầu tại character frame ${characterFrame} sẽ được dùng làm mốc cho offset này.`}
+                    ? `Character frame ${selectedOffsetOwner} đang là mốc nên frame ${characterFrame} bị chặn để không ghi đè cùng một PartImage.dx/dy.`
+                    : isSelectedPreviewShared &&
+                        selectedOffsetOwner === characterFrame
+                      ? `Character frame ${characterFrame} đang là mốc. Các frame Preview dùng chung khác sẽ không được sửa offset này.`
+                      : isSelectedPreviewShared
+                        ? `Lần chỉnh đầu tại character frame ${characterFrame} sẽ được dùng làm mốc cho offset này.`
+                        : "Frame này không còn dùng chung part frame trong Preview nên có thể căn chỉnh độc lập tại đây."}
                 </span>
               }
             />
-          )}
+            )}
           <p className="mt-2 text-[11px] leading-4 text-slate-400">
             Giao điểm là tọa độ x/y truyền vào MainObject.paintBody, tức điểm
             đứng của nhân vật. Offset luôn tính theo pixel logic x1. Kéo bằng
@@ -1459,7 +1802,17 @@ function AdminFashionComposerPage() {
   const [visibility, setVisibility] = useState(EMPTY_VISIBILITY);
   const [zoom, setZoom] = useState(4);
   const [previewResetVersion, setPreviewResetVersion] = useState(0);
+  const [pendingAssetBindings, setPendingAssetBindings] =
+    useState<PendingAssetBindings>(createEmptyAssetBindings);
   const assetsRef = useRef(assets);
+  const pendingAssetBindingsRef = useRef(pendingAssetBindings);
+  const configFileInputRef = useRef<HTMLInputElement | null>(null);
+  const assetBundleInputRef = useRef<HTMLInputElement | null>(null);
+
+  const commitPendingAssetBindings = (next: PendingAssetBindings) => {
+    pendingAssetBindingsRef.current = next;
+    setPendingAssetBindings(next);
+  };
 
   useEffect(() => {
     assetsRef.current = assets;
@@ -1478,9 +1831,19 @@ function AdminFashionComposerPage() {
     () => generateFashionSql(fashion, parts, assets),
     [fashion, parts, assets],
   );
+  const pendingAssetCount = useMemo(
+    () =>
+      Object.values(pendingAssetBindings)
+        .flat()
+        .filter(Boolean).length,
+    [pendingAssetBindings],
+  );
 
   const activeSpec = PART_SPEC_BY_KEY[activePart];
   const activeConfiguration = parts[activePart];
+  const activePendingAssetCount = pendingAssetBindings[activePart].filter(
+    Boolean,
+  ).length;
 
   const updateFashion = <K extends keyof FashionConfiguration>(
     key: K,
@@ -1509,6 +1872,8 @@ function AdminFashionComposerPage() {
         before && (before.dx !== after.dx || before.dy !== after.dy);
 
       if (offsetChanged) {
+        const previewCharacterFrames =
+          context?.previewCharacterFrames ?? null;
         const runtimeCharacterFrames =
           context?.runtimeCharacterFrames ??
           getRuntimeCharacterFrames(key, index);
@@ -1517,12 +1882,14 @@ function AdminFashionComposerPage() {
           partKey: key,
           partFrame: index,
           characterFrame: context?.characterFrame ?? null,
+          previewCharacterFrames,
           runtimeCharacterFrames,
           baseDx: context?.baseDx ?? null,
           baseDy: context?.baseDy ?? null,
           before: { dx: before.dx, dy: before.dy },
           after: { dx: after.dx, dy: after.dy },
-          affectedCount: runtimeCharacterFrames.length,
+          previewAffectedCount: previewCharacterFrames?.length ?? null,
+          runtimeAffectedCount: runtimeCharacterFrames.length,
         };
         console.groupCollapsed(
           `[FashionComposer][offset:commit] ${key} partFrame=${index}`,
@@ -1531,8 +1898,11 @@ function AdminFashionComposerPage() {
         console.debug("[FashionComposer][offset:detail]", payload);
         if (runtimeCharacterFrames.length > 1) {
           console.warn(
-            "[FashionComposer][offset:shared] Stored offset affects every listed character frame.",
-            runtimeCharacterFrames,
+            "[FashionComposer][offset:shared] SQL/runtime still shares this stored PartImage offset.",
+            {
+              previewCharacterFrames,
+              runtimeCharacterFrames,
+            },
           );
         }
         console.groupEnd();
@@ -1549,14 +1919,35 @@ function AdminFashionComposerPage() {
       };
     });
 
-  const handleUpload = async (key: PartKey, file: File) => {
+  const updateFrameAssignment = (
+    key: PartKey,
+    index: number,
+    patch: Partial<FrameAssignment>,
+  ) => {
+    if (patch.assetId !== undefined) {
+      const currentBindings = pendingAssetBindingsRef.current;
+      commitPendingAssetBindings({
+        ...currentBindings,
+        [key]: currentBindings[key].map((reference, frameIndex) =>
+          frameIndex === index ? null : reference,
+        ),
+      });
+    }
+    updateFrame(key, index, patch);
+  };
+
+  const handleUpload = async (
+    key: PartKey,
+    file: File,
+    options?: { silentMatchToast?: boolean },
+  ) => {
     if (!file.type.startsWith("image/")) {
       toast.error("Vui lòng chọn đúng file ảnh.");
-      return;
+      return false;
     }
     if (file.size > 5 * 1024 * 1024) {
       toast.error(`${file.name}: ảnh không được vượt quá 5MB.`);
-      return;
+      return false;
     }
 
     const url = URL.createObjectURL(file);
@@ -1569,14 +1960,44 @@ function AdminFashionComposerPage() {
         iconId: inferRawIconId(file.name),
         ...dimensions,
       };
+      const pendingForPart = pendingAssetBindingsRef.current[key];
+      const matchedFrameIndexes = pendingForPart.flatMap(
+        (reference, index) =>
+          reference && assetMatchesReference(asset, reference) ? [index] : [],
+      );
+      const matchedReferences = matchedFrameIndexes
+        .map((index) => pendingForPart[index])
+        .filter((reference): reference is SavedAssetReference =>
+          Boolean(reference),
+        );
+      const savedIconId = matchedReferences.find(
+        (reference) => reference.iconId !== null,
+      )?.iconId;
+      if (savedIconId !== undefined) asset.iconId = savedIconId;
+
       setAssets((current) => ({
         ...current,
         [key]: [...current[key], asset],
       }));
       setParts((current) => {
         const frames = current[key].frames;
+        if (matchedFrameIndexes.length > 0) {
+          return {
+            ...current,
+            [key]: {
+              ...current[key],
+              frames: frames.map((frame, frameIndex) =>
+                matchedFrameIndexes.includes(frameIndex)
+                  ? { ...frame, assetId: asset.id }
+                  : frame,
+              ),
+            },
+          };
+        }
+
         const nextEmptyFrame = frames.findIndex(
-          (frame) => frame.assetId === null,
+          (frame, index) =>
+            frame.assetId === null && pendingForPart[index] === null,
         );
         if (nextEmptyFrame === -1) return current;
 
@@ -1592,9 +2013,30 @@ function AdminFashionComposerPage() {
           },
         };
       });
+      if (matchedFrameIndexes.length > 0) {
+        const currentBindings = pendingAssetBindingsRef.current;
+        commitPendingAssetBindings({
+          ...currentBindings,
+          [key]: currentBindings[key].map((reference, index) =>
+            matchedFrameIndexes.includes(index) ? null : reference,
+          ),
+        });
+        console.info("[FashionComposer][config:asset-matched]", {
+          partKey: key,
+          asset: { name: asset.name, iconId: asset.iconId },
+          frameIndexes: matchedFrameIndexes,
+        });
+        if (!options?.silentMatchToast) {
+          toast.success(
+            `${file.name}: đã khớp lại ${matchedFrameIndexes.length} frame từ config.`,
+          );
+        }
+      }
+      return true;
     } catch {
       URL.revokeObjectURL(url);
       toast.error(`${file.name}: không thể đọc ảnh.`);
+      return false;
     }
   };
 
@@ -1618,6 +2060,11 @@ function AdminFashionComposerPage() {
         frames: current[key].frames.map((frame) => ({ ...frame, assetId })),
       },
     }));
+    const currentBindings = pendingAssetBindingsRef.current;
+    commitPendingAssetBindings({
+      ...currentBindings,
+      [key]: currentBindings[key].map(() => null),
+    });
     toast.success(
       `Đã gán part cho toàn bộ frame ${PART_SPEC_BY_KEY[key].label}.`,
     );
@@ -1625,6 +2072,17 @@ function AdminFashionComposerPage() {
 
   const removeAsset = (key: PartKey, assetId: string) => {
     const asset = assets[key].find((item) => item.id === assetId);
+    if (asset) {
+      const currentBindings = pendingAssetBindingsRef.current;
+      commitPendingAssetBindings({
+        ...currentBindings,
+        [key]: currentBindings[key].map((reference, index) =>
+          parts[key].frames[index]?.assetId === assetId
+            ? { name: asset.name, iconId: asset.iconId }
+            : reference,
+        ),
+      });
+    }
     if (asset) URL.revokeObjectURL(asset.url);
     setAssets((current) => ({
       ...current,
@@ -1639,6 +2097,214 @@ function AdminFashionComposerPage() {
         ),
       },
     }));
+  };
+
+  const createConfigFile = (): ComposerConfigFile => ({
+    schema: COMPOSER_CONFIG_SCHEMA,
+    version: COMPOSER_CONFIG_VERSION,
+    exportedAt: new Date().toISOString(),
+    mappingMode: "game",
+    fashion: { ...fashion },
+    parts: Object.fromEntries(
+      PART_SPECS.map((spec) => {
+        const configuration = parts[spec.key];
+        return [
+          spec.key,
+          {
+            enabled: configuration.enabled,
+            partId: configuration.partId,
+            mwearSlot: configuration.mwearSlot,
+            frames: configuration.frames.map((frame, index) => {
+              const asset = assets[spec.key].find(
+                (item) => item.id === frame.assetId,
+              );
+              const savedAsset = asset
+                ? { name: asset.name, iconId: asset.iconId }
+                : pendingAssetBindings[spec.key][index];
+              return {
+                asset: savedAsset ? { ...savedAsset } : null,
+                dx: frame.dx,
+                dy: frame.dy,
+              };
+            }),
+          },
+        ];
+      }),
+    ) as Record<PartKey, SavedPartConfiguration>,
+    preview: {
+      activePart,
+      previewFrames: { ...previewFrames },
+      visibility: { ...visibility },
+      zoom,
+    },
+  });
+
+  const downloadConfig = () => {
+    const config = createConfigFile();
+    const blob = new Blob([JSON.stringify(config, null, 2)], {
+      type: "application/json;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `fashion-${fashion.id ?? "draft"}.composer.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    console.info("[FashionComposer][config:export]", {
+      fashionId: fashion.id,
+      pendingAssetCount,
+      config,
+    });
+    toast.success("Đã lưu file config. Ảnh resource không được nhúng vào file.");
+  };
+
+  const importConfig = async (file: File) => {
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("File config không được vượt quá 2MB.");
+      return;
+    }
+
+    try {
+      const config = parseComposerConfigFile(JSON.parse(await file.text()));
+      const loadedAssets = assetsRef.current;
+      const nextPendingBindings = createEmptyAssetBindings();
+      const assetIconOverrides = new Map<string, number | null>();
+      let matchedAssetCount = 0;
+      const nextParts = Object.fromEntries(
+        PART_SPECS.map((spec) => {
+          const savedPart = config.parts[spec.key];
+          return [
+            spec.key,
+            {
+              enabled: savedPart.enabled,
+              partId: savedPart.partId,
+              mwearSlot: savedPart.mwearSlot,
+              frames: savedPart.frames.map((savedFrame, index) => {
+                const matchedAsset = savedFrame.asset
+                  ? findAssetByReference(
+                      loadedAssets[spec.key],
+                      savedFrame.asset,
+                    )
+                  : undefined;
+                if (matchedAsset) {
+                  matchedAssetCount++;
+                  assetIconOverrides.set(
+                    matchedAsset.id,
+                    savedFrame.asset?.iconId ?? matchedAsset.iconId,
+                  );
+                } else if (savedFrame.asset) {
+                  nextPendingBindings[spec.key][index] = {
+                    ...savedFrame.asset,
+                  };
+                }
+                return {
+                  assetId: matchedAsset?.id ?? null,
+                  dx: savedFrame.dx,
+                  dy: savedFrame.dy,
+                };
+              }),
+            },
+          ];
+        }),
+      ) as ComposerParts;
+      const unresolvedAssetCount = Object.values(nextPendingBindings)
+        .flat()
+        .filter(Boolean).length;
+
+      setAssets((current) =>
+        Object.fromEntries(
+          PART_SPECS.map((spec) => [
+            spec.key,
+            current[spec.key].map((asset) =>
+              assetIconOverrides.has(asset.id)
+                ? {
+                    ...asset,
+                    iconId: assetIconOverrides.get(asset.id) ?? null,
+                  }
+                : asset,
+            ),
+          ]),
+        ) as ComposerAssets,
+      );
+      setFashion({ ...config.fashion });
+      setParts(nextParts);
+      commitPendingAssetBindings(nextPendingBindings);
+      setActivePart(config.preview.activePart);
+      setPreviewFrames({ ...config.preview.previewFrames });
+      setVisibility({ ...config.preview.visibility });
+      setZoom(config.preview.zoom);
+      setPreviewResetVersion((current) => current + 1);
+
+      console.info("[FashionComposer][config:import]", {
+        fileName: file.name,
+        fashionId: config.fashion.id,
+        matchedAssetCount,
+        unresolvedAssetCount,
+        config,
+      });
+      toast.success(
+        unresolvedAssetCount > 0
+          ? `Đã nạp config. Còn ${unresolvedAssetCount} frame chờ đúng asset.`
+          : "Đã nạp config và khớp lại toàn bộ asset.",
+      );
+    } catch (error) {
+      console.error("[FashionComposer][config:import-failed]", error);
+      toast.error(
+        error instanceof Error ? error.message : "Không thể đọc file config.",
+      );
+    }
+  };
+
+  const importAssetBundle = async (files: File[]) => {
+    let matchedFileCount = 0;
+    const unmatchedFiles: string[] = [];
+
+    for (const file of files) {
+      const candidate = {
+        name: file.name,
+        iconId: inferRawIconId(file.name),
+      };
+      const matchedSpec = PART_SPECS.find((spec) =>
+        pendingAssetBindingsRef.current[spec.key].some(
+          (reference) =>
+            reference && assetMatchesReference(candidate, reference),
+        ),
+      );
+      if (!matchedSpec) {
+        unmatchedFiles.push(file.name);
+        continue;
+      }
+      const didUpload = await handleUpload(matchedSpec.key, file, {
+        silentMatchToast: true,
+      });
+      if (didUpload) matchedFileCount++;
+    }
+
+    console.info("[FashionComposer][config:asset-bundle]", {
+      selectedFileCount: files.length,
+      matchedFileCount,
+      unmatchedFiles,
+    });
+    if (matchedFileCount > 0) {
+      toast.success(`Đã tự khớp ${matchedFileCount} asset từ bộ resource.`);
+    }
+    if (unmatchedFiles.length > 0) {
+      toast.warning(
+        `${unmatchedFiles.length} file không có reference trong config nên chưa được gán.`,
+      );
+    }
+  };
+
+  const handleAssetBundleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (files.length > 0) void importAssetBundle(files);
+  };
+
+  const handleConfigFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (file) void importConfig(file);
   };
 
   const copySql = async () => {
@@ -1669,6 +2335,7 @@ function AdminFashionComposerPage() {
     setFashion({ ...DEFAULT_FASHION });
     setParts(createInitialParts());
     setAssets(createInitialAssets());
+    commitPendingAssetBindings(createEmptyAssetBindings());
     setActivePart("head");
     setPreviewFrames({ ...EMPTY_PREVIEW_FRAMES });
     setVisibility({ ...EMPTY_VISIBILITY });
@@ -1699,15 +2366,49 @@ function AdminFashionComposerPage() {
                 Khai báo dữ liệu item và các slot part sẽ mặc.
               </p>
             </div>
-            <Popconfirm
-              title="Tạo lại bản nháp?"
-              description="Toàn bộ ảnh, frame và offset hiện tại sẽ bị xóa."
-              okText="Tạo lại"
-              cancelText="Hủy"
-              onConfirm={resetComposer}
-            >
-              <Button icon={<RotateCcw size={15} />}>Bản nháp mới</Button>
-            </Popconfirm>
+            <div className="flex flex-wrap gap-2">
+              <input
+                ref={configFileInputRef}
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                onChange={handleConfigFileChange}
+              />
+              <input
+                ref={assetBundleInputRef}
+                type="file"
+                accept=".png,.jpg,.jpeg,.webp"
+                multiple
+                className="hidden"
+                onChange={handleAssetBundleChange}
+              />
+              <Button
+                icon={<FileUp size={15} />}
+                onClick={() => configFileInputRef.current?.click()}
+              >
+                Import config
+              </Button>
+              <Button
+                icon={<FolderOpen size={15} />}
+                disabled={pendingAssetCount === 0}
+                onClick={() => assetBundleInputRef.current?.click()}
+              >
+                Nạp bộ asset
+                {pendingAssetCount > 0 ? ` (${pendingAssetCount})` : ""}
+              </Button>
+              <Button icon={<Save size={15} />} onClick={downloadConfig}>
+                Lưu config
+              </Button>
+              <Popconfirm
+                title="Tạo lại bản nháp?"
+                description="Toàn bộ ảnh, frame và offset hiện tại sẽ bị xóa."
+                okText="Tạo lại"
+                cancelText="Hủy"
+                onConfirm={resetComposer}
+              >
+                <Button icon={<RotateCcw size={15} />}>Bản nháp mới</Button>
+              </Popconfirm>
+            </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -1888,6 +2589,15 @@ function AdminFashionComposerPage() {
 
           {activeConfiguration.enabled ? (
             <>
+              {activePendingAssetCount > 0 && (
+                <Alert
+                  className="mb-4"
+                  type="warning"
+                  showIcon
+                  message={`${activePendingAssetCount} frame ${activeSpec.label} đang chờ asset`}
+                  description="Upload bộ ảnh của part này. Tool sẽ tự khớp icon ID trước, sau đó fallback theo tên file và giữ nguyên offset từ config."
+                />
+              )}
               <AssetLibrary
                 partKey={activePart}
                 assets={assets[activePart]}
@@ -1904,7 +2614,7 @@ function AdminFashionComposerPage() {
                 assets={assets[activePart]}
                 previewFrame={previewFrames[activePart]}
                 onChange={(index, patch) =>
-                  updateFrame(activePart, index, patch)
+                  updateFrameAssignment(activePart, index, patch)
                 }
                 onPreview={(index) =>
                   setPreviewFrames((current) => ({
