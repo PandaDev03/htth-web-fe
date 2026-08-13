@@ -247,10 +247,10 @@ function PlayerAccountPage() {
           </div>
           <div className="mb-4 grid grid-cols-2 gap-4">
             {[
-              [<Wallet size={16} />, "Số Dư Ví", account.coin, "Coin", "amber"],
+              [<Wallet size={16} />, "Số Điểm Donate", account.coin, "Coin", "amber"],
               [
                 <Star size={16} />,
-                "Điểm Tích Nạp",
+                "Điểm Donate",
                 account.tongnap,
                 "Điểm",
                 "purple",

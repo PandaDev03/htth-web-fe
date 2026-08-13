@@ -5,6 +5,7 @@ import {
   ChevronRight,
   LayoutDashboard,
   Menu as MenuIcon,
+  Shirt,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -25,6 +26,11 @@ const ADMIN_MENU = [
     key: PATH.ADMIN_ARTICLES,
     label: "Bài viết",
     icon: <BookText size={18} />,
+  },
+  {
+    key: PATH.ADMIN_FASHION_COMPOSER,
+    label: "Ghép fashion",
+    icon: <Shirt size={18} />,
   },
 ];
 
