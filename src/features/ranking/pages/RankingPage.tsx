@@ -30,7 +30,7 @@ import { scrollToTop } from "@/shared/utils/utils";
 
 const fireworksRankingQueryKey = ["rankings", "top-fireworks"] as const;
 const bossHuntRankingQueryKey = ["rankings", "top-boss-hunt"] as const;
-const topDepositRankingQueryKey = ["rankings", "top-deposits"] as const;
+const topDepositRankingQueryKey = ["rankings", "top-donates"] as const;
 
 type DisplayRankingEntry = {
   rank: number;
@@ -294,7 +294,7 @@ function RankingPage() {
   const activeTab: RankingTabId =
     searchParams.get("tab") === "san-boss"
       ? "boss"
-      : searchParams.get("tab") === "top-nap"
+      : searchParams.get("tab") === "top-donate"
         ? "deposit"
         : "fireworks";
   const showBossHunt = activeTab === "boss";
@@ -351,17 +351,17 @@ function RankingPage() {
   const remaining = entries.slice(3);
   const currentRewards = rankingQuery.data?.rewards;
   const pageTitle = showDeposit
-    ? "Top Nạp"
+    ? "Top Donate"
     : showBossHunt
       ? "Top Săn Boss"
       : "Top Đốt Pháo";
   const pageDescription = showDeposit
-    ? "Vinh danh thuyền trưởng có tổng nạp mùa hiện tại cao nhất."
+    ? "Vinh danh thuyền trưởng ủng hộ nhiều nhất trong mùa hiện tại."
     : showBossHunt
       ? "Vinh danh những thuyền trưởng hạ gục nhiều boss Lân Sư Vũ nhất."
       : "Vinh danh những thuyền trưởng có điểm Đốt pháo cao nhất event Pháo hoa.";
   const valueLabel = showDeposit
-    ? "Coin nạp"
+    ? "Coin donate"
     : showBossHunt
       ? "Điểm săn boss"
       : "Điểm Đốt pháo";
@@ -375,7 +375,7 @@ function RankingPage() {
     if (nextTab === "boss") {
       nextParams.set("tab", "san-boss");
     } else if (nextTab === "deposit") {
-      nextParams.set("tab", "top-nap");
+      nextParams.set("tab", "top-donate");
     } else {
       nextParams.delete("tab");
     }
@@ -495,7 +495,7 @@ function RankingPage() {
                   {showBossHunt
                     ? "Bảng Top Săn Boss sẽ hiển thị khi có điểm hạ gục Lân Sư Vũ đầu tiên."
                     : showDeposit
-                      ? "Bảng Top Nạp sẽ hiển thị khi có giao dịch nạp trong mùa hiện tại."
+                      ? "Bảng Top Donate sẽ hiển thị khi có giao dịch donate trong mùa hiện tại."
                       : "Bảng Top Đốt Pháo sẽ hiển thị khi có điểm Đốt pháo đầu tiên."}
                 </p>
               </div>

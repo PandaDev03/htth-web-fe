@@ -18,8 +18,8 @@ export function Header() {
     { label: "Bài viết", href: PATH.ARTICLES },
     { label: "Tải Game", href: PATH.DOWNLOAD },
     { label: "Đua Top", href: PATH.RANKING },
+    { label: "Ủng hộ", href: PATH.WALLET_DEPOSIT },
     { label: "Đổi Coin", href: PATH.COIN_EXCHANGE },
-    { label: "Nạp Tiền", href: PATH.WALLET_DEPOSIT },
   ];
 
   const isNavItemActive = (href: string) =>
@@ -29,9 +29,7 @@ export function Header() {
 
   return (
     <>
-      <header
-        className="fixed inset-x-0 top-0 z-50 border-b border-gray-200 bg-white/95 shadow-sm backdrop-blur-sm"
-      >
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-gray-200 bg-white/95 shadow-sm backdrop-blur-sm">
         <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 xl:px-10">
           <div className="flex h-16 items-center justify-between">
             <Link to={PATH.HOME}>
@@ -45,7 +43,7 @@ export function Header() {
                   className={
                     "flex items-center gap-1.5 text-sm transition-colors " +
                     (isNavItemActive(item.href)
-                      ? "font-semibold text-amber-600"
+                      ? "font-semibold text-amber-600 hover:text-amber-600"
                       : "font-medium text-gray-600 hover:text-amber-600")
                   }
                 >

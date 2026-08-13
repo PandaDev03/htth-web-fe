@@ -96,7 +96,7 @@ export function DepositHistoryTable() {
         <div>
           <h2 className="flex items-center gap-2 text-sm font-bold text-gray-700">
             <ReceiptText size={16} className="text-amber-500" />
-            Lịch Sử Nạp Tiền
+            Lịch Sử Donate
           </h2>
           <p className="mt-1 text-xs text-gray-400">
             50 giao dịch gần nhất của tài khoản
@@ -119,7 +119,7 @@ export function DepositHistoryTable() {
         <div className="flex flex-col items-center px-5 py-12 text-center">
           <Clock3 size={26} className="text-gray-300" />
           <p className="mt-3 text-sm font-semibold text-gray-600">
-            Chưa có giao dịch nạp tiền
+            Chưa có giao dịch Donate
           </p>
           <p className="mt-1 text-xs text-gray-400">
             Giao dịch thành công sẽ xuất hiện tại đây.
@@ -160,7 +160,7 @@ export function DepositHistoryTable() {
                     <td className="whitespace-nowrap px-4 py-4 text-xs">
                       {formatPaidAt(item.paid_at)}
                     </td>
-                    <td className="px-5 py-4 text-right">
+                    <td className="px-4 py-4 text-right">
                       <PaymentStatus status={item.status} />
                     </td>
                   </tr>

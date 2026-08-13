@@ -5,7 +5,7 @@ export type RankingTabId = "fireworks" | "boss" | "deposit";
 const rankingTabs = [
   {
     id: "deposit" as const,
-    label: "Top Nạp",
+    label: "Top Donate",
     status: "Theo mùa",
     icon: Trophy,
   },

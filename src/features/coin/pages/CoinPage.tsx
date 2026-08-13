@@ -24,15 +24,15 @@ import { UserOutlined } from "@ant-design/icons";
 
 const T = {
   eyebrow: "ĐỔI COIN",
-  title: "Chuyển ví web sang game coin",
+  title: "Chuyển điểm donate sang game coin",
   intro:
-    "Coin trong ví web sẽ được chuyển vào nhân vật game. Server game sẽ xử lý và cập nhật realtime.",
-  wallet: "Số dư ví web",
-  input: "Nhập số web Coin muốn đổi",
-  submit: "Xác nhận đổi Coin",
+    "Điểm donate sẽ được chuyển vào nhân vật game. Server game sẽ xử lý và cập nhật realtime.",
+  wallet: "Số điểm donate khả dụng",
+  input: "Nhập số điểm muốn đổi",
+  submit: "Xác nhận đổi điểm",
   success: "Yêu cầu đã gửi thành công!",
   note: "Server game sẽ xử lý yêu cầu trong ít giây.",
-  history: "Lịch sử đổi Coin",
+  history: "Lịch sử đổi điểm",
   noHistory: "Chưa có giao dịch nào.",
 };
 const STATUS: Record<string, string> = {
@@ -135,13 +135,13 @@ function CoinExchangePage() {
                     <div className="mb-1 flex items-center gap-2 opacity-80">
                       <Wallet size={14} />
                       <span className="text-xs font-medium">
-                        {"Số dư ví web"}
+                        {"Số điểm donate khả dụng"}
                       </span>
                     </div>
                     <div className="text-3xl font-bold tracking-tight">
                       {fmt(summary.wallet.availableCoin)}
                       <span className="ml-2 text-lg font-semibold opacity-80">
-                        Coin
+                        Điểm
                       </span>
                     </div>
                   </div>
@@ -258,7 +258,7 @@ function CoinExchangePage() {
                         inputMode="numeric"
                         value={input}
                         onChange={change}
-                        placeholder={"Nhập số web Coin..."}
+                        placeholder={"Nhập số điểm..."}
                         className="w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 text-sm font-semibold text-gray-800 placeholder:font-normal placeholder:text-gray-400 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
                       />
                     </div>
