@@ -41,16 +41,16 @@ function apiErrorMessage(error: unknown, fallback: string) {
 export async function createPayosPayment(amount: number) {
   try {
     const response = await httpClient.post<ApiEnvelope<PayosPayment>>(
-      "/deposit/payos/payments",
+      "/donate/payos/payments",
       { amount },
     );
     return {
-      message: response.data.message || "Tạo mã QR thanh toán thành công.",
+      message: response.data.message || "Tạo mã QR Donate thành công.",
       data: response.data.data,
     };
   } catch (error) {
     throw new Error(
-      apiErrorMessage(error, "Không thể tạo mã QR thanh toán."),
+      apiErrorMessage(error, "Không thể tạo mã QR Donate."),
     );
   }
 }
@@ -58,15 +58,15 @@ export async function createPayosPayment(amount: number) {
 export async function getPayosPaymentStatus(orderCode: string) {
   try {
     const response = await httpClient.get<ApiEnvelope<PayosPaymentStatus>>(
-      "/deposit/payos/payments/" + encodeURIComponent(orderCode) + "/status",
+      "/donate/payos/payments/" + encodeURIComponent(orderCode) + "/status",
     );
     return {
-      message: response.data.message || "Đã kiểm tra trạng thái thanh toán.",
+      message: response.data.message || "Đã kiểm tra trạng thái Donate.",
       data: response.data.data,
     };
   } catch (error) {
     throw new Error(
-      apiErrorMessage(error, "Không thể kiểm tra trạng thái PayOS."),
+      apiErrorMessage(error, "Không thể kiểm tra trạng thái Donate."),
     );
   }
 }
@@ -74,10 +74,10 @@ export async function getPayosPaymentStatus(orderCode: string) {
 export async function getDepositHistory() {
   try {
     const response = await httpClient.get<ApiEnvelope<DepositHistoryItem[]>>(
-      "/deposit/payos/history",
+      "/donate/payos/history",
     );
     return response.data.data;
   } catch (error) {
-    throw new Error(apiErrorMessage(error, "Không thể tải lịch sử nạp tiền."));
+    throw new Error(apiErrorMessage(error, "Không thể tải lịch sử Donate."));
   }
 }

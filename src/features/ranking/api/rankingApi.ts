@@ -88,7 +88,7 @@ function getErrorMessage(error: unknown) {
 export async function getTopDepositRanking() {
   try {
     const response = await httpClient.get<ApiEnvelope<DepositRanking>>(
-      "/rankings/top-deposits",
+      "/rankings/top-donates",
     );
     return response.data.data;
   } catch (error) {

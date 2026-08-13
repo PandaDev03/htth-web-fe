@@ -60,12 +60,14 @@ const DepositPageHeader = () => {
       <div className="mb-1 flex items-center gap-2">
         <CreditCard size={20} className="text-amber-500" />
         <span className="text-xs font-semibold uppercase tracking-widest text-amber-600">
-          Nạp Tiền
+          Donate
         </span>
       </div>
-      <h1 className="text-2xl font-bold text-gray-800">Nạp Coin PayOS</h1>
+      <h1 className="text-2xl font-bold text-gray-800">
+        Donate Coin PayOS
+      </h1>
       <p className="mt-1 text-sm text-gray-500">
-        Chọn hoặc nhập số tiền cần nạp, hệ thống sẽ tự tạo QR thanh toán PayOS.
+        Chọn hoặc nhập số tiền donate, hệ thống sẽ tự tạo QR thanh toán PayOS.
       </p>
     </header>
   );
@@ -312,12 +314,12 @@ function WalletDepositPage() {
 
   function generatePayosQr(nextAmount = amount, force = false) {
     if (nextAmount < MIN_DEPOSIT_AMOUNT) {
-      setError(nextAmount > 0 ? "Số tiền nạp tối thiểu là 1.000 đ." : "");
+      setError(nextAmount > 0 ? "Số tiền donate tối thiểu là 1.000 đ." : "");
       return;
     }
 
     if (nextAmount > MAX_DEPOSIT_AMOUNT) {
-      setError("Số tiền nạp tối đa là 2.000.000.000 đ.");
+      setError("Số tiền donate tối đa là 2.000.000.000 đ.");
       return;
     }
 
@@ -404,7 +406,7 @@ function WalletDepositPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="flex items-center gap-2 text-sm font-bold text-gray-700">
                   <Banknote size={16} className="text-amber-500" />
-                  Chọn hoặc nhập số tiền cần nạp
+                  Chọn hoặc nhập số tiền donate
                 </h2>
                 <span className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-bold text-teal-700">
                   PayOS QR
@@ -417,7 +419,9 @@ function WalletDepositPage() {
                     <Wallet size={24} />
                   </div>
                   <div>
-                    <p className="font-bold text-gray-800">Gói nạp Coin</p>
+                    <p className="font-bold text-gray-800">
+                      Gói Donate
+                    </p>
                     <p className="text-xs text-gray-500">
                       Coin được cộng sau khi PayOS xác nhận giao dịch thành
                       công.
@@ -427,7 +431,7 @@ function WalletDepositPage() {
               </div>
 
               <label className="mb-1.5 mt-5 block text-xs font-semibold text-gray-600">
-                Số tiền muốn nạp
+                Số tiền donate
               </label>
               <div className="relative">
                 <input
@@ -479,7 +483,9 @@ function WalletDepositPage() {
 
               <div className="mt-5 rounded-xl bg-gray-50 p-4">
                 <div className="flex items-center justify-between border-b border-gray-100 pb-3 text-sm">
-                  <span className="font-semibold text-gray-500">Gói nạp</span>
+                  <span className="font-semibold text-gray-500">
+                    Gói Donate
+                  </span>
                   <span className="font-bold text-gray-800">
                     {amount > 0 ? formatVnd(amount) : "Chưa chọn"}
                   </span>
@@ -586,7 +592,7 @@ function WalletDepositPage() {
                     {payment.qr_image_url ? (
                       <img
                         src={payment.qr_image_url}
-                        alt="QR PayOS nạp Coin"
+                        alt="QR PayOS Donate Coin"
                         className="w-full max-w-[280px] rounded-xl"
                       />
                     ) : (
@@ -679,7 +685,7 @@ function WalletDepositPage() {
                   onClick={resetDeposit}
                   className="mt-4 w-full rounded-xl border border-gray-200 py-3 text-sm font-bold text-gray-600 transition-all hover:bg-gray-50 active:translate-y-px"
                 >
-                  Nạp thêm giao dịch khác
+                  Tạo giao dịch Donate khác
                 </button>
               )}
             </section>
@@ -691,7 +697,7 @@ function WalletDepositPage() {
               className="inline-flex items-center gap-2 text-sm font-bold text-amber-600 hover:text-amber-700"
             >
               <Wallet size={16} />
-              Xem ví của tôi
+              Xem điểm của tôi
             </Link>
           </div>
         </div>

@@ -58,7 +58,11 @@ export function UserMenu({
         ]
       : []),
     { key: "account", icon: <UserRound size={16} />, label: "Tài khoản" },
-    { key: "deposit", icon: <WalletMinimal size={16} />, label: "Nạp tiền" },
+    {
+      key: "deposit",
+      icon: <WalletMinimal size={16} />,
+      label: "Donate",
+    },
     { type: "divider" },
     {
       key: "exchange",
