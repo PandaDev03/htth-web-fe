@@ -110,13 +110,19 @@ export const POSE_SPECS: Array<{
 }> = [
   { key: "stand", label: "Stand", description: "Đứng yên" },
   { key: "run", label: "Run", description: "Chạy" },
-  { key: "attack", label: "Attack", description: "Đánh cơ bản" },
+  {
+    key: "attack",
+    label: "Attack",
+    description: "Preset mẫu; skill thật lấy chuỗi frame từ Plash",
+  },
   { key: "die", label: "Die", description: "Gục ngã" },
 ];
 
 export const DEFAULT_POSE_SEQUENCES: Record<PoseKey, number[]> = {
   stand: [0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0],
   run: [2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7],
+  // Attack runtime is skill-specific through Plash.mDataPlash. This sequence
+  // only gives the composer a small manual-preview preset.
   attack: [8, 8, 8, 9, 9, 9, 10, 10, 10, 10, 10, 10, 10, 10, 10],
   die: [38],
 };
