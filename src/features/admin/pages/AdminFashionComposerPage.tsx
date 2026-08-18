@@ -45,6 +45,8 @@ import {
 import { toast } from "sonner";
 
 import {
+  BIG_BODY_HEAD_SHIFT_IDS,
+  BODY_STAND_OVERLAY_EFFECT_BY_PART_ID,
   createInitialAssets,
   createInitialParts,
   CHARACTER_POSE_FRAMES,
@@ -52,6 +54,8 @@ import {
   DEFAULT_POSE_SEQUENCES,
   generateFashionSql,
   inferRawIconId,
+  HEAD_SHIFT_EXEMPT_IDS,
+  MWEAR_OVERRIDE_SLOTS,
   PART_SPEC_BY_KEY,
   PART_SPECS,
   POSE_SPECS,
@@ -60,6 +64,7 @@ import {
   type ComposerParts,
   type FashionConfiguration,
   type FrameAssignment,
+  type MwearOverrideSlot,
   type PartKey,
   type PoseKey,
   type UploadedPartAsset,
@@ -71,6 +76,7 @@ const EMPTY_PREVIEW_FRAMES: Record<PartKey, number> = {
   head: 0,
   body: 0,
   legs: 0,
+  weapon: 0,
   accessory: 0,
   cloak: 0,
 };
@@ -79,6 +85,7 @@ const EMPTY_VISIBILITY: Record<PartKey, boolean> = {
   head: true,
   body: true,
   legs: true,
+  weapon: true,
   accessory: true,
   cloak: true,
 };
@@ -154,6 +161,12 @@ type OffsetChangeContext = {
   runtimeCharacterFrames: number[];
 };
 
+type AlignmentStep = {
+  characterFrame: number;
+  partKey: PartKey;
+  partFrame: number;
+};
+
 type SavedAssetReference = {
   name: string;
   iconId: number | null;
@@ -174,7 +187,7 @@ type SavedPartConfiguration = Omit<
 
 type ComposerConfigFile = {
   schema: "htth-fashion-composer";
-  version: 1;
+  version: 2;
   exportedAt: string;
   mappingMode: "game";
   fashion: FashionConfiguration;
@@ -193,7 +206,8 @@ type PendingAssetBindings = Record<
 >;
 
 const COMPOSER_CONFIG_SCHEMA = "htth-fashion-composer";
-const COMPOSER_CONFIG_VERSION = 1;
+const COMPOSER_CONFIG_VERSION = 2;
+const SUPPORTED_COMPOSER_CONFIG_VERSIONS = [1, 2] as const;
 
 const createEmptyAssetBindings = (): PendingAssetBindings =>
   Object.fromEntries(
@@ -253,9 +267,13 @@ const requireBoolean = (value: unknown, label: string) => {
 
 function parseComposerConfigFile(value: unknown): ComposerConfigFile {
   if (!isRecord(value)) throw new Error("File config không phải JSON object.");
+  const sourceVersion = value.version;
   if (
     value.schema !== COMPOSER_CONFIG_SCHEMA ||
-    value.version !== COMPOSER_CONFIG_VERSION
+    typeof sourceVersion !== "number" ||
+    !SUPPORTED_COMPOSER_CONFIG_VERSIONS.includes(
+      sourceVersion as (typeof SUPPORTED_COMPOSER_CONFIG_VERSIONS)[number],
+    )
   ) {
     throw new Error("File config không đúng loại hoặc chưa được hỗ trợ.");
   }
@@ -265,6 +283,9 @@ function parseComposerConfigFile(value: unknown): ComposerConfigFile {
 
   const rawFashion = value.fashion;
   if (!isRecord(rawFashion)) throw new Error("Thiếu cấu hình fashion.");
+  const rawMwearOverrides = isRecord(rawFashion.mwearOverrides)
+    ? rawFashion.mwearOverrides
+    : {};
   const fashion: FashionConfiguration = {
     id: requireNullableInteger(rawFashion.id, "Fashion ID"),
     icon: requireNullableInteger(rawFashion.icon, "Fashion icon"),
@@ -276,6 +297,17 @@ function parseComposerConfigFile(value: unknown): ComposerConfigFile {
     op: typeof rawFashion.op === "string" ? rawFashion.op : "[]",
     specOp:
       typeof rawFashion.specOp === "string" ? rawFashion.specOp : "[]",
+    mwearOverrides: Object.fromEntries(
+      MWEAR_OVERRIDE_SLOTS.map((slot) => [
+        slot,
+        rawMwearOverrides[slot] === undefined
+          ? false
+          : requireBoolean(
+              rawMwearOverrides[slot],
+              `mwear slot ${slot} sentinel -2`,
+            ),
+      ]),
+    ) as FashionConfiguration["mwearOverrides"],
   };
 
   const rawParts = value.parts;
@@ -283,6 +315,21 @@ function parseComposerConfigFile(value: unknown): ComposerConfigFile {
   const parts = Object.fromEntries(
     PART_SPECS.map((spec) => {
       const rawPart = rawParts[spec.key];
+      if (sourceVersion === 1 && spec.key === "weapon" && rawPart === undefined) {
+        return [
+          spec.key,
+          {
+            enabled: false,
+            partId: null,
+            mwearSlot: spec.defaultMwearSlot,
+            frames: Array.from({ length: spec.frameCount }, () => ({
+              asset: null,
+              dx: 0,
+              dy: 0,
+            })),
+          },
+        ];
+      }
       if (!isRecord(rawPart) || !Array.isArray(rawPart.frames)) {
         throw new Error(`${spec.label}: cấu hình part không hợp lệ.`);
       }
@@ -345,20 +392,25 @@ function parseComposerConfigFile(value: unknown): ComposerConfigFile {
   const rawVisibility = rawPreview.visibility;
   const previewFrames = Object.fromEntries(
     PART_SPECS.map((spec) => {
-      const frame = requireInteger(
-        rawPreviewFrames[spec.key],
-        `${spec.label} preview frame`,
-      );
+      const rawFrame = rawPreviewFrames[spec.key];
+      const frame =
+        sourceVersion === 1 && spec.key === "weapon" && rawFrame === undefined
+          ? 0
+          : requireInteger(rawFrame, `${spec.label} preview frame`);
       return [spec.key, Math.max(0, Math.min(spec.frameCount - 1, frame))];
     }),
   ) as Record<PartKey, number>;
   const visibility = Object.fromEntries(
     PART_SPECS.map((spec) => [
       spec.key,
-      requireBoolean(
-        rawVisibility[spec.key],
-        `${spec.label} trạng thái hiển thị`,
-      ),
+      sourceVersion === 1 &&
+      spec.key === "weapon" &&
+      rawVisibility[spec.key] === undefined
+        ? true
+        : requireBoolean(
+            rawVisibility[spec.key],
+            `${spec.label} trạng thái hiển thị`,
+          ),
     ]),
   ) as Record<PartKey, boolean>;
   const zoom = requireInteger(rawPreview.zoom, "Độ phóng Preview");
@@ -395,6 +447,25 @@ const getRenderTranslation = (
   y: baseDy + dy,
 });
 
+const getRuntimeBaseOffset = (
+  characterFrame: number,
+  partKey: PartKey,
+  bodyPartId: number | null,
+  headPartId: number | null,
+) => {
+  const baseOffset = CHARACTER_POSE_FRAMES[characterFrame][partKey];
+  const headDy =
+    bodyPartId !== null && BIG_BODY_HEAD_SHIFT_IDS.has(bodyPartId) ? -6 : 0;
+  const receivesHeadShift =
+    partKey === "accessory" ||
+    partKey === "cloak" ||
+    (partKey === "head" &&
+      (headPartId === null || !HEAD_SHIFT_EXEMPT_IDS.has(headPartId)));
+  return receivesHeadShift && headDy !== 0
+    ? { ...baseOffset, baseDy: baseOffset.baseDy + headDy }
+    : baseOffset;
+};
+
 const getRuntimeCharacterFrames = (
   partKey: PartKey,
   partFrame: number,
@@ -405,6 +476,17 @@ const getRuntimeCharacterFrames = (
 
 const getOffsetAlignmentOwner = (partKey: PartKey, partFrame: number) =>
   getRuntimeCharacterFrames(partKey, partFrame)[0];
+
+// Keep the workflow stable: anchor feet to the ground first, then join the
+// upper layers. Later character frames may reuse any of these PartImages.
+const ALIGNMENT_PART_ORDER: readonly PartKey[] = [
+  "legs",
+  "body",
+  "head",
+  "accessory",
+  "cloak",
+  "weapon",
+];
 
 const getCharacterFrameCategory = (characterFrame: number) => {
   if (characterFrame <= 1) {
@@ -483,6 +565,12 @@ function FieldLabel({ children, hint }: { children: string; hint?: string }) {
     </label>
   );
 }
+
+const PART_REQUIREMENT_LABELS = {
+  required: "bắt buộc",
+  "head-or-hat": "chọn ít nhất Head hoặc Hat",
+  optional: "tùy chọn",
+} as const;
 
 function getImageDimensions(url: string) {
   return new Promise<{ width: number; height: number }>((resolve, reject) => {
@@ -645,7 +733,7 @@ function FrameEditor({
             Gán part cho frame
           </h3>
           <p className="mt-1 text-xs text-slate-500">
-            {spec.frameCount} frame bắt buộc cho parts.type = {spec.type}.
+            Khi bật nhóm này, cần đủ {spec.frameCount} frame cho parts.type = {spec.type}.
             Auto-fill gán tuần tự đến ảnh cuối cùng, không ghi đè lựa chọn hiện
             có; dropdown dùng để custom từng frame.
           </p>
@@ -800,15 +888,11 @@ function ComposerPreview({
   const layerRefs = useRef<Partial<Record<PartKey, HTMLDivElement | null>>>({});
   const selectionBoxRef = useRef<HTMLDivElement | null>(null);
   const coordinatesRef = useRef<HTMLSpanElement | null>(null);
-  // Cloak uses paint index 7 and CharInfo slot 4, then renders behind the
-  // standard character parts in both directions.
-  const layerOrder: PartKey[] = [
-    "cloak",
-    "legs",
-    "body",
-    "head",
-    "accessory",
-  ];
+  // Mirrors MainObject.mSortPaint/mSortPaintRight for supported layers.
+  const layerOrder: PartKey[] =
+    direction === "left"
+      ? ["cloak", "legs", "body", "head", "accessory", "weapon"]
+      : ["cloak", "legs", "body", "weapon", "head", "accessory"];
   const poseValidation = useMemo(
     () =>
       Object.fromEntries(
@@ -819,7 +903,13 @@ function ComposerPreview({
       ) as Record<PoseKey, ReturnType<typeof parsePoseSequence>>,
     [poseInputs],
   );
-  const currentPoseSequence = poseValidation[selectedPose].frames;
+  const allPoseSequence = (["stand", "run", "attack", "die"] as const).flatMap(
+    (pose) => poseValidation[pose].frames,
+  );
+  const currentPoseSequence =
+    selectedPose === "all"
+      ? allPoseSequence
+      : poseValidation[selectedPose].frames;
   const animationCharacterFrame = currentPoseSequence.length
     ? currentPoseSequence[animationStep % currentPoseSequence.length]
     : undefined;
@@ -842,7 +932,20 @@ function ComposerPreview({
   const currentFrameOverride = frameOverrides[characterFrame];
   const isCurrentFrameCustom = Boolean(currentFrameOverride);
   const effectivePreviewFrames = currentFrameOverride ?? gamePreviewFrames;
-  const getBaseOffset = (key: PartKey) => characterPoseFrame[key];
+  const bodyPartId = parts.body.enabled ? parts.body.partId : null;
+  const headPartId = parts.head.enabled ? parts.head.partId : null;
+  const runtimeHeadDy =
+    bodyPartId !== null && BIG_BODY_HEAD_SHIFT_IDS.has(bodyPartId) ? -6 : 0;
+  const bodyStandOverlayEffectId =
+    bodyPartId === null
+      ? undefined
+      : BODY_STAND_OVERLAY_EFFECT_BY_PART_ID[bodyPartId];
+  const getBaseOffsetForCharacterFrame = (
+    candidateFrame: number,
+    key: PartKey,
+  ) => getRuntimeBaseOffset(candidateFrame, key, bodyPartId, headPartId);
+  const getBaseOffset = (key: PartKey) =>
+    getBaseOffsetForCharacterFrame(characterFrame, key);
   const selectedBaseOffset = getBaseOffset(selectedLayer);
   const selectedConfiguration = parts[selectedLayer];
   const selectedFrameIndex = effectivePreviewFrames[selectedLayer];
@@ -898,13 +1001,25 @@ function ComposerPreview({
         direction,
       )
     : { x: 0, y: 0 };
+  const selectedOwnerBaseOffset =
+    selectedOffsetOwner === undefined
+      ? null
+      : getBaseOffsetForCharacterFrame(selectedOffsetOwner, selectedLayer);
+  const selectedOwnerRenderPosition =
+    selectedFrame && selectedOwnerBaseOffset
+      ? getRenderTranslation(
+          selectedOwnerBaseOffset.baseDx,
+          selectedOwnerBaseOffset.baseDy,
+          selectedFrame.dx,
+          selectedFrame.dy,
+          selectedLogicalWidth,
+          direction,
+        )
+      : null;
   const characterFrameCategory = getCharacterFrameCategory(characterFrame);
   const getAlignmentPartsForCharacterFrame = (candidateFrame: number) =>
-    PART_SPECS.filter((spec) => {
-      if (
-        !parts[spec.key].enabled ||
-        parts[spec.key].partId === null
-      ) {
+    ALIGNMENT_PART_ORDER.map((key) => PART_SPEC_BY_KEY[key]).filter((spec) => {
+      if (!parts[spec.key].enabled) {
         return false;
       }
       const partFrame = CHARACTER_POSE_FRAMES[candidateFrame][spec.key].frame;
@@ -916,43 +1031,51 @@ function ComposerPreview({
     });
   const alignmentPartsAtCurrentFrame =
     getAlignmentPartsForCharacterFrame(characterFrame);
+  const alignmentSteps = SUPPORTED_CHARACTER_FRAMES.flatMap(
+    (candidateFrame): AlignmentStep[] =>
+      getAlignmentPartsForCharacterFrame(candidateFrame).map((spec) => ({
+        characterFrame: candidateFrame,
+        partKey: spec.key,
+        partFrame: CHARACTER_POSE_FRAMES[candidateFrame][spec.key].frame,
+      })),
+  );
   const alignmentFrames = Array.from(
-    new Set(
-      PART_SPECS.flatMap((spec) => {
-        if (
-          !parts[spec.key].enabled ||
-          parts[spec.key].partId === null
-        ) {
-          return [];
-        }
-        return parts[spec.key].frames.flatMap((frame, partFrame) => {
-          if (!frame.assetId) return [];
-          const owner = getOffsetAlignmentOwner(spec.key, partFrame);
-          return owner === undefined ? [] : [owner];
-        });
-      }),
-    ),
+    new Set(alignmentSteps.map((step) => step.characterFrame)),
   ).sort((a, b) => a - b);
-  const previousAlignmentFrame = alignmentFrames.reduce<number | undefined>(
-    (previous, frame) => (frame < characterFrame ? frame : previous),
-    undefined,
+  const currentAlignmentStepIndex = alignmentSteps.findIndex(
+    (step) =>
+      step.characterFrame === characterFrame &&
+      step.partKey === selectedLayer &&
+      step.partFrame === effectivePreviewFrames[selectedLayer],
   );
-  const nextAlignmentFrame = alignmentFrames.find(
-    (frame) => frame > characterFrame,
-  );
+  const previousAlignmentStep =
+    currentAlignmentStepIndex >= 0
+      ? alignmentSteps[currentAlignmentStepIndex - 1]
+      : alignmentSteps.reduce<AlignmentStep | undefined>(
+          (previous, step) =>
+            step.characterFrame < characterFrame ? step : previous,
+          undefined,
+        );
+  const nextAlignmentStep =
+    currentAlignmentStepIndex >= 0
+      ? alignmentSteps[currentAlignmentStepIndex + 1]
+      : alignmentSteps.find((step) => step.characterFrame >= characterFrame);
   const configuredPartFrameCount = PART_SPECS.reduce((total, spec) => {
     const configuration = parts[spec.key];
-    if (!configuration.enabled || configuration.partId === null) return total;
+    if (!configuration.enabled) return total;
     return total + configuration.frames.filter((frame) => frame.assetId).length;
   }, 0);
-  const currentAlignmentIndex = alignmentFrames.indexOf(characterFrame);
+  const currentAlignmentFrameIndex = alignmentFrames.indexOf(characterFrame);
   const currentRuntimePartSummary = PART_SPECS.filter((spec) => {
     const configuration = parts[spec.key];
-    return configuration.enabled && configuration.partId !== null;
+    return configuration.enabled;
   })
     .map(
-      (spec) =>
-        `${spec.label} ${characterPoseFrame[spec.key].frame}`,
+      (spec) => {
+        const partFrame = characterPoseFrame[spec.key].frame;
+        const owner = getOffsetAlignmentOwner(spec.key, partFrame);
+        return `${spec.label} ${partFrame} (mốc ${owner ?? "-"})`;
+      },
     )
     .join(" | ");
 
@@ -999,19 +1122,70 @@ function ComposerPreview({
     const snapshot = PART_SPECS.map((spec) => {
       const partFrame = effectivePreviewFrames[spec.key];
       const storedOffset = parts[spec.key].frames[partFrame];
-      const baseOffset = characterPoseFrame[spec.key];
+      const baseOffset = getRuntimeBaseOffset(
+        characterFrame,
+        spec.key,
+        bodyPartId,
+        headPartId,
+      );
       const alignmentOwner = getOffsetAlignmentOwner(spec.key, partFrame);
+      const asset = assets[spec.key].find(
+        (item) => item.id === storedOffset?.assetId,
+      );
+      const logicalWidth = asset
+        ? getLogicalSize(asset.width, resourceScale)
+        : 0;
+      const renderPosition = getRenderTranslation(
+        baseOffset.baseDx,
+        baseOffset.baseDy,
+        storedOffset?.dx ?? 0,
+        storedOffset?.dy ?? 0,
+        logicalWidth,
+        direction,
+      );
+      const ownerBaseOffset =
+        alignmentOwner === undefined
+          ? null
+          : getRuntimeBaseOffset(
+              alignmentOwner,
+              spec.key,
+              bodyPartId,
+              headPartId,
+            );
+      const ownerRenderPosition = ownerBaseOffset
+        ? getRenderTranslation(
+            ownerBaseOffset.baseDx,
+            ownerBaseOffset.baseDy,
+            storedOffset?.dx ?? 0,
+            storedOffset?.dy ?? 0,
+            logicalWidth,
+            direction,
+          )
+        : null;
       return {
         part: spec.key,
         characterFrame,
         partFrame,
+        direction,
         baseDx: baseOffset.baseDx,
         baseDy: baseOffset.baseDy,
         storedDx: storedOffset?.dx ?? null,
         storedDy: storedOffset?.dy ?? null,
-        renderX: baseOffset.baseDx + (storedOffset?.dx ?? 0),
-        renderY: baseOffset.baseDy + (storedOffset?.dy ?? 0),
+        renderX: renderPosition.x,
+        renderY: renderPosition.y,
         alignmentOwner: alignmentOwner ?? null,
+        ownerBaseDx: ownerBaseOffset?.baseDx ?? null,
+        ownerBaseDy: ownerBaseOffset?.baseDy ?? null,
+        ownerRenderX: ownerRenderPosition?.x ?? null,
+        ownerRenderY: ownerRenderPosition?.y ?? null,
+        renderDeltaFromOwnerX:
+          ownerRenderPosition === null
+            ? null
+            : renderPosition.x - ownerRenderPosition.x,
+        renderDeltaFromOwnerY:
+          ownerRenderPosition === null
+            ? null
+            : renderPosition.y - ownerRenderPosition.y,
         editableAtCurrentFrame: alignmentOwner === characterFrame,
         previewConsumers: getPreviewCharacterFrames(
           frameOverrides,
@@ -1030,11 +1204,16 @@ function ComposerPreview({
     console.table(snapshot);
     console.groupEnd();
   }, [
+    bodyPartId,
     characterFrame,
     characterPoseFrame,
+    direction,
     effectivePreviewFrames,
     frameOverrides,
+    headPartId,
+    assets,
     parts,
+    resourceScale,
   ]);
 
   const warnOffsetLocked = (
@@ -1118,7 +1297,7 @@ function ComposerPreview({
       selectionBoxRef.current.style.transform = transform;
     }
     if (coordinatesRef.current) {
-      coordinatesRef.current.textContent = `Offset X ${session.nextDx}, Y ${session.nextDy}`;
+      coordinatesRef.current.textContent = `Base ${session.baseDx},${session.baseDy} · Stored ${session.nextDx},${session.nextDy} · Render ${position.x},${position.y}`;
     }
   };
 
@@ -1317,6 +1496,16 @@ function ComposerPreview({
     );
   };
 
+  const goToAlignmentStep = (step: AlignmentStep | undefined) => {
+    if (!step) return;
+    setAnimationEnabled(false);
+    setIsPlaying(false);
+    setReferenceCharacterFrame(step.characterFrame);
+    setSelectionVisible(true);
+    onSelectLayer(step.partKey);
+    onChangeFrame(step.partKey, step.partFrame);
+  };
+
   return (
     <Card
       className="border-slate-200 shadow-sm xl:sticky xl:top-24"
@@ -1336,6 +1525,39 @@ function ComposerPreview({
               Ảnh x{resourceScale} · Preview {zoom}x
             </Tag>
           </div>
+          {(runtimeHeadDy !== 0 || bodyStandOverlayEffectId !== undefined) && (
+            <Alert
+              className="mb-3"
+              type={bodyStandOverlayEffectId !== undefined ? "warning" : "info"}
+              showIcon
+              message={`Body ${bodyPartId}: có rule render riêng trong MainObject`}
+              description={
+                <div className="text-xs leading-5">
+                  {runtimeHeadDy !== 0 && (
+                    <p>
+                      Preview đã cộng lechYHead {runtimeHeadDy}px cho Head,
+                      Hat và Cloak giống Game.
+                    </p>
+                  )}
+                  {bodyStandOverlayEffectId !== undefined && (
+                    <p>
+                      Stand frame 0-1 trong Game thay Body bằng effect{" "}
+                      {bodyStandOverlayEffectId} (resource{" "}
+                      {23_000 + bodyStandOverlayEffectId}.png). Preview hiện vẫn
+                      dùng ảnh Body trong parts.data nên chưa mô phỏng overlay
+                      này.
+                    </p>
+                  )}
+                  {parts.weapon.enabled && runtimeHeadDy !== 0 && (
+                    <p>
+                      Weapon của body lớn còn nhận offset theo class nhân vật;
+                      Preview đang hiển thị vị trí CharInfo gốc.
+                    </p>
+                  )}
+                </div>
+              }
+            />
+          )}
           <div
             role="group"
             tabIndex={0}
@@ -1442,9 +1664,12 @@ function ComposerPreview({
                 ? `${PART_SPEC_BY_KEY[selectedLayer].label} / Frame ${selectedFrameIndex}`
                 : "Không chọn layer"}
             </span>
-            <span ref={coordinatesRef} className="font-mono text-amber-700">
+            <span
+              ref={coordinatesRef}
+              className="font-mono text-amber-700"
+            >
               {selectionVisible
-                ? `Offset X ${selectedFrame?.dx ?? 0}, Y ${selectedFrame?.dy ?? 0}`
+                ? `Base ${selectedBaseOffset.baseDx},${selectedBaseOffset.baseDy} · Stored ${selectedFrame?.dx ?? 0},${selectedFrame?.dy ?? 0} · Render ${selectedRenderPosition.x},${selectedRenderPosition.y}`
                 : "Click part để chọn lại"}
             </span>
           </div>
@@ -1460,6 +1685,22 @@ function ComposerPreview({
                   : "info"
               }
               showIcon
+              action={
+                isSelectedOffsetLocked && selectedOffsetOwner !== undefined ? (
+                  <Button
+                    size="small"
+                    onClick={() =>
+                      goToAlignmentStep({
+                        characterFrame: selectedOffsetOwner,
+                        partKey: selectedLayer,
+                        partFrame: selectedFrameIndex,
+                      })
+                    }
+                  >
+                    Về mốc {selectedOffsetOwner}
+                  </Button>
+                ) : undefined
+              }
               message={
                 isSelectedOffsetLocked
                   ? "Frame kiểm tra, offset đang được khóa"
@@ -1468,7 +1709,7 @@ function ComposerPreview({
                     : "Đây là frame mốc của PartImage"
               }
               description={
-                <span className="text-xs leading-5">
+                <div className="text-xs leading-5">
                   Trong Preview hiện tại, {PART_SPEC_BY_KEY[selectedLayer].label}{" "}
                   frame {selectedFrameIndex} được dùng bởi character frame:{" "}
                   {formatCharacterFrames(selectedPreviewCharacterFrames)}.{" "}
@@ -1488,7 +1729,17 @@ function ComposerPreview({
                       : isSelectedPreviewShared
                         ? "Offset vẫn thuộc character frame mốc nhỏ nhất theo CharInfo của Game."
                         : `Character frame ${characterFrame} là mốc duy nhất của PartImage này.`}
-                </span>
+                  {selectedOwnerBaseOffset && selectedOwnerRenderPosition && (
+                    <p className="mt-1 font-mono text-[10px]">
+                      Frame {characterFrame}: base {selectedBaseOffset.baseDx},
+                      {selectedBaseOffset.baseDy} · render {selectedRenderPosition.x},
+                      {selectedRenderPosition.y}. Mốc {selectedOffsetOwner}: base{" "}
+                      {selectedOwnerBaseOffset.baseDx},
+                      {selectedOwnerBaseOffset.baseDy} · render{" "}
+                      {selectedOwnerRenderPosition.x},{selectedOwnerRenderPosition.y}.
+                    </p>
+                  )}
+                </div>
               }
             />
             )}
@@ -1573,27 +1824,19 @@ function ComposerPreview({
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <Button
                   size="small"
-                  disabled={
-                    animationEnabled || previousAlignmentFrame === undefined
-                  }
+                  disabled={animationEnabled || !previousAlignmentStep}
                   icon={<SkipBack size={13} />}
-                  onClick={() =>
-                    previousAlignmentFrame !== undefined &&
-                    setReferenceCharacterFrame(previousAlignmentFrame)
-                  }
+                  onClick={() => goToAlignmentStep(previousAlignmentStep)}
                 >
-                  Mốc trước
+                  Bước trước
                 </Button>
                 <Button
                   size="small"
-                  disabled={animationEnabled || nextAlignmentFrame === undefined}
+                  disabled={animationEnabled || !nextAlignmentStep}
                   icon={<SkipForward size={13} />}
-                  onClick={() =>
-                    nextAlignmentFrame !== undefined &&
-                    setReferenceCharacterFrame(nextAlignmentFrame)
-                  }
+                  onClick={() => goToAlignmentStep(nextAlignmentStep)}
                 >
-                  Mốc tiếp
+                  Bước tiếp
                 </Button>
               </div>
             </div>
@@ -1607,20 +1850,33 @@ function ComposerPreview({
           >
             <div className="flex flex-wrap items-center justify-between gap-2 font-semibold">
               <span>
-                {currentAlignmentIndex >= 0
-                  ? `Mốc căn ${currentAlignmentIndex + 1}/${alignmentFrames.length}: ${alignmentPartsAtCurrentFrame
-                      .map((spec) => spec.label)
-                      .join(", ")}`
-                  : `Frame ${characterFrame} chỉ dùng để kiểm tra`}
+                {currentAlignmentStepIndex >= 0
+                  ? `Bước căn ${currentAlignmentStepIndex + 1}/${alignmentSteps.length}: ${PART_SPEC_BY_KEY[selectedLayer].label} frame ${selectedFrameIndex} tại character frame ${characterFrame}`
+                  : currentAlignmentFrameIndex >= 0
+                    ? `Mốc frame ${characterFrame}: ${alignmentPartsAtCurrentFrame
+                        .map(
+                          (spec) =>
+                            `${spec.label} ${characterPoseFrame[spec.key].frame}`,
+                        )
+                        .join(", ")}`
+                    : `Frame ${characterFrame} chỉ dùng để kiểm tra`}
               </span>
               <span className="font-mono">
-                {configuredPartFrameCount} PartImage | {alignmentFrames.length} mốc
+                {configuredPartFrameCount} PartImage | {alignmentSteps.length} bước |{" "}
+                {alignmentFrames.length} mốc
               </span>
             </div>
             <p className="mt-1">{characterFrameCategory.description}</p>
             {currentRuntimePartSummary && (
               <p className="mt-1 font-mono text-[10px] opacity-80">
                 CharInfo Game: {currentRuntimePartSummary}
+              </p>
+            )}
+            {currentAlignmentFrameIndex < 0 && (
+              <p className="mt-1">
+                Nếu Body/Legs hở hoặc đè sai tại frame kiểm tra nhưng từng
+                PartImage đã đúng ở mốc, bộ PNG không tương thích với cách Game
+                tái sử dụng frame. SQL offset không thể sửa riêng frame này.
               </p>
             )}
           </div>
@@ -1733,7 +1989,11 @@ function ComposerPreview({
                 value: pose.key,
                 label: pose.label,
               }))}
-              onChange={setSelectedPose}
+              onChange={(pose) => {
+                setSelectedPose(pose);
+                setAnimationStep(0);
+                setIsPlaying(false);
+              }}
             />
 
             <div className="mt-3 grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-2">
@@ -1828,7 +2088,7 @@ function ComposerPreview({
                 Tool tự đổi sang frame từng part và base offset tương ứng.
               </p>
               <div className="mt-3 space-y-3">
-                {POSE_SPECS.map((pose) => {
+                {POSE_SPECS.filter((pose) => pose.key !== "all").map((pose) => {
                   const validation = poseValidation[pose.key];
                   return (
                     <div key={pose.key}>
@@ -1849,7 +2109,10 @@ function ComposerPreview({
                               [pose.key]:
                                 DEFAULT_POSE_SEQUENCES[pose.key].join(", "),
                             }));
-                            if (pose.key === selectedPose) {
+                            if (
+                              pose.key === selectedPose ||
+                              selectedPose === "all"
+                            ) {
                               setAnimationStep(0);
                               setIsPlaying(false);
                             }
@@ -1874,7 +2137,10 @@ function ComposerPreview({
                             ...current,
                             [pose.key]: event.target.value,
                           }));
-                          if (pose.key === selectedPose) {
+                          if (
+                            pose.key === selectedPose ||
+                            selectedPose === "all"
+                          ) {
                             setAnimationStep(0);
                             setIsPlaying(false);
                           }
@@ -1893,9 +2159,10 @@ function ComposerPreview({
                 })}
               </div>
               <p className="mt-3 text-[10px] leading-4 text-slate-400">
-                Frame hỗ trợ: {SUPPORTED_CHARACTER_FRAMES.join(", ")}. Stand, Run
-                và Die lấy trực tiếp từ MainObject. Attack chỉ là preset xem nhanh;
-                Game lấy chuỗi thật từ Plash.mDataPlash của từng skill.
+                Frame hỗ trợ: {SUPPORTED_CHARACTER_FRAMES.join(", ")}. Stand,
+                Run và Die lấy trực tiếp từ MainObject. Attack mặc định lấy đủ
+                chuỗi từ Plashdata; skill riêng vẫn có thể thay bằng
+                Plash.mDataPlash.
               </p>
             </details>
           </div>
@@ -1904,9 +2171,10 @@ function ComposerPreview({
 }
 
 function AdminFashionComposerPage() {
-  const [fashion, setFashion] = useState<FashionConfiguration>({
+  const [fashion, setFashion] = useState<FashionConfiguration>(() => ({
     ...DEFAULT_FASHION,
-  });
+    mwearOverrides: { ...DEFAULT_FASHION.mwearOverrides },
+  }));
   const [parts, setParts] = useState<ComposerParts>(createInitialParts);
   const [assets, setAssets] = useState<ComposerAssets>(createInitialAssets);
   const [activePart, setActivePart] = useState<PartKey>("head");
@@ -1961,6 +2229,15 @@ function AdminFashionComposerPage() {
     key: K,
     value: FashionConfiguration[K],
   ) => setFashion((current) => ({ ...current, [key]: value }));
+
+  const updateMwearOverride = (slot: MwearOverrideSlot, enabled: boolean) =>
+    setFashion((current) => ({
+      ...current,
+      mwearOverrides: {
+        ...current.mwearOverrides,
+        [slot]: enabled,
+      },
+    }));
 
   const updatePart = (
     key: PartKey,
@@ -2217,7 +2494,10 @@ function AdminFashionComposerPage() {
     version: COMPOSER_CONFIG_VERSION,
     exportedAt: new Date().toISOString(),
     mappingMode: "game",
-    fashion: { ...fashion },
+    fashion: {
+      ...fashion,
+      mwearOverrides: { ...fashion.mwearOverrides },
+    },
     parts: Object.fromEntries(
       PART_SPECS.map((spec) => {
         const configuration = parts[spec.key];
@@ -2339,7 +2619,10 @@ function AdminFashionComposerPage() {
           ]),
         ) as ComposerAssets,
       );
-      setFashion({ ...config.fashion });
+      setFashion({
+        ...config.fashion,
+        mwearOverrides: { ...config.fashion.mwearOverrides },
+      });
       setParts(nextParts);
       commitPendingAssetBindings(nextPendingBindings);
       setActivePart(config.preview.activePart);
@@ -2445,7 +2728,10 @@ function AdminFashionComposerPage() {
     Object.values(assets)
       .flat()
       .forEach((asset) => URL.revokeObjectURL(asset.url));
-    setFashion({ ...DEFAULT_FASHION });
+    setFashion({
+      ...DEFAULT_FASHION,
+      mwearOverrides: { ...DEFAULT_FASHION.mwearOverrides },
+    });
     setParts(createInitialParts());
     setAssets(createInitialAssets());
     commitPendingAssetBindings(createEmptyAssetBindings());
@@ -2624,6 +2910,33 @@ function AdminFashionComposerPage() {
                 }
               />
             </div>
+            <div className="sm:col-span-2 xl:col-span-4">
+              <FieldLabel hint="ghi -2 vào fashiontemplate.mwear">
+                Ẩn layer trang bị gốc
+              </FieldLabel>
+              <div className="flex flex-wrap gap-x-6 gap-y-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                {([
+                  [1, "Hat + Hair khi merge · slot 1"],
+                  [4, "Cloak · slot 4"],
+                  [7, "Hair qua server · slot 7"],
+                ] as const).map(([slot, label]) => (
+                  <Checkbox
+                    key={slot}
+                    checked={fashion.mwearOverrides[slot]}
+                    onChange={(event) =>
+                      updateMwearOverride(slot, event.target.checked)
+                    }
+                  >
+                    {label}
+                  </Checkbox>
+                ))}
+                <p className="w-full text-xs leading-5 text-slate-500">
+                  Head có sẵn tóc như Chấn Thiên/Nika nên bật Hair slot 7. Không
+                  bật cùng slot đang gắn một Part ID. Slot 1 là rule merge của
+                  client, đồng thời bỏ Hat và Hair hiện có.
+                </p>
+              </div>
+            </div>
           </div>
       </Card>
 
@@ -2637,7 +2950,8 @@ function AdminFashionComposerPage() {
               Parts và frame
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Chọn nhóm part, gán ảnh cho từng frame rồi chỉnh offset X/Y.
+              Body và Legs bắt buộc. Cần ít nhất một trong Head hoặc Hat / Phụ
+              kiện. Cloak và Weapon tùy chọn.
             </p>
           </div>
 
@@ -2655,7 +2969,9 @@ function AdminFashionComposerPage() {
           <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
             <div className="grid gap-4 md:grid-cols-[minmax(140px,1fr)_minmax(180px,1fr)_auto] md:items-end">
               <div>
-                <FieldLabel hint={`type ${activeSpec.type}`}>
+                <FieldLabel
+                  hint={`type ${activeSpec.type} · ${PART_REQUIREMENT_LABELS[activeSpec.sqlRequirement]}`}
+                >
                   {`Part ID ${activeSpec.label}`}
                 </FieldLabel>
                 <InputNumber<number>
