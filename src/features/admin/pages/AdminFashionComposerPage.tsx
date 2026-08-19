@@ -8,7 +8,6 @@ import {
   Popconfirm,
   Segmented,
   Select,
-  Slider,
   Switch,
   Tag,
   Tooltip,
@@ -23,6 +22,7 @@ import {
   FileCode2,
   FileUp,
   FolderOpen,
+  LayoutGrid,
   ImagePlus,
   Layers3,
   Pause,
@@ -45,6 +45,8 @@ import {
 import { toast } from "sonner";
 
 import {
+  BIG_BODY_HEAD_SHIFT_IDS,
+  BODY_STAND_OVERLAY_EFFECT_BY_PART_ID,
   createInitialAssets,
   createInitialParts,
   CHARACTER_POSE_FRAMES,
@@ -52,6 +54,8 @@ import {
   DEFAULT_POSE_SEQUENCES,
   generateFashionSql,
   inferRawIconId,
+  HEAD_SHIFT_EXEMPT_IDS,
+  MWEAR_OVERRIDE_SLOTS,
   PART_SPEC_BY_KEY,
   PART_SPECS,
   POSE_SPECS,
@@ -60,6 +64,7 @@ import {
   type ComposerParts,
   type FashionConfiguration,
   type FrameAssignment,
+  type MwearOverrideSlot,
   type PartKey,
   type PoseKey,
   type UploadedPartAsset,
@@ -71,6 +76,7 @@ const EMPTY_PREVIEW_FRAMES: Record<PartKey, number> = {
   head: 0,
   body: 0,
   legs: 0,
+  weapon: 0,
   accessory: 0,
   cloak: 0,
 };
@@ -79,6 +85,7 @@ const EMPTY_VISIBILITY: Record<PartKey, boolean> = {
   head: true,
   body: true,
   legs: true,
+  weapon: true,
   accessory: true,
   cloak: true,
 };
@@ -120,7 +127,14 @@ const parsePoseSequence = (value: string) => {
 
 const clampOffset = (value: number) => Math.max(-128, Math.min(127, value));
 
+type OffsetChangeSource =
+  | "preview-drag"
+  | "preview-keyboard"
+  | "linked-grid-drag"
+  | "linked-grid-keyboard";
+
 type PreviewDragSession = {
+  source: OffsetChangeSource;
   pointerId: number;
   partKey: PartKey;
   characterFrame: number;
@@ -134,6 +148,7 @@ type PreviewDragSession = {
   baseDx: number;
   baseDy: number;
   logicalWidth: number;
+  displayScale: number;
   direction: PreviewDirection;
   nextDx: number;
   nextDy: number;
@@ -142,16 +157,23 @@ type PreviewDragSession = {
 type ResourceScale = 1 | 2 | 3 | 4;
 type PreviewDirection = "left" | "right";
 type PreviewFrameMode = "game" | "custom";
+type WorkspaceViewMode = "frame-type" | "related";
 type CharacterFrameOverrides = Partial<
   Record<number, Record<PartKey, number>>
 >;
 type OffsetChangeContext = {
-  source: "preview-drag" | "preview-keyboard";
+  source: OffsetChangeSource;
   characterFrame: number;
   baseDx: number;
   baseDy: number;
   previewCharacterFrames: number[];
   runtimeCharacterFrames: number[];
+};
+
+type AlignmentStep = {
+  characterFrame: number;
+  partKey: PartKey;
+  partFrame: number;
 };
 
 type SavedAssetReference = {
@@ -174,7 +196,7 @@ type SavedPartConfiguration = Omit<
 
 type ComposerConfigFile = {
   schema: "htth-fashion-composer";
-  version: 1;
+  version: 2;
   exportedAt: string;
   mappingMode: "game";
   fashion: FashionConfiguration;
@@ -193,7 +215,8 @@ type PendingAssetBindings = Record<
 >;
 
 const COMPOSER_CONFIG_SCHEMA = "htth-fashion-composer";
-const COMPOSER_CONFIG_VERSION = 1;
+const COMPOSER_CONFIG_VERSION = 2;
+const SUPPORTED_COMPOSER_CONFIG_VERSIONS = [1, 2] as const;
 
 const createEmptyAssetBindings = (): PendingAssetBindings =>
   Object.fromEntries(
@@ -253,9 +276,13 @@ const requireBoolean = (value: unknown, label: string) => {
 
 function parseComposerConfigFile(value: unknown): ComposerConfigFile {
   if (!isRecord(value)) throw new Error("File config không phải JSON object.");
+  const sourceVersion = value.version;
   if (
     value.schema !== COMPOSER_CONFIG_SCHEMA ||
-    value.version !== COMPOSER_CONFIG_VERSION
+    typeof sourceVersion !== "number" ||
+    !SUPPORTED_COMPOSER_CONFIG_VERSIONS.includes(
+      sourceVersion as (typeof SUPPORTED_COMPOSER_CONFIG_VERSIONS)[number],
+    )
   ) {
     throw new Error("File config không đúng loại hoặc chưa được hỗ trợ.");
   }
@@ -265,6 +292,9 @@ function parseComposerConfigFile(value: unknown): ComposerConfigFile {
 
   const rawFashion = value.fashion;
   if (!isRecord(rawFashion)) throw new Error("Thiếu cấu hình fashion.");
+  const rawMwearOverrides = isRecord(rawFashion.mwearOverrides)
+    ? rawFashion.mwearOverrides
+    : {};
   const fashion: FashionConfiguration = {
     id: requireNullableInteger(rawFashion.id, "Fashion ID"),
     icon: requireNullableInteger(rawFashion.icon, "Fashion icon"),
@@ -276,6 +306,17 @@ function parseComposerConfigFile(value: unknown): ComposerConfigFile {
     op: typeof rawFashion.op === "string" ? rawFashion.op : "[]",
     specOp:
       typeof rawFashion.specOp === "string" ? rawFashion.specOp : "[]",
+    mwearOverrides: Object.fromEntries(
+      MWEAR_OVERRIDE_SLOTS.map((slot) => [
+        slot,
+        rawMwearOverrides[slot] === undefined
+          ? false
+          : requireBoolean(
+              rawMwearOverrides[slot],
+              `mwear slot ${slot} sentinel -2`,
+            ),
+      ]),
+    ) as FashionConfiguration["mwearOverrides"],
   };
 
   const rawParts = value.parts;
@@ -283,6 +324,21 @@ function parseComposerConfigFile(value: unknown): ComposerConfigFile {
   const parts = Object.fromEntries(
     PART_SPECS.map((spec) => {
       const rawPart = rawParts[spec.key];
+      if (sourceVersion === 1 && spec.key === "weapon" && rawPart === undefined) {
+        return [
+          spec.key,
+          {
+            enabled: false,
+            partId: null,
+            mwearSlot: spec.defaultMwearSlot,
+            frames: Array.from({ length: spec.frameCount }, () => ({
+              asset: null,
+              dx: 0,
+              dy: 0,
+            })),
+          },
+        ];
+      }
       if (!isRecord(rawPart) || !Array.isArray(rawPart.frames)) {
         throw new Error(`${spec.label}: cấu hình part không hợp lệ.`);
       }
@@ -345,20 +401,25 @@ function parseComposerConfigFile(value: unknown): ComposerConfigFile {
   const rawVisibility = rawPreview.visibility;
   const previewFrames = Object.fromEntries(
     PART_SPECS.map((spec) => {
-      const frame = requireInteger(
-        rawPreviewFrames[spec.key],
-        `${spec.label} preview frame`,
-      );
+      const rawFrame = rawPreviewFrames[spec.key];
+      const frame =
+        sourceVersion === 1 && spec.key === "weapon" && rawFrame === undefined
+          ? 0
+          : requireInteger(rawFrame, `${spec.label} preview frame`);
       return [spec.key, Math.max(0, Math.min(spec.frameCount - 1, frame))];
     }),
   ) as Record<PartKey, number>;
   const visibility = Object.fromEntries(
     PART_SPECS.map((spec) => [
       spec.key,
-      requireBoolean(
-        rawVisibility[spec.key],
-        `${spec.label} trạng thái hiển thị`,
-      ),
+      sourceVersion === 1 &&
+      spec.key === "weapon" &&
+      rawVisibility[spec.key] === undefined
+        ? true
+        : requireBoolean(
+            rawVisibility[spec.key],
+            `${spec.label} trạng thái hiển thị`,
+          ),
     ]),
   ) as Record<PartKey, boolean>;
   const zoom = requireInteger(rawPreview.zoom, "Độ phóng Preview");
@@ -395,6 +456,25 @@ const getRenderTranslation = (
   y: baseDy + dy,
 });
 
+const getRuntimeBaseOffset = (
+  characterFrame: number,
+  partKey: PartKey,
+  bodyPartId: number | null,
+  headPartId: number | null,
+) => {
+  const baseOffset = CHARACTER_POSE_FRAMES[characterFrame][partKey];
+  const headDy =
+    bodyPartId !== null && BIG_BODY_HEAD_SHIFT_IDS.has(bodyPartId) ? -6 : 0;
+  const receivesHeadShift =
+    partKey === "accessory" ||
+    partKey === "cloak" ||
+    (partKey === "head" &&
+      (headPartId === null || !HEAD_SHIFT_EXEMPT_IDS.has(headPartId)));
+  return receivesHeadShift && headDy !== 0
+    ? { ...baseOffset, baseDy: baseOffset.baseDy + headDy }
+    : baseOffset;
+};
+
 const getRuntimeCharacterFrames = (
   partKey: PartKey,
   partFrame: number,
@@ -405,6 +485,17 @@ const getRuntimeCharacterFrames = (
 
 const getOffsetAlignmentOwner = (partKey: PartKey, partFrame: number) =>
   getRuntimeCharacterFrames(partKey, partFrame)[0];
+
+// Keep the workflow stable: anchor feet to the ground first, then join the
+// upper layers. Later character frames may reuse any of these PartImages.
+const ALIGNMENT_PART_ORDER: readonly PartKey[] = [
+  "legs",
+  "body",
+  "head",
+  "accessory",
+  "cloak",
+  "weapon",
+];
 
 const getCharacterFrameCategory = (characterFrame: number) => {
   if (characterFrame <= 1) {
@@ -429,12 +520,43 @@ const getCharacterFrameCategory = (characterFrame: number) => {
     };
   }
   return {
-    label: "Skill / trạng thái đặc biệt",
+    label: "Attack",
     description:
       "Game chỉ dùng frame này khi action hoặc Plash của skill trỏ tới. Ảnh ghép tĩnh có thể trông lạ khi thiếu chuyển động và effect.",
     isSpecial: true,
   };
 };
+
+const WORKSPACE_FRAME_GROUPS = [
+  {
+    key: "stand",
+    label: "STAND",
+    description: "Frame đứng yên",
+    frames: SUPPORTED_CHARACTER_FRAMES.filter((frame) => frame <= 1),
+  },
+  {
+    key: "run",
+    label: "RUN",
+    description: "Frame di chuyển",
+    frames: SUPPORTED_CHARACTER_FRAMES.filter(
+      (frame) => frame >= 2 && frame <= 7,
+    ),
+  },
+  {
+    key: "attack",
+    label: "ATTACK",
+    description: "Frame tấn công, skill và trạng thái đặc biệt",
+    frames: SUPPORTED_CHARACTER_FRAMES.filter(
+      (frame) => frame > 7 && frame !== 38,
+    ),
+  },
+  {
+    key: "die",
+    label: "DIE",
+    description: "Frame gục ngã",
+    frames: SUPPORTED_CHARACTER_FRAMES.filter((frame) => frame === 38),
+  },
+] as const;
 
 const getEffectivePreviewPartFrame = (
   frameOverrides: CharacterFrameOverrides,
@@ -483,6 +605,12 @@ function FieldLabel({ children, hint }: { children: string; hint?: string }) {
     </label>
   );
 }
+
+const PART_REQUIREMENT_LABELS = {
+  required: "bắt buộc",
+  "head-or-hat": "chọn ít nhất Head hoặc Hat",
+  optional: "tùy chọn",
+} as const;
 
 function getImageDimensions(url: string) {
   return new Promise<{ width: number; height: number }>((resolve, reject) => {
@@ -645,7 +773,7 @@ function FrameEditor({
             Gán part cho frame
           </h3>
           <p className="mt-1 text-xs text-slate-500">
-            {spec.frameCount} frame bắt buộc cho parts.type = {spec.type}.
+            Khi bật nhóm này, cần đủ {spec.frameCount} frame cho parts.type = {spec.type}.
             Auto-fill gán tuần tự đến ảnh cuối cùng, không ghi đè lựa chọn hiện
             có; dropdown dùng để custom từng frame.
           </p>
@@ -792,23 +920,25 @@ function ComposerPreview({
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [resourceScale, setResourceScale] = useState<ResourceScale>(4);
   const [direction, setDirection] = useState<PreviewDirection>("left");
+  const [workspaceViewMode, setWorkspaceViewMode] =
+    useState<WorkspaceViewMode>("frame-type");
   const [frameOverrides, setFrameOverrides] =
     useState<CharacterFrameOverrides>({});
   const [selectionVisible, setSelectionVisible] = useState(true);
   const [referenceCharacterFrame, setReferenceCharacterFrame] = useState(0);
   const dragSessionRef = useRef<PreviewDragSession | null>(null);
-  const layerRefs = useRef<Partial<Record<PartKey, HTMLDivElement | null>>>({});
-  const selectionBoxRef = useRef<HTMLDivElement | null>(null);
+  const linkedGridLayerRefs = useRef<
+    Record<number, Partial<Record<PartKey, HTMLDivElement | null>>>
+  >({});
+  const linkedGridSelectionRefs = useRef<
+    Record<number, HTMLDivElement | null>
+  >({});
   const coordinatesRef = useRef<HTMLSpanElement | null>(null);
-  // Cloak uses paint index 7 and CharInfo slot 4, then renders behind the
-  // standard character parts in both directions.
-  const layerOrder: PartKey[] = [
-    "cloak",
-    "legs",
-    "body",
-    "head",
-    "accessory",
-  ];
+  // Mirrors MainObject.mSortPaint/mSortPaintRight for supported layers.
+  const layerOrder: PartKey[] =
+    direction === "left"
+      ? ["cloak", "legs", "body", "head", "accessory", "weapon"]
+      : ["cloak", "legs", "body", "weapon", "head", "accessory"];
   const poseValidation = useMemo(
     () =>
       Object.fromEntries(
@@ -819,7 +949,13 @@ function ComposerPreview({
       ) as Record<PoseKey, ReturnType<typeof parsePoseSequence>>,
     [poseInputs],
   );
-  const currentPoseSequence = poseValidation[selectedPose].frames;
+  const allPoseSequence = (["stand", "run", "attack", "die"] as const).flatMap(
+    (pose) => poseValidation[pose].frames,
+  );
+  const currentPoseSequence =
+    selectedPose === "all"
+      ? allPoseSequence
+      : poseValidation[selectedPose].frames;
   const animationCharacterFrame = currentPoseSequence.length
     ? currentPoseSequence[animationStep % currentPoseSequence.length]
     : undefined;
@@ -842,7 +978,20 @@ function ComposerPreview({
   const currentFrameOverride = frameOverrides[characterFrame];
   const isCurrentFrameCustom = Boolean(currentFrameOverride);
   const effectivePreviewFrames = currentFrameOverride ?? gamePreviewFrames;
-  const getBaseOffset = (key: PartKey) => characterPoseFrame[key];
+  const bodyPartId = parts.body.enabled ? parts.body.partId : null;
+  const headPartId = parts.head.enabled ? parts.head.partId : null;
+  const runtimeHeadDy =
+    bodyPartId !== null && BIG_BODY_HEAD_SHIFT_IDS.has(bodyPartId) ? -6 : 0;
+  const bodyStandOverlayEffectId =
+    bodyPartId === null
+      ? undefined
+      : BODY_STAND_OVERLAY_EFFECT_BY_PART_ID[bodyPartId];
+  const getBaseOffsetForCharacterFrame = (
+    candidateFrame: number,
+    key: PartKey,
+  ) => getRuntimeBaseOffset(candidateFrame, key, bodyPartId, headPartId);
+  const getBaseOffset = (key: PartKey) =>
+    getBaseOffsetForCharacterFrame(characterFrame, key);
   const selectedBaseOffset = getBaseOffset(selectedLayer);
   const selectedConfiguration = parts[selectedLayer];
   const selectedFrameIndex = effectivePreviewFrames[selectedLayer];
@@ -859,6 +1008,41 @@ function ComposerPreview({
     selectedLayer,
     selectedFrameIndex,
   );
+  const workspaceCharacterFrames = SUPPORTED_CHARACTER_FRAMES;
+  const relatedWorkspaceFrameGroups = useMemo(() => {
+    const framesByPartFrame = new Map<number, number[]>();
+    SUPPORTED_CHARACTER_FRAMES.forEach((candidateFrame) => {
+      const partFrame =
+        CHARACTER_POSE_FRAMES[candidateFrame][selectedLayer].frame;
+      const relatedFrames = framesByPartFrame.get(partFrame) ?? [];
+      relatedFrames.push(candidateFrame);
+      framesByPartFrame.set(partFrame, relatedFrames);
+    });
+
+    return Array.from(framesByPartFrame.entries())
+      .sort(([, leftFrames], [, rightFrames]) =>
+        (leftFrames[0] ?? 0) - (rightFrames[0] ?? 0),
+      )
+      .map(([partFrame, frames]) => {
+        const frameTypes = Array.from(
+          new Set(
+            frames.map((candidateFrame) =>
+              getCharacterFrameCategory(candidateFrame).label.toUpperCase(),
+            ),
+          ),
+        );
+        return {
+          key: `related-${partFrame}`,
+          label: `PART FRAME ${partFrame}`,
+          description: `Mốc character frame ${getOffsetAlignmentOwner(selectedLayer, partFrame) ?? "-"} · ${frameTypes.join(" + ")} dùng chung offset`,
+          frames,
+        };
+      });
+  }, [selectedLayer]);
+  const visibleWorkspaceFrameGroups =
+    workspaceViewMode === "related"
+      ? relatedWorkspaceFrameGroups
+      : WORKSPACE_FRAME_GROUPS;
   const selectedOffsetOwner = getOffsetAlignmentOwner(
     selectedLayer,
     selectedFrameIndex,
@@ -874,19 +1058,8 @@ function ComposerPreview({
     selectedPreviewCharacterFrames.every(
       (frame, index) => frame === selectedRuntimeCharacterFrames[index],
     );
-  const canMoveSelected = Boolean(
-    selectionVisible &&
-    !isSelectedOffsetLocked &&
-    selectedConfiguration.enabled &&
-    visibility[selectedLayer] &&
-    selectedFrame &&
-    selectedAsset,
-  );
   const selectedLogicalWidth = selectedAsset
     ? getLogicalSize(selectedAsset.width, resourceScale)
-    : 0;
-  const selectedLogicalHeight = selectedAsset
-    ? getLogicalSize(selectedAsset.height, resourceScale)
     : 0;
   const selectedRenderPosition = selectedFrame
     ? getRenderTranslation(
@@ -898,13 +1071,25 @@ function ComposerPreview({
         direction,
       )
     : { x: 0, y: 0 };
+  const selectedOwnerBaseOffset =
+    selectedOffsetOwner === undefined
+      ? null
+      : getBaseOffsetForCharacterFrame(selectedOffsetOwner, selectedLayer);
+  const selectedOwnerRenderPosition =
+    selectedFrame && selectedOwnerBaseOffset
+      ? getRenderTranslation(
+          selectedOwnerBaseOffset.baseDx,
+          selectedOwnerBaseOffset.baseDy,
+          selectedFrame.dx,
+          selectedFrame.dy,
+          selectedLogicalWidth,
+          direction,
+        )
+      : null;
   const characterFrameCategory = getCharacterFrameCategory(characterFrame);
   const getAlignmentPartsForCharacterFrame = (candidateFrame: number) =>
-    PART_SPECS.filter((spec) => {
-      if (
-        !parts[spec.key].enabled ||
-        parts[spec.key].partId === null
-      ) {
+    ALIGNMENT_PART_ORDER.map((key) => PART_SPEC_BY_KEY[key]).filter((spec) => {
+      if (!parts[spec.key].enabled) {
         return false;
       }
       const partFrame = CHARACTER_POSE_FRAMES[candidateFrame][spec.key].frame;
@@ -916,43 +1101,51 @@ function ComposerPreview({
     });
   const alignmentPartsAtCurrentFrame =
     getAlignmentPartsForCharacterFrame(characterFrame);
+  const alignmentSteps = SUPPORTED_CHARACTER_FRAMES.flatMap(
+    (candidateFrame): AlignmentStep[] =>
+      getAlignmentPartsForCharacterFrame(candidateFrame).map((spec) => ({
+        characterFrame: candidateFrame,
+        partKey: spec.key,
+        partFrame: CHARACTER_POSE_FRAMES[candidateFrame][spec.key].frame,
+      })),
+  );
   const alignmentFrames = Array.from(
-    new Set(
-      PART_SPECS.flatMap((spec) => {
-        if (
-          !parts[spec.key].enabled ||
-          parts[spec.key].partId === null
-        ) {
-          return [];
-        }
-        return parts[spec.key].frames.flatMap((frame, partFrame) => {
-          if (!frame.assetId) return [];
-          const owner = getOffsetAlignmentOwner(spec.key, partFrame);
-          return owner === undefined ? [] : [owner];
-        });
-      }),
-    ),
+    new Set(alignmentSteps.map((step) => step.characterFrame)),
   ).sort((a, b) => a - b);
-  const previousAlignmentFrame = alignmentFrames.reduce<number | undefined>(
-    (previous, frame) => (frame < characterFrame ? frame : previous),
-    undefined,
+  const currentAlignmentStepIndex = alignmentSteps.findIndex(
+    (step) =>
+      step.characterFrame === characterFrame &&
+      step.partKey === selectedLayer &&
+      step.partFrame === effectivePreviewFrames[selectedLayer],
   );
-  const nextAlignmentFrame = alignmentFrames.find(
-    (frame) => frame > characterFrame,
-  );
+  const previousAlignmentStep =
+    currentAlignmentStepIndex >= 0
+      ? alignmentSteps[currentAlignmentStepIndex - 1]
+      : alignmentSteps.reduce<AlignmentStep | undefined>(
+          (previous, step) =>
+            step.characterFrame < characterFrame ? step : previous,
+          undefined,
+        );
+  const nextAlignmentStep =
+    currentAlignmentStepIndex >= 0
+      ? alignmentSteps[currentAlignmentStepIndex + 1]
+      : alignmentSteps.find((step) => step.characterFrame >= characterFrame);
   const configuredPartFrameCount = PART_SPECS.reduce((total, spec) => {
     const configuration = parts[spec.key];
-    if (!configuration.enabled || configuration.partId === null) return total;
+    if (!configuration.enabled) return total;
     return total + configuration.frames.filter((frame) => frame.assetId).length;
   }, 0);
-  const currentAlignmentIndex = alignmentFrames.indexOf(characterFrame);
+  const currentAlignmentFrameIndex = alignmentFrames.indexOf(characterFrame);
   const currentRuntimePartSummary = PART_SPECS.filter((spec) => {
     const configuration = parts[spec.key];
-    return configuration.enabled && configuration.partId !== null;
+    return configuration.enabled;
   })
     .map(
-      (spec) =>
-        `${spec.label} ${characterPoseFrame[spec.key].frame}`,
+      (spec) => {
+        const partFrame = characterPoseFrame[spec.key].frame;
+        const owner = getOffsetAlignmentOwner(spec.key, partFrame);
+        return `${spec.label} ${partFrame} (mốc ${owner ?? "-"})`;
+      },
     )
     .join(" | ");
 
@@ -999,19 +1192,70 @@ function ComposerPreview({
     const snapshot = PART_SPECS.map((spec) => {
       const partFrame = effectivePreviewFrames[spec.key];
       const storedOffset = parts[spec.key].frames[partFrame];
-      const baseOffset = characterPoseFrame[spec.key];
+      const baseOffset = getRuntimeBaseOffset(
+        characterFrame,
+        spec.key,
+        bodyPartId,
+        headPartId,
+      );
       const alignmentOwner = getOffsetAlignmentOwner(spec.key, partFrame);
+      const asset = assets[spec.key].find(
+        (item) => item.id === storedOffset?.assetId,
+      );
+      const logicalWidth = asset
+        ? getLogicalSize(asset.width, resourceScale)
+        : 0;
+      const renderPosition = getRenderTranslation(
+        baseOffset.baseDx,
+        baseOffset.baseDy,
+        storedOffset?.dx ?? 0,
+        storedOffset?.dy ?? 0,
+        logicalWidth,
+        direction,
+      );
+      const ownerBaseOffset =
+        alignmentOwner === undefined
+          ? null
+          : getRuntimeBaseOffset(
+              alignmentOwner,
+              spec.key,
+              bodyPartId,
+              headPartId,
+            );
+      const ownerRenderPosition = ownerBaseOffset
+        ? getRenderTranslation(
+            ownerBaseOffset.baseDx,
+            ownerBaseOffset.baseDy,
+            storedOffset?.dx ?? 0,
+            storedOffset?.dy ?? 0,
+            logicalWidth,
+            direction,
+          )
+        : null;
       return {
         part: spec.key,
         characterFrame,
         partFrame,
+        direction,
         baseDx: baseOffset.baseDx,
         baseDy: baseOffset.baseDy,
         storedDx: storedOffset?.dx ?? null,
         storedDy: storedOffset?.dy ?? null,
-        renderX: baseOffset.baseDx + (storedOffset?.dx ?? 0),
-        renderY: baseOffset.baseDy + (storedOffset?.dy ?? 0),
+        renderX: renderPosition.x,
+        renderY: renderPosition.y,
         alignmentOwner: alignmentOwner ?? null,
+        ownerBaseDx: ownerBaseOffset?.baseDx ?? null,
+        ownerBaseDy: ownerBaseOffset?.baseDy ?? null,
+        ownerRenderX: ownerRenderPosition?.x ?? null,
+        ownerRenderY: ownerRenderPosition?.y ?? null,
+        renderDeltaFromOwnerX:
+          ownerRenderPosition === null
+            ? null
+            : renderPosition.x - ownerRenderPosition.x,
+        renderDeltaFromOwnerY:
+          ownerRenderPosition === null
+            ? null
+            : renderPosition.y - ownerRenderPosition.y,
         editableAtCurrentFrame: alignmentOwner === characterFrame,
         previewConsumers: getPreviewCharacterFrames(
           frameOverrides,
@@ -1030,45 +1274,17 @@ function ComposerPreview({
     console.table(snapshot);
     console.groupEnd();
   }, [
+    bodyPartId,
     characterFrame,
     characterPoseFrame,
+    direction,
     effectivePreviewFrames,
     frameOverrides,
+    headPartId,
+    assets,
     parts,
+    resourceScale,
   ]);
-
-  const warnOffsetLocked = (
-    partKey: PartKey,
-    partFrame: number,
-    ownerCharacterFrame: number,
-    attemptedCharacterFrame: number,
-    source: "preview-drag" | "preview-keyboard",
-  ) => {
-    const runtimeCharacterFrames = getRuntimeCharacterFrames(
-      partKey,
-      partFrame,
-    );
-    const previewCharacterFrames = getPreviewCharacterFrames(
-      frameOverrides,
-      partKey,
-      partFrame,
-    );
-    console.warn("[FashionComposer][offset:blocked]", {
-      source,
-      partKey,
-      partFrame,
-      ownerCharacterFrame,
-      attemptedCharacterFrame,
-      previewCharacterFrames,
-      runtimeCharacterFrames,
-      reason:
-        "PartImage.dx/dy can only be edited at its earliest CharInfo consumer",
-    });
-    toast.warning(
-      `${PART_SPEC_BY_KEY[partKey].label} frame ${partFrame} chỉ được căn tại character frame mốc ${ownerCharacterFrame}. Frame ${attemptedCharacterFrame} chỉ dùng để kiểm tra nên thao tác đã bị chặn.`,
-      { id: `offset-lock-${partKey}-${partFrame}` },
-    );
-  };
 
   const changeCurrentFrameMode = (mode: PreviewFrameMode) => {
     setIsPlaying(false);
@@ -1111,74 +1327,98 @@ function ComposerPreview({
       session.logicalWidth,
       session.direction,
     );
-    const transform = `translate(${position.x}px, ${position.y}px)`;
-    const layer = layerRefs.current[session.partKey];
-    if (layer) layer.style.transform = transform;
-    if (selectionBoxRef.current) {
-      selectionBoxRef.current.style.transform = transform;
-    }
+    session.runtimeCharacterFrames.forEach((candidateFrame) => {
+      const linkedLayer =
+        linkedGridLayerRefs.current[candidateFrame]?.[session.partKey];
+      if (!linkedLayer) return;
+      const linkedBaseOffset = getBaseOffsetForCharacterFrame(
+        candidateFrame,
+        session.partKey,
+      );
+      const linkedPosition = getRenderTranslation(
+        linkedBaseOffset.baseDx,
+        linkedBaseOffset.baseDy,
+        session.nextDx,
+        session.nextDy,
+        session.logicalWidth,
+        session.direction,
+      );
+      linkedLayer.style.transform = `translate(${linkedPosition.x}px, ${linkedPosition.y}px)`;
+      const linkedSelection =
+        linkedGridSelectionRefs.current[candidateFrame];
+      if (linkedSelection) {
+        linkedSelection.style.transform = `translate(${linkedPosition.x}px, ${linkedPosition.y}px)`;
+      }
+    });
     if (coordinatesRef.current) {
-      coordinatesRef.current.textContent = `Offset X ${session.nextDx}, Y ${session.nextDy}`;
+      coordinatesRef.current.textContent = `Base ${session.baseDx},${session.baseDy} · Stored ${session.nextDx},${session.nextDy} · Render ${position.x},${position.y}`;
     }
   };
 
-  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const handleLinkedGridPointerDown = (
+    event: ReactPointerEvent<HTMLDivElement>,
+    candidateFrame: number,
+  ) => {
     if (event.button !== 0) return;
 
     const hitTarget =
       event.target instanceof Element
-        ? event.target.closest<HTMLElement>("[data-preview-part]")
+        ? event.target.closest<HTMLElement>("[data-grid-part]")
         : null;
-    const hitPartKey = hitTarget?.dataset.previewPart as PartKey | undefined;
-    if (!hitPartKey) {
+    const partKey = hitTarget?.dataset.gridPart as PartKey | undefined;
+    if (!partKey) {
       event.preventDefault();
+      event.stopPropagation();
       setSelectionVisible(false);
+      setDragging(false);
+      dragSessionRef.current = null;
       return;
     }
 
-    const partKey = hitPartKey;
+    const frameIndex =
+      CHARACTER_POSE_FRAMES[candidateFrame][partKey].frame;
     const configuration = parts[partKey];
-    const frameIndex = effectivePreviewFrames[partKey];
     const frame = configuration.frames[frameIndex];
-    const asset = assets[partKey].find((item) => item.id === frame?.assetId);
-    const offsetOwner = getOffsetAlignmentOwner(partKey, frameIndex);
-
-    if (!configuration.enabled || !visibility[partKey] || !frame || !asset) {
-      return;
-    }
-
-    setSelectionVisible(true);
-    if (partKey !== selectedLayer) onSelectLayer(partKey);
-
-    if (offsetOwner !== undefined && offsetOwner !== characterFrame) {
-      event.preventDefault();
-      warnOffsetLocked(
-        partKey,
-        frameIndex,
-        offsetOwner,
-        characterFrame,
-        "preview-drag",
-      );
+    const asset = assets[partKey].find(
+      (item) => item.id === frame?.assetId,
+    );
+    if (
+      !configuration.enabled ||
+      !visibility[partKey] ||
+      !frame ||
+      !asset
+    ) {
       return;
     }
 
     event.preventDefault();
+    event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
-    if (animationEnabled) {
-      setIsPlaying(false);
-    }
-    const { baseDx, baseDy } = getBaseOffset(partKey);
+    setAnimationEnabled(false);
+    setIsPlaying(false);
+    setReferenceCharacterFrame(candidateFrame);
+    setSelectionVisible(true);
+    if (partKey !== selectedLayer) onSelectLayer(partKey);
+    onChangeFrame(partKey, frameIndex);
+    const { baseDx, baseDy } = getBaseOffsetForCharacterFrame(
+      candidateFrame,
+      partKey,
+    );
     dragSessionRef.current = {
+      source: "linked-grid-drag",
       pointerId: event.pointerId,
       partKey,
-      characterFrame,
+      characterFrame: candidateFrame,
       frameIndex,
       previewCharacterFrames: getPreviewCharacterFrames(
         frameOverrides,
         partKey,
         frameIndex,
       ),
-      runtimeCharacterFrames: getRuntimeCharacterFrames(partKey, frameIndex),
+      runtimeCharacterFrames: getRuntimeCharacterFrames(
+        partKey,
+        frameIndex,
+      ),
       startClientX: event.clientX,
       startClientY: event.clientY,
       startDx: frame.dx,
@@ -1186,6 +1426,7 @@ function ComposerPreview({
       baseDx,
       baseDy,
       logicalWidth: getLogicalSize(asset.width, resourceScale),
+      displayScale: zoom,
       direction,
       nextDx: frame.dx,
       nextDy: frame.dy,
@@ -1200,12 +1441,16 @@ function ComposerPreview({
     const horizontalDirection = session.direction === "left" ? 1 : -1;
     session.nextDx = clampOffset(
       session.startDx +
-        Math.round((event.clientX - session.startClientX) / zoom) *
+        Math.round(
+          (event.clientX - session.startClientX) / session.displayScale,
+        ) *
           horizontalDirection,
     );
     session.nextDy = clampOffset(
       session.startDy +
-        Math.round((event.clientY - session.startClientY) / zoom),
+        Math.round(
+          (event.clientY - session.startClientY) / session.displayScale,
+        ),
     );
     updateDraggedElements(session);
   };
@@ -1239,7 +1484,7 @@ function ComposerPreview({
       session.nextDx,
       session.nextDy,
       {
-        source: "preview-drag",
+        source: session.source,
         characterFrame: session.characterFrame,
         baseDx: session.baseDx,
         baseDy: session.baseDy,
@@ -1249,37 +1494,11 @@ function ComposerPreview({
     );
   };
 
-  const handlePreviewKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      setSelectionVisible(false);
-      return;
-    }
-
-    const isOffsetKey = [
-      "ArrowLeft",
-      "ArrowRight",
-      "ArrowUp",
-      "ArrowDown",
-    ].includes(event.key);
-    if (
-      isOffsetKey &&
-      selectionVisible &&
-      isSelectedOffsetLocked &&
-      selectedOffsetOwner !== undefined
-    ) {
-      event.preventDefault();
-      warnOffsetLocked(
-        selectedLayer,
-        selectedFrameIndex,
-        selectedOffsetOwner,
-        characterFrame,
-        "preview-keyboard",
-      );
-      return;
-    }
-
-    if (!canMoveSelected || !selectedFrame) return;
+  const handleLinkedGridKeyDown = (
+    event: KeyboardEvent<HTMLDivElement>,
+    candidateFrame: number,
+  ) => {
+    if (!selectionVisible) return;
 
     const keyDirection = {
       ArrowLeft: [-1, 0],
@@ -1289,217 +1508,148 @@ function ComposerPreview({
     }[event.key];
     if (!keyDirection) return;
 
-    event.preventDefault();
-    if (animationEnabled) {
-      setIsPlaying(false);
+    const frameIndex =
+      CHARACTER_POSE_FRAMES[candidateFrame][selectedLayer].frame;
+    const configuration = parts[selectedLayer];
+    const frame = configuration.frames[frameIndex];
+    const asset = assets[selectedLayer].find(
+      (item) => item.id === frame?.assetId,
+    );
+    if (
+      !configuration.enabled ||
+      !visibility[selectedLayer] ||
+      !frame ||
+      !asset
+    ) {
+      return;
     }
+
+    event.preventDefault();
+    event.stopPropagation();
+    inspectLinkedCharacterFrame(candidateFrame);
     const step = event.shiftKey ? 5 : 1;
     const horizontalDirection = direction === "left" ? 1 : -1;
     const nextDx = clampOffset(
-      selectedFrame.dx + keyDirection[0] * step * horizontalDirection,
+      frame.dx + keyDirection[0] * step * horizontalDirection,
     );
-    const nextDy = clampOffset(selectedFrame.dy + keyDirection[1] * step);
-    if (nextDx === selectedFrame.dx && nextDy === selectedFrame.dy) return;
+    const nextDy = clampOffset(frame.dy + keyDirection[1] * step);
+    if (nextDx === frame.dx && nextDy === frame.dy) return;
 
-    onChangeOffset(
+    const { baseDx, baseDy } = getBaseOffsetForCharacterFrame(
+      candidateFrame,
       selectedLayer,
-      selectedFrameIndex,
-      nextDx,
-      nextDy,
-      {
-        source: "preview-keyboard",
-        characterFrame,
-        baseDx: selectedBaseOffset.baseDx,
-        baseDy: selectedBaseOffset.baseDy,
-        previewCharacterFrames: selectedPreviewCharacterFrames,
-        runtimeCharacterFrames: selectedRuntimeCharacterFrames,
-      },
+    );
+    onChangeOffset(selectedLayer, frameIndex, nextDx, nextDy, {
+      source: "linked-grid-keyboard",
+      characterFrame: candidateFrame,
+      baseDx,
+      baseDy,
+      previewCharacterFrames: getPreviewCharacterFrames(
+        frameOverrides,
+        selectedLayer,
+        frameIndex,
+      ),
+      runtimeCharacterFrames: getRuntimeCharacterFrames(
+        selectedLayer,
+        frameIndex,
+      ),
+    });
+  };
+
+  const goToAlignmentStep = (step: AlignmentStep | undefined) => {
+    if (!step) return;
+    setAnimationEnabled(false);
+    setIsPlaying(false);
+    setReferenceCharacterFrame(step.characterFrame);
+    setSelectionVisible(true);
+    onSelectLayer(step.partKey);
+    onChangeFrame(step.partKey, step.partFrame);
+  };
+
+  const inspectLinkedCharacterFrame = (candidateFrame: number) => {
+    setAnimationEnabled(false);
+    setIsPlaying(false);
+    setReferenceCharacterFrame(candidateFrame);
+    setSelectionVisible(true);
+    onSelectLayer(selectedLayer);
+    onChangeFrame(
+      selectedLayer,
+      CHARACTER_POSE_FRAMES[candidateFrame][selectedLayer].frame,
     );
   };
 
   return (
     <Card
-      className="border-slate-200 shadow-sm xl:sticky xl:top-24"
-      styles={{ body: { padding: 20 } }}
+      className="w-full border-slate-200 shadow-sm"
+      styles={{ body: { padding: 24 } }}
     >
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h2 className="flex items-center gap-2 text-base font-bold text-slate-800">
                 <Layers3 size={18} className="text-amber-700" />
-                Preview ghép layer
+                Preview tất cả frame
               </h2>
               <p className="mt-1 text-xs leading-5 text-slate-500">
-                Nhấn trực tiếp part hoặc chọn layer bên dưới, sau đó kéo để căn.
+                Chọn layer rồi kéo trực tiếp trên bất kỳ ô nào để căn toàn bộ
+                nhóm PartImage liên quan.
               </p>
             </div>
             <Tag color="gold">
-              Ảnh x{resourceScale} · Preview {zoom}x
+              {SUPPORTED_CHARACTER_FRAMES.length} frame · Grid {zoom}x
             </Tag>
           </div>
-          <div
-            role="group"
-            tabIndex={0}
-            aria-label={`Preview ${PART_SPEC_BY_KEY[selectedLayer].label} frame ${selectedFrameIndex}. Kéo hoặc dùng phím mũi tên để chỉnh offset.`}
-            className={`relative mx-auto aspect-[4/5] min-h-[520px] w-full max-w-[620px] overflow-hidden rounded-xl border border-slate-300 bg-[#f8fafc] bg-[linear-gradient(45deg,#e2e8f0_25%,transparent_25%),linear-gradient(-45deg,#e2e8f0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e2e8f0_75%),linear-gradient(-45deg,transparent_75%,#e2e8f0_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0px] focus-visible:border-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/25 ${canMoveSelected ? (dragging ? "cursor-grabbing" : "cursor-grab") : "cursor-default"}`}
-            style={{ touchAction: "none" }}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={finishPointerDrag}
-            onPointerCancel={finishPointerDrag}
-            onKeyDown={handlePreviewKeyDown}
-          >
-            <div className="pointer-events-none absolute left-1/2 top-[72%] h-px w-full -translate-x-1/2 bg-amber-600/35" />
-            <div className="pointer-events-none absolute left-1/2 top-[72%] h-full w-px -translate-y-1/2 bg-amber-600/35" />
-            <div className="pointer-events-none absolute left-1/2 top-[72%] h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-700 bg-amber-100" />
-            <span className="pointer-events-none absolute left-[calc(50%+8px)] top-[calc(72%+6px)] rounded bg-white/80 px-1 py-0.5 font-mono text-[9px] text-amber-800">
-              Gốc render (0,0)
-            </span>
-            <div
-              className="absolute left-1/2 top-[72%]"
-              style={{ transform: `scale(${zoom})`, transformOrigin: "0 0" }}
-            >
-              {layerOrder.map((key) => {
-                const configuration = parts[key];
-                const frameIndex = effectivePreviewFrames[key];
-                const frame = configuration.frames[frameIndex];
-                const asset = assets[key].find(
-                  (item) => item.id === frame?.assetId,
-                );
-                if (
-                  !configuration.enabled ||
-                  !visibility[key] ||
-                  !asset ||
-                  !frame
-                ) {
-                  return null;
-                }
-                const { baseDx, baseDy } = getBaseOffset(key);
-                const logicalWidth = getLogicalSize(
-                  asset.width,
-                  resourceScale,
-                );
-                const logicalHeight = getLogicalSize(
-                  asset.height,
-                  resourceScale,
-                );
-                const position = getRenderTranslation(
-                  baseDx,
-                  baseDy,
-                  frame.dx,
-                  frame.dy,
-                  logicalWidth,
-                  direction,
-                );
-                return (
-                  <div
-                    key={key}
-                    ref={(node) => {
-                      layerRefs.current[key] = node;
-                    }}
-                    data-preview-part={key}
-                    className="pointer-events-auto absolute left-0 top-0 cursor-grab select-none active:cursor-grabbing"
-                    style={{
-                      width: logicalWidth,
-                      height: logicalHeight,
-                      transform: `translate(${position.x}px, ${position.y}px)`,
-                      willChange:
-                        key === selectedLayer ? "transform" : undefined,
-                    }}
-                  >
-                    <img
-                      src={asset.url}
-                      alt={`${PART_SPEC_BY_KEY[key].label} frame ${frameIndex}`}
-                      draggable={false}
-                      className="block max-w-none [image-rendering:pixelated]"
-                      style={{
-                        width: logicalWidth,
-                        height: logicalHeight,
-                        transform:
-                          direction === "right" ? "scaleX(-1)" : undefined,
-                      }}
-                    />
-                  </div>
-                );
-              })}
-              {canMoveSelected && selectedFrame && selectedAsset && (
-                <div
-                  ref={selectionBoxRef}
-                  className="pointer-events-none absolute left-0 top-0 border border-dashed border-amber-600 bg-amber-400/5"
-                  style={{
-                    width: selectedLogicalWidth,
-                    height: selectedLogicalHeight,
-                    transform: `translate(${selectedRenderPosition.x}px, ${selectedRenderPosition.y}px)`,
-                    willChange: "transform",
-                  }}
-                />
-              )}
-            </div>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs">
-            <span className="font-semibold text-amber-800">
-              {selectionVisible
-                ? `${PART_SPEC_BY_KEY[selectedLayer].label} / Frame ${selectedFrameIndex}`
-                : "Không chọn layer"}
-            </span>
-            <span ref={coordinatesRef} className="font-mono text-amber-700">
-              {selectionVisible
-                ? `Offset X ${selectedFrame?.dx ?? 0}, Y ${selectedFrame?.dy ?? 0}`
-                : "Click part để chọn lại"}
-            </span>
-          </div>
-          {selectionVisible &&
-            (isSelectedOffsetLocked ||
-              isSelectedPreviewShared ||
-              isSelectedRuntimeShared) && (
+          {(runtimeHeadDy !== 0 || bodyStandOverlayEffectId !== undefined) && (
             <Alert
-              className="mt-3"
-              type={
-                isSelectedOffsetLocked || !previewMatchesRuntime
-                  ? "warning"
-                  : "info"
-              }
+              className="mb-3"
+              type={bodyStandOverlayEffectId !== undefined ? "warning" : "info"}
               showIcon
-              message={
-                isSelectedOffsetLocked
-                  ? "Frame kiểm tra, offset đang được khóa"
-                  : !previewMatchesRuntime
-                    ? "Preview tùy chỉnh khác CharInfo của Game"
-                    : "Đây là frame mốc của PartImage"
-              }
+              message={`Body ${bodyPartId}: có rule render riêng trong MainObject`}
               description={
-                <span className="text-xs leading-5">
-                  Trong Preview hiện tại, {PART_SPEC_BY_KEY[selectedLayer].label}{" "}
-                  frame {selectedFrameIndex} được dùng bởi character frame:{" "}
-                  {formatCharacterFrames(selectedPreviewCharacterFrames)}.{" "}
-                  {!previewMatchesRuntime && (
-                    <>
-                      Theo CharInfo của Game, part frame này vẫn được dùng bởi:{" "}
-                      {formatCharacterFrames(selectedRuntimeCharacterFrames)}.
-                      Override chỉ tách mapping trong Preview; SQL parts không
-                      thay CharInfo của client.{" "}
-                    </>
+                <div className="text-xs leading-5">
+                  {runtimeHeadDy !== 0 && (
+                    <p>
+                      Preview đã cộng lechYHead {runtimeHeadDy}px cho Head,
+                      Hat và Cloak giống Game.
+                    </p>
                   )}
-                  {isSelectedOffsetLocked
-                    ? `Character frame ${selectedOffsetOwner} là lần xuất hiện sớm nhất của part frame này trong CharInfo. Chỉ frame mốc đó được sửa offset; frame ${characterFrame} chỉ kiểm tra nên không thể làm lệch frame trước.`
-                    : isSelectedPreviewShared &&
-                        selectedOffsetOwner === characterFrame
-                      ? `Character frame ${characterFrame} là lần xuất hiện sớm nhất nên được phép căn. Các character frame sau dùng lại PartImage này chỉ được xem.`
-                      : isSelectedPreviewShared
-                        ? "Offset vẫn thuộc character frame mốc nhỏ nhất theo CharInfo của Game."
-                        : `Character frame ${characterFrame} là mốc duy nhất của PartImage này.`}
-                </span>
+                  {bodyStandOverlayEffectId !== undefined && (
+                    <p>
+                      Stand frame 0-1 trong Game thay Body bằng effect{" "}
+                      {bodyStandOverlayEffectId} (resource{" "}
+                      {23_000 + bodyStandOverlayEffectId}.png). Preview hiện vẫn
+                      dùng ảnh Body trong parts.data nên chưa mô phỏng overlay
+                      này.
+                    </p>
+                  )}
+                  {parts.weapon.enabled && runtimeHeadDy !== 0 && (
+                    <p>
+                      Weapon của body lớn còn nhận offset theo class nhân vật;
+                      Preview đang hiển thị vị trí CharInfo gốc.
+                    </p>
+                  )}
+                </div>
               }
             />
-            )}
-          <p className="mt-2 text-[11px] leading-4 text-slate-400">
-            Giao điểm là tọa độ x/y truyền vào MainObject.paintBody, tức điểm
-            đứng của nhân vật. Offset luôn tính theo pixel logic x1. Kéo bằng
-            chuột hoặc cảm ứng. Phím mũi tên chỉnh 1px, giữ Shift để chỉnh 5px.
-            Click vùng trống hoặc nhấn Esc để ẩn khung chọn.
-          </p>
-
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          )}
+          <div className="mb-3 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 lg:grid-cols-[minmax(0,2fr)_minmax(180px,1fr)_minmax(180px,1fr)_minmax(180px,1fr)]">
+            <div>
+              <span className="mb-2 block text-xs font-semibold text-slate-600">
+                Layer đang căn
+              </span>
+              <Segmented<PartKey>
+                block
+                value={selectionVisible ? selectedLayer : undefined}
+                options={PART_SPECS.map((spec) => ({
+                  value: spec.key,
+                  label: spec.label,
+                  disabled: !parts[spec.key].enabled,
+                }))}
+                onChange={(partKey) => {
+                  setSelectionVisible(true);
+                  onSelectLayer(partKey);
+                }}
+              />
+            </div>
             <div>
               <span className="mb-2 block text-xs font-semibold text-slate-600">
                 Scale resource
@@ -1528,6 +1678,454 @@ function ComposerPreview({
                 onChange={setDirection}
               />
             </div>
+            <div>
+              <span className="mb-2 block text-xs font-semibold text-slate-600">
+                Độ phóng grid
+              </span>
+              <Segmented<number>
+                block
+                value={zoom}
+                options={[1, 2, 3, 4, 5, 6].map((value) => ({
+                  value,
+                  label: `${value}x`,
+                }))}
+                onChange={onChangeZoom}
+              />
+            </div>
+          </div>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs">
+            <span className="font-semibold text-amber-800">
+              {selectionVisible
+                ? `${PART_SPEC_BY_KEY[selectedLayer].label} / Frame ${selectedFrameIndex}`
+                : "Không chọn layer"}
+            </span>
+            <span
+              ref={coordinatesRef}
+              className="font-mono text-amber-700"
+            >
+              {selectionVisible
+                ? `Base ${selectedBaseOffset.baseDx},${selectedBaseOffset.baseDy} · Stored ${selectedFrame?.dx ?? 0},${selectedFrame?.dy ?? 0} · Render ${selectedRenderPosition.x},${selectedRenderPosition.y}`
+                : "Click part để chọn lại"}
+            </span>
+          </div>
+          {selectionVisible &&
+            (isSelectedOffsetLocked ||
+              isSelectedPreviewShared ||
+              isSelectedRuntimeShared) && (
+            <Alert
+              className="mt-3"
+              type={
+                !previewMatchesRuntime ? "warning" : "info"
+              }
+              showIcon
+              action={
+                isSelectedOffsetLocked && selectedOffsetOwner !== undefined ? (
+                  <Button
+                    size="small"
+                    onClick={() =>
+                      goToAlignmentStep({
+                        characterFrame: selectedOffsetOwner,
+                        partKey: selectedLayer,
+                        partFrame: selectedFrameIndex,
+                      })
+                    }
+                  >
+                    Về mốc {selectedOffsetOwner}
+                  </Button>
+                ) : undefined
+              }
+              message={
+                isSelectedOffsetLocked
+                  ? "PartImage đang được dùng lại từ frame mốc"
+                  : !previewMatchesRuntime
+                    ? "Preview tùy chỉnh khác CharInfo của Game"
+                    : "Đây là frame mốc của PartImage"
+              }
+              description={
+                <div className="text-xs leading-5">
+                  {PART_SPEC_BY_KEY[selectedLayer].label}{" "}
+                  frame {selectedFrameIndex} được dùng bởi character frame:{" "}
+                  {formatCharacterFrames(selectedPreviewCharacterFrames)}.{" "}
+                  {!previewMatchesRuntime && (
+                    <>
+                      Theo CharInfo của Game, part frame này vẫn được dùng bởi:{" "}
+                      {formatCharacterFrames(selectedRuntimeCharacterFrames)}.
+                      Override chỉ tách mapping trong Preview; SQL parts không
+                      thay CharInfo của client.{" "}
+                    </>
+                  )}
+                  {isSelectedOffsetLocked
+                    ? `Character frame ${selectedOffsetOwner} là lần xuất hiện sớm nhất của PartImage này. Kéo tại frame ${characterFrame} hoặc bất kỳ ô cùng nhóm mốc sẽ sửa offset chung và cập nhật tất cả consumer ngay trong grid.`
+                    : isSelectedPreviewShared &&
+                        selectedOffsetOwner === characterFrame
+                      ? `Character frame ${characterFrame} là lần xuất hiện sớm nhất. Kéo bất kỳ ô nào cùng nhóm để căn và theo dõi mọi consumer cùng lúc.`
+                      : isSelectedPreviewShared
+                        ? "Offset vẫn thuộc character frame mốc nhỏ nhất theo CharInfo của Game."
+                        : `Character frame ${characterFrame} là mốc duy nhất của PartImage này.`}
+                  {selectedOwnerBaseOffset && selectedOwnerRenderPosition && (
+                    <p className="mt-1 font-mono text-[10px]">
+                      Frame {characterFrame}: base {selectedBaseOffset.baseDx},
+                      {selectedBaseOffset.baseDy} · render {selectedRenderPosition.x},
+                      {selectedRenderPosition.y}. Mốc {selectedOffsetOwner}: base{" "}
+                      {selectedOwnerBaseOffset.baseDx},
+                      {selectedOwnerBaseOffset.baseDy} · render{" "}
+                      {selectedOwnerRenderPosition.x},{selectedOwnerRenderPosition.y}.
+                    </p>
+                  )}
+                </div>
+              }
+            />
+            )}
+          <section
+            className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+            aria-label="Workspace tất cả character frame"
+          >
+              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 bg-white px-3 py-3">
+                <div>
+                  <h3 className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                    <LayoutGrid size={14} className="text-amber-700" />
+                    Grid căn đồng bộ
+                  </h3>
+                  <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                    Hiển thị toàn bộ {workspaceCharacterFrames.length} character
+                    frame theo CharInfo Game.{" "}
+                    {workspaceViewMode === "related"
+                      ? selectionVisible
+                        ? `Combine theo ${PART_SPEC_BY_KEY[selectedLayer].label}: mỗi block gom mọi character frame đang dùng chung một PartFrame và offset.`
+                        : "Chọn một part để combine các character frame liên quan."
+                      : selectionVisible
+                        ? `Kéo ${PART_SPEC_BY_KEY[selectedLayer].label} trong một ô; mọi ô dùng chung PartImage sẽ cập nhật ngay. Viền vàng đánh dấu nhóm PartFrame đang active.`
+                        : "Click trực tiếp một part để chọn và kéo. Click vùng trống để bỏ chọn."}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Segmented<WorkspaceViewMode>
+                    size="small"
+                    value={workspaceViewMode}
+                    options={[
+                      { value: "frame-type", label: "Theo frame type" },
+                      { value: "related", label: "Combine liên quan" },
+                    ]}
+                    onChange={setWorkspaceViewMode}
+                  />
+                  <Tag color="gold">
+                    {selectionVisible
+                      ? `Layer: ${PART_SPEC_BY_KEY[selectedLayer].label}`
+                      : "Chưa chọn layer"}
+                  </Tag>
+                </div>
+              </div>
+              <div className="divide-y divide-slate-200 px-3">
+                {workspaceViewMode === "related" && !selectionVisible ? (
+                  <div className="px-4 py-12 text-center">
+                    <p className="text-sm font-semibold text-slate-600">
+                      Chưa có part để combine
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Click một part trong bất kỳ frame hoặc chọn layer trên
+                      toolbar.
+                    </p>
+                  </div>
+                ) : visibleWorkspaceFrameGroups.map((group) => (
+                  <section
+                    key={group.key}
+                    className="py-5 first:pt-3 last:pb-3"
+                    aria-labelledby={`frame-group-${group.key}`}
+                  >
+                    <div className="flex flex-wrap items-end justify-between gap-2">
+                      <div>
+                        <h4
+                          id={`frame-group-${group.key}`}
+                          className="text-xs font-extrabold tracking-[0.14em] text-slate-800"
+                        >
+                          {group.label}
+                        </h4>
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          {group.description}
+                        </p>
+                      </div>
+                      <span className="font-mono text-[10px] font-semibold text-slate-400">
+                        {group.frames.length} frame
+                      </span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-3">
+                    {group.frames.map((candidateFrame) => {
+                      const candidatePose = CHARACTER_POSE_FRAMES[candidateFrame];
+                      const category = getCharacterFrameCategory(candidateFrame);
+                      const candidateSelectedFrame =
+                        candidatePose[selectedLayer].frame;
+                      const candidateOffsetOwner = getOffsetAlignmentOwner(
+                        selectedLayer,
+                        candidateSelectedFrame,
+                      );
+                      const isOwner = candidateFrame === candidateOffsetOwner;
+                      const isCurrent =
+                        selectionVisible && candidateFrame === characterFrame;
+                      const sharesCurrentPartFrame =
+                        selectionVisible &&
+                        candidateSelectedFrame === selectedFrameIndex;
+                      const candidateSelectedAssignment =
+                        selectedConfiguration.frames[candidateSelectedFrame];
+                      const candidateSelectedAsset = assets[selectedLayer].find(
+                        (item) =>
+                          item.id === candidateSelectedAssignment?.assetId,
+                      );
+                      const canEditCandidate =
+                        selectionVisible &&
+                        selectedConfiguration.enabled &&
+                        visibility[selectedLayer] &&
+                        Boolean(
+                          candidateSelectedAssignment && candidateSelectedAsset,
+                        );
+                      const isGridDragging =
+                        dragging &&
+                        dragSessionRef.current?.source === "linked-grid-drag" &&
+                        dragSessionRef.current.characterFrame === candidateFrame;
+                      return (
+                        <div
+                          key={candidateFrame}
+                          className={`min-w-[220px] max-w-[320px] flex-[1_1_220px] overflow-hidden rounded-lg border text-left transition-[border-color,box-shadow,background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30 ${
+                            isCurrent
+                              ? "border-amber-600 bg-amber-50/70 ring-2 ring-amber-500/30"
+                              : sharesCurrentPartFrame
+                                ? "border-amber-500 bg-amber-50/40 ring-1 ring-amber-400/30"
+                                : "border-slate-200 bg-white hover:border-amber-300"
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            aria-label={`Xem character frame ${candidateFrame}, ${category.label}`}
+                            onClick={() =>
+                              inspectLinkedCharacterFrame(candidateFrame)
+                            }
+                            className={`flex w-full items-center justify-between gap-2 border-b px-2 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-500/30 ${
+                              sharesCurrentPartFrame
+                                ? "border-amber-200 bg-amber-50/70"
+                                : "border-slate-100 bg-white"
+                            }`}
+                          >
+                            <span className="truncate text-[10px] font-bold text-slate-700">
+                              Frame {candidateFrame}
+                              {workspaceViewMode === "related"
+                                ? ` | ${category.label}`
+                                : ""}
+                            </span>
+                            <span
+                              className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[9px] font-semibold ${
+                                isOwner
+                                  ? "bg-amber-100 text-amber-800"
+                                  : "bg-slate-100 text-slate-500"
+                              }`}
+                            >
+                              {isOwner
+                                ? selectionVisible
+                                  ? "Mốc"
+                                  : "Chưa chọn"
+                                : selectionVisible
+                                  ? `Dùng mốc ${candidateOffsetOwner ?? "-"}`
+                                  : "Chưa chọn"}
+                            </span>
+                          </button>
+                          <div
+                            role="group"
+                            tabIndex={canEditCandidate ? 0 : -1}
+                            aria-label={
+                              selectionVisible
+                                ? `Căn ${PART_SPEC_BY_KEY[selectedLayer].label} tại character frame ${candidateFrame}. Kéo hoặc dùng phím mũi tên để chỉnh offset dùng chung.`
+                                : `Character frame ${candidateFrame}. Click một part để chọn.`
+                            }
+                            onPointerDown={(event) =>
+                              handleLinkedGridPointerDown(event, candidateFrame)
+                            }
+                            onPointerMove={handlePointerMove}
+                            onPointerUp={finishPointerDrag}
+                            onPointerCancel={finishPointerDrag}
+                            onKeyDown={(event) =>
+                              handleLinkedGridKeyDown(event, candidateFrame)
+                            }
+                            className={`relative aspect-[4/5] min-h-[168px] touch-none select-none overflow-hidden bg-[#f8fafc] bg-[linear-gradient(45deg,#e2e8f0_25%,transparent_25%),linear-gradient(-45deg,#e2e8f0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e2e8f0_75%),linear-gradient(-45deg,transparent_75%,#e2e8f0_75%)] bg-[length:12px_12px] bg-[position:0_0,0_6px,6px_-6px,-6px_0px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-500/40 ${
+                              canEditCandidate
+                                ? isGridDragging
+                                  ? "cursor-grabbing"
+                                  : "cursor-grab"
+                                : "cursor-default"
+                            }`}
+                          >
+                            <div className="pointer-events-none absolute left-1/2 top-[72%] h-px w-full -translate-x-1/2 bg-amber-600/25" />
+                            <div className="pointer-events-none absolute left-1/2 top-[72%] h-full w-px -translate-y-1/2 bg-amber-600/25" />
+                            <div className="pointer-events-none absolute left-1/2 top-[72%] h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-700 bg-amber-100" />
+                            <div
+                              className="pointer-events-none absolute left-1/2 top-[72%]"
+                              style={{
+                                transform: `scale(${zoom})`,
+                                transformOrigin: "0 0",
+                              }}
+                            >
+                              {layerOrder.map((key) => {
+                                const configuration = parts[key];
+                                const frameIndex = candidatePose[key].frame;
+                                const frame = configuration.frames[frameIndex];
+                                const asset = assets[key].find(
+                                  (item) => item.id === frame?.assetId,
+                                );
+                                if (
+                                  !configuration.enabled ||
+                                  !visibility[key] ||
+                                  !asset ||
+                                  !frame
+                                ) {
+                                  return null;
+                                }
+                                const { baseDx, baseDy } =
+                                  getBaseOffsetForCharacterFrame(
+                                    candidateFrame,
+                                    key,
+                                  );
+                                const logicalWidth = getLogicalSize(
+                                  asset.width,
+                                  resourceScale,
+                                );
+                                const logicalHeight = getLogicalSize(
+                                  asset.height,
+                                  resourceScale,
+                                );
+                                const position = getRenderTranslation(
+                                  baseDx,
+                                  baseDy,
+                                  frame.dx,
+                                  frame.dy,
+                                  logicalWidth,
+                                  direction,
+                                );
+                                return (
+                                  <div
+                                    key={`${candidateFrame}-${key}`}
+                                    data-grid-part={key}
+                                    ref={(node) => {
+                                      linkedGridLayerRefs.current[
+                                        candidateFrame
+                                      ] ??= {};
+                                      linkedGridLayerRefs.current[
+                                        candidateFrame
+                                      ][key] = node;
+                                    }}
+                                    className="pointer-events-auto absolute left-0 top-0"
+                                    style={{
+                                      width: logicalWidth,
+                                      height: logicalHeight,
+                                      transform: `translate(${position.x}px, ${position.y}px)`,
+                                      willChange:
+                                        key === selectedLayer
+                                          ? "transform"
+                                          : undefined,
+                                    }}
+                                  >
+                                    <img
+                                      src={asset.url}
+                                      alt=""
+                                      draggable={false}
+                                      className="block max-w-none [image-rendering:pixelated]"
+                                      style={{
+                                        width: logicalWidth,
+                                        height: logicalHeight,
+                                        transform:
+                                          direction === "right"
+                                            ? "scaleX(-1)"
+                                            : undefined,
+                                      }}
+                                    />
+                                  </div>
+                                );
+                              })}
+                              {selectionVisible && (() => {
+                                const configuration = parts[selectedLayer];
+                                const frame =
+                                  configuration.frames[candidateSelectedFrame];
+                                const asset = assets[selectedLayer].find(
+                                  (item) => item.id === frame?.assetId,
+                                );
+                                if (!frame || !asset) return null;
+                                const { baseDx, baseDy } =
+                                  getBaseOffsetForCharacterFrame(
+                                    candidateFrame,
+                                    selectedLayer,
+                                  );
+                                const logicalWidth = getLogicalSize(
+                                  asset.width,
+                                  resourceScale,
+                                );
+                                const logicalHeight = getLogicalSize(
+                                  asset.height,
+                                  resourceScale,
+                                );
+                                const position = getRenderTranslation(
+                                  baseDx,
+                                  baseDy,
+                                  frame.dx,
+                                  frame.dy,
+                                  logicalWidth,
+                                  direction,
+                                );
+                                return (
+                                  <div
+                                    ref={(node) => {
+                                      linkedGridSelectionRefs.current[
+                                        candidateFrame
+                                      ] = node;
+                                    }}
+                                    className={`pointer-events-none absolute left-0 top-0 border border-dashed ${
+                                      isOwner
+                                        ? "border-amber-600 bg-amber-400/5"
+                                        : "border-slate-500/70"
+                                    }`}
+                                    style={{
+                                      width: logicalWidth,
+                                      height: logicalHeight,
+                                      transform: `translate(${position.x}px, ${position.y}px)`,
+                                    }}
+                                  />
+                                );
+                              })()}
+                            </div>
+                          </div>
+                          <div
+                            className={`flex items-center justify-between gap-2 px-2 py-1.5 font-mono text-[9px] ${
+                              sharesCurrentPartFrame
+                                ? "bg-amber-50/70 font-semibold text-amber-800"
+                                : "bg-white text-slate-500"
+                            }`}
+                          >
+                            <span>
+                              {selectionVisible
+                                ? `${PART_SPEC_BY_KEY[selectedLayer].label} ${candidateSelectedFrame}`
+                                : "Chưa chọn part"}
+                            </span>
+                            <span>
+                              {!selectionVisible
+                                ? "Click part để chọn"
+                                : canEditCandidate
+                                ? sharesCurrentPartFrame
+                                  ? "Active · Kéo để căn"
+                                  : "Kéo để căn"
+                                : "Chỉ xem"}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    </div>
+                  </section>
+                ))}
+              </div>
+          </section>
+          <p className="mt-2 text-[11px] leading-4 text-slate-400">
+            Giao điểm là tọa độ x/y truyền vào MainObject.paintBody, tức điểm
+            đứng của nhân vật. Offset luôn tính theo pixel logic x1. Kéo bằng
+            chuột hoặc cảm ứng. Phím mũi tên chỉnh 1px, giữ Shift để chỉnh 5px.
+            Các ô có cùng nhãn mốc đang dùng chung một offset trong SQL/runtime.
+          </p>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
               <span className="mb-2 block text-xs font-semibold text-slate-600">
                 Chọn frame part
@@ -1573,27 +2171,19 @@ function ComposerPreview({
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <Button
                   size="small"
-                  disabled={
-                    animationEnabled || previousAlignmentFrame === undefined
-                  }
+                  disabled={animationEnabled || !previousAlignmentStep}
                   icon={<SkipBack size={13} />}
-                  onClick={() =>
-                    previousAlignmentFrame !== undefined &&
-                    setReferenceCharacterFrame(previousAlignmentFrame)
-                  }
+                  onClick={() => goToAlignmentStep(previousAlignmentStep)}
                 >
-                  Mốc trước
+                  Bước trước
                 </Button>
                 <Button
                   size="small"
-                  disabled={animationEnabled || nextAlignmentFrame === undefined}
+                  disabled={animationEnabled || !nextAlignmentStep}
                   icon={<SkipForward size={13} />}
-                  onClick={() =>
-                    nextAlignmentFrame !== undefined &&
-                    setReferenceCharacterFrame(nextAlignmentFrame)
-                  }
+                  onClick={() => goToAlignmentStep(nextAlignmentStep)}
                 >
-                  Mốc tiếp
+                  Bước tiếp
                 </Button>
               </div>
             </div>
@@ -1607,20 +2197,33 @@ function ComposerPreview({
           >
             <div className="flex flex-wrap items-center justify-between gap-2 font-semibold">
               <span>
-                {currentAlignmentIndex >= 0
-                  ? `Mốc căn ${currentAlignmentIndex + 1}/${alignmentFrames.length}: ${alignmentPartsAtCurrentFrame
-                      .map((spec) => spec.label)
-                      .join(", ")}`
-                  : `Frame ${characterFrame} chỉ dùng để kiểm tra`}
+                {currentAlignmentStepIndex >= 0
+                  ? `Bước căn ${currentAlignmentStepIndex + 1}/${alignmentSteps.length}: ${PART_SPEC_BY_KEY[selectedLayer].label} frame ${selectedFrameIndex} tại character frame ${characterFrame}`
+                  : currentAlignmentFrameIndex >= 0
+                    ? `Mốc frame ${characterFrame}: ${alignmentPartsAtCurrentFrame
+                        .map(
+                          (spec) =>
+                            `${spec.label} ${characterPoseFrame[spec.key].frame}`,
+                        )
+                        .join(", ")}`
+                    : `Frame ${characterFrame} chỉ dùng để kiểm tra`}
               </span>
               <span className="font-mono">
-                {configuredPartFrameCount} PartImage | {alignmentFrames.length} mốc
+                {configuredPartFrameCount} PartImage | {alignmentSteps.length} bước |{" "}
+                {alignmentFrames.length} mốc
               </span>
             </div>
             <p className="mt-1">{characterFrameCategory.description}</p>
             {currentRuntimePartSummary && (
               <p className="mt-1 font-mono text-[10px] opacity-80">
                 CharInfo Game: {currentRuntimePartSummary}
+              </p>
+            )}
+            {currentAlignmentFrameIndex < 0 && (
+              <p className="mt-1">
+                Nếu Body/Legs hở hoặc đè sai tại frame kiểm tra nhưng từng
+                PartImage đã đúng ở mốc, bộ PNG không tương thích với cách Game
+                tái sử dụng frame. SQL offset không thể sửa riêng frame này.
               </p>
             )}
           </div>
@@ -1635,23 +2238,6 @@ function ComposerPreview({
               lưu mapping thay thế CharInfo của client.
             </p>
           )}
-
-          <div className="mt-4">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-600">
-                Độ phóng
-              </span>
-              <span className="font-mono text-xs text-slate-500">{zoom}x</span>
-            </div>
-            <Slider
-              min={1}
-              max={6}
-              step={1}
-              value={zoom}
-              onChange={onChangeZoom}
-              tooltip={{ formatter: (value) => `${value}x` }}
-            />
-          </div>
 
           <div className="mt-4 space-y-2">
             {PART_SPECS.map((spec) => (
@@ -1733,7 +2319,11 @@ function ComposerPreview({
                 value: pose.key,
                 label: pose.label,
               }))}
-              onChange={setSelectedPose}
+              onChange={(pose) => {
+                setSelectedPose(pose);
+                setAnimationStep(0);
+                setIsPlaying(false);
+              }}
             />
 
             <div className="mt-3 grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-2">
@@ -1828,7 +2418,7 @@ function ComposerPreview({
                 Tool tự đổi sang frame từng part và base offset tương ứng.
               </p>
               <div className="mt-3 space-y-3">
-                {POSE_SPECS.map((pose) => {
+                {POSE_SPECS.filter((pose) => pose.key !== "all").map((pose) => {
                   const validation = poseValidation[pose.key];
                   return (
                     <div key={pose.key}>
@@ -1849,7 +2439,10 @@ function ComposerPreview({
                               [pose.key]:
                                 DEFAULT_POSE_SEQUENCES[pose.key].join(", "),
                             }));
-                            if (pose.key === selectedPose) {
+                            if (
+                              pose.key === selectedPose ||
+                              selectedPose === "all"
+                            ) {
                               setAnimationStep(0);
                               setIsPlaying(false);
                             }
@@ -1874,7 +2467,10 @@ function ComposerPreview({
                             ...current,
                             [pose.key]: event.target.value,
                           }));
-                          if (pose.key === selectedPose) {
+                          if (
+                            pose.key === selectedPose ||
+                            selectedPose === "all"
+                          ) {
                             setAnimationStep(0);
                             setIsPlaying(false);
                           }
@@ -1893,9 +2489,10 @@ function ComposerPreview({
                 })}
               </div>
               <p className="mt-3 text-[10px] leading-4 text-slate-400">
-                Frame hỗ trợ: {SUPPORTED_CHARACTER_FRAMES.join(", ")}. Stand, Run
-                và Die lấy trực tiếp từ MainObject. Attack chỉ là preset xem nhanh;
-                Game lấy chuỗi thật từ Plash.mDataPlash của từng skill.
+                Frame hỗ trợ: {SUPPORTED_CHARACTER_FRAMES.join(", ")}. Stand,
+                Run và Die lấy trực tiếp từ MainObject. Attack mặc định lấy đủ
+                chuỗi từ Plashdata; skill riêng vẫn có thể thay bằng
+                Plash.mDataPlash.
               </p>
             </details>
           </div>
@@ -1904,9 +2501,10 @@ function ComposerPreview({
 }
 
 function AdminFashionComposerPage() {
-  const [fashion, setFashion] = useState<FashionConfiguration>({
+  const [fashion, setFashion] = useState<FashionConfiguration>(() => ({
     ...DEFAULT_FASHION,
-  });
+    mwearOverrides: { ...DEFAULT_FASHION.mwearOverrides },
+  }));
   const [parts, setParts] = useState<ComposerParts>(createInitialParts);
   const [assets, setAssets] = useState<ComposerAssets>(createInitialAssets);
   const [activePart, setActivePart] = useState<PartKey>("head");
@@ -1961,6 +2559,15 @@ function AdminFashionComposerPage() {
     key: K,
     value: FashionConfiguration[K],
   ) => setFashion((current) => ({ ...current, [key]: value }));
+
+  const updateMwearOverride = (slot: MwearOverrideSlot, enabled: boolean) =>
+    setFashion((current) => ({
+      ...current,
+      mwearOverrides: {
+        ...current.mwearOverrides,
+        [slot]: enabled,
+      },
+    }));
 
   const updatePart = (
     key: PartKey,
@@ -2217,7 +2824,10 @@ function AdminFashionComposerPage() {
     version: COMPOSER_CONFIG_VERSION,
     exportedAt: new Date().toISOString(),
     mappingMode: "game",
-    fashion: { ...fashion },
+    fashion: {
+      ...fashion,
+      mwearOverrides: { ...fashion.mwearOverrides },
+    },
     parts: Object.fromEntries(
       PART_SPECS.map((spec) => {
         const configuration = parts[spec.key];
@@ -2339,7 +2949,10 @@ function AdminFashionComposerPage() {
           ]),
         ) as ComposerAssets,
       );
-      setFashion({ ...config.fashion });
+      setFashion({
+        ...config.fashion,
+        mwearOverrides: { ...config.fashion.mwearOverrides },
+      });
       setParts(nextParts);
       commitPendingAssetBindings(nextPendingBindings);
       setActivePart(config.preview.activePart);
@@ -2445,7 +3058,10 @@ function AdminFashionComposerPage() {
     Object.values(assets)
       .flat()
       .forEach((asset) => URL.revokeObjectURL(asset.url));
-    setFashion({ ...DEFAULT_FASHION });
+    setFashion({
+      ...DEFAULT_FASHION,
+      mwearOverrides: { ...DEFAULT_FASHION.mwearOverrides },
+    });
     setParts(createInitialParts());
     setAssets(createInitialAssets());
     commitPendingAssetBindings(createEmptyAssetBindings());
@@ -2624,10 +3240,62 @@ function AdminFashionComposerPage() {
                 }
               />
             </div>
+            <div className="sm:col-span-2 xl:col-span-4">
+              <FieldLabel hint="ghi -2 vào fashiontemplate.mwear">
+                Ẩn layer trang bị gốc
+              </FieldLabel>
+              <div className="flex flex-wrap gap-x-6 gap-y-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                {([
+                  [1, "Hat + Hair khi merge · slot 1"],
+                  [4, "Cloak · slot 4"],
+                  [7, "Hair qua server · slot 7"],
+                ] as const).map(([slot, label]) => (
+                  <Checkbox
+                    key={slot}
+                    checked={fashion.mwearOverrides[slot]}
+                    onChange={(event) =>
+                      updateMwearOverride(slot, event.target.checked)
+                    }
+                  >
+                    {label}
+                  </Checkbox>
+                ))}
+                <p className="w-full text-xs leading-5 text-slate-500">
+                  Head có sẵn tóc như Chấn Thiên/Nika nên bật Hair slot 7. Không
+                  bật cùng slot đang gắn một Part ID. Slot 1 là rule merge của
+                  client, đồng thời bỏ Hat và Hair hiện có.
+                </p>
+              </div>
+            </div>
           </div>
       </Card>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_560px] 2xl:grid-cols-[minmax(0,1fr)_640px]">
+      <section className="w-full" aria-label="Preview tất cả frame fashion">
+        <ComposerPreview
+          key={previewResetVersion}
+          parts={parts}
+          assets={assets}
+          visibility={visibility}
+          selectedLayer={activePart}
+          zoom={zoom}
+          onChangeFrame={(key, frame) =>
+            setPreviewFrames((current) => ({ ...current, [key]: frame }))
+          }
+          onSelectLayer={setActivePart}
+          onChangeOffset={(key, frameIndex, dx, dy, context) =>
+            updateFrame(key, frameIndex, { dx, dy }, context)
+          }
+          onToggleVisibility={(key) =>
+            setVisibility((current) => ({
+              ...current,
+              [key]: !current[key],
+            }))
+          }
+          onChangeZoom={setZoom}
+        />
+      </section>
+
+      <div className="grid items-start gap-6">
         <Card
           className="min-w-0 border-slate-200 shadow-sm"
           styles={{ body: { padding: 24 } }}
@@ -2637,7 +3305,8 @@ function AdminFashionComposerPage() {
               Parts và frame
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Chọn nhóm part, gán ảnh cho từng frame rồi chỉnh offset X/Y.
+              Body và Legs bắt buộc. Cần ít nhất một trong Head hoặc Hat / Phụ
+              kiện. Cloak và Weapon tùy chọn.
             </p>
           </div>
 
@@ -2655,7 +3324,9 @@ function AdminFashionComposerPage() {
           <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
             <div className="grid gap-4 md:grid-cols-[minmax(140px,1fr)_minmax(180px,1fr)_auto] md:items-end">
               <div>
-                <FieldLabel hint={`type ${activeSpec.type}`}>
+                <FieldLabel
+                  hint={`type ${activeSpec.type} · ${PART_REQUIREMENT_LABELS[activeSpec.sqlRequirement]}`}
+                >
                   {`Part ID ${activeSpec.label}`}
                 </FieldLabel>
                 <InputNumber<number>
@@ -2749,30 +3420,6 @@ function AdminFashionComposerPage() {
           )}
         </Card>
 
-        <aside className="min-w-0" aria-label="Preview fashion">
-          <ComposerPreview
-            key={previewResetVersion}
-            parts={parts}
-            assets={assets}
-            visibility={visibility}
-            selectedLayer={activePart}
-            zoom={zoom}
-            onChangeFrame={(key, frame) =>
-              setPreviewFrames((current) => ({ ...current, [key]: frame }))
-            }
-            onSelectLayer={setActivePart}
-            onChangeOffset={(key, frameIndex, dx, dy, context) =>
-              updateFrame(key, frameIndex, { dx, dy }, context)
-            }
-            onToggleVisibility={(key) =>
-              setVisibility((current) => ({
-                ...current,
-                [key]: !current[key],
-              }))
-            }
-            onChangeZoom={setZoom}
-          />
-        </aside>
       </div>
 
       <Card
