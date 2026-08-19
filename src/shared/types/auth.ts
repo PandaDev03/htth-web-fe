@@ -7,6 +7,7 @@ export type AuthUser = {
   name: string;
   role: UserRole;
   coin?: number;
+  nikaTicket?: number;
   tongnap?: number;
   avatar?: string | null;
 };
