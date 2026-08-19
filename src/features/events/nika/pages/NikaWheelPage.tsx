@@ -7,7 +7,7 @@ import {
   Gift,
   Loader2,
   RefreshCw,
-  Ticket,
+  Tickets,
   Trophy,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -38,27 +38,25 @@ const probabilityFormatter = new Intl.NumberFormat("vi-VN", {
   maximumFractionDigits: 3,
 });
 
-const rarityContent: Record<
-  NikaRarity,
-  { label: string; className: string }
-> = {
-  very_rare: {
-    label: "Rất hiếm",
-    className: "border-amber-400 bg-amber-50 text-amber-900",
-  },
-  rare: {
-    label: "Hiếm",
-    className: "border-amber-300 bg-white text-amber-800",
-  },
-  uncommon: {
-    label: "Trung bình",
-    className: "border-slate-300 bg-white text-slate-700",
-  },
-  common: {
-    label: "Phổ biến",
-    className: "border-slate-200 bg-slate-50 text-slate-600",
-  },
-};
+const rarityContent: Record<NikaRarity, { label: string; className: string }> =
+  {
+    very_rare: {
+      label: "Rất hiếm",
+      className: "border-amber-400 bg-amber-50 text-amber-900",
+    },
+    rare: {
+      label: "Hiếm",
+      className: "border-amber-300 bg-white text-amber-800",
+    },
+    uncommon: {
+      label: "Trung bình",
+      className: "border-slate-300 bg-white text-slate-700",
+    },
+    common: {
+      label: "Phổ biến",
+      className: "border-slate-200 bg-slate-50 text-slate-600",
+    },
+  };
 
 type SpinResponse = NikaSpinResult & { message: string };
 
@@ -80,16 +78,20 @@ function WalletSummary({
   tickets,
   availableCoin,
   totalSpins,
+  className,
 }: {
   tickets: number;
   availableCoin: number;
   totalSpins: number;
+  className?: string;
 }) {
+  const customClassName = `grid overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-[0_14px_34px_rgba(120,53,15,0.07)] sm:grid-cols-3 ${className ?? ""}`;
+
   return (
-    <div className="grid overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-[0_14px_34px_rgba(120,53,15,0.07)] sm:grid-cols-3">
+    <div className={customClassName}>
       <div className="flex items-center gap-3 px-4 py-4 sm:px-5">
         <span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-100 text-amber-800">
-          <Ticket size={19} />
+          <Tickets size={19} />
         </span>
         <div>
           <p className="text-xs font-semibold text-slate-500">Vé Quay Nika</p>
@@ -103,7 +105,7 @@ function WalletSummary({
           <Coins size={19} />
         </span>
         <div>
-          <p className="text-xs font-semibold text-slate-500">webCoin khả dụng</p>
+          <p className="text-xs font-semibold text-slate-500">Coin khả dụng</p>
           <p className="font-mono text-xl font-bold tabular-nums text-slate-900">
             {numberFormatter.format(availableCoin)}
           </p>
@@ -125,12 +127,7 @@ function WalletSummary({
 }
 
 function RewardPool({ rewards }: { rewards: NikaWheelReward[] }) {
-  const rarityOrder: NikaRarity[] = [
-    "very_rare",
-    "rare",
-    "uncommon",
-    "common",
-  ];
+  const rarityOrder: NikaRarity[] = ["very_rare", "rare", "uncommon", "common"];
 
   return (
     <details className="mt-12 rounded-2xl border border-slate-200 bg-white p-5 open:shadow-[0_16px_38px_rgba(120,53,15,0.06)] sm:p-7">
@@ -138,7 +135,9 @@ function RewardPool({ rewards }: { rewards: NikaWheelReward[] }) {
         Xem toàn bộ phần thưởng và tỷ lệ
       </summary>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-        Tỷ lệ đã được chuẩn hóa từ tổng trọng số {rewards.reduce((sum, reward) => sum + reward.weight, 0)} và giữ nguyên tương quan độ hiếm.
+        Tỷ lệ đã được chuẩn hóa từ tổng trọng số{" "}
+        {rewards.reduce((sum, reward) => sum + reward.weight, 0)} và giữ nguyên
+        tương quan độ hiếm.
       </p>
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         {rarityOrder.map((rarity) => {
@@ -161,7 +160,9 @@ function RewardPool({ rewards }: { rewards: NikaWheelReward[] }) {
                         {reward.name}
                       </p>
                       <p className="mt-0.5 text-[11px] font-semibold opacity-75">
-                        x{numberFormatter.format(reward.quantity)} | {probabilityFormatter.format(reward.probabilityPercent)}%
+                        x{numberFormatter.format(reward.quantity)} |{" "}
+                        {probabilityFormatter.format(reward.probabilityPercent)}
+                        %
                       </p>
                     </div>
                   </div>
@@ -263,10 +264,7 @@ function NikaWheelPage() {
       ),
   });
 
-  async function executeSpin(
-    count: 1 | 5 | 10,
-    confirmMixedPayment: boolean,
-  ) {
+  async function executeSpin(count: 1 | 5 | 10, confirmMixedPayment: boolean) {
     try {
       const result = await spinMutation.mutateAsync({
         count,
@@ -290,7 +288,9 @@ function NikaWheelPage() {
         return;
       }
       toast.error(
-        error instanceof Error ? error.message : "Không thể thực hiện lượt quay.",
+        error instanceof Error
+          ? error.message
+          : "Không thể thực hiện lượt quay.",
       );
     }
   }
@@ -324,7 +324,8 @@ function NikaWheelPage() {
             <ArrowLeft size={16} /> Về trang Bài viết
           </Link>
 
-          <header className="mt-8 grid gap-7 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+          {/* <header className="mt-8 grid gap-7 lg:grid-cols-[0.8fr_1.2fr] lg:items-end"> */}
+          <header className="mt-8">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-700">
                 Sự kiện đặc biệt
@@ -332,25 +333,33 @@ function NikaWheelPage() {
               <h1 className="mt-3 text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
                 Vòng Quay Nika
               </h1>
-              <p className="mt-4 max-w-xl text-base leading-7 text-slate-500">
-                Dùng Vé Quay Nika hoặc webCoin để nhận quà và mở khóa mốc tích lũy.
-              </p>
+              {/* <p className="mt-4 max-w-xl text-base leading-7 text-slate-500">
+                Dùng Vé Quay Nika hoặc webCoin để nhận quà và mở khóa mốc tích
+                lũy.
+              </p> */}
             </div>
+          </header>
+
+          <div className="flex mt-8 lg:flex-row-reverse">
             {state && (
               <WalletSummary
                 tickets={state.wallet.tickets}
                 availableCoin={state.wallet.availableWebCoin}
                 totalSpins={state.progress.totalSpins}
+                className="max-lg:w-full"
               />
             )}
-          </header>
+          </div>
 
           {wheelQuery.isLoading && (
             <div className="mt-10 animate-pulse rounded-2xl border border-amber-100 bg-white p-6">
               <div className="mx-auto aspect-square max-w-[680px] rounded-full bg-amber-50" />
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
                 {Array.from({ length: 3 }).map((_, index) => (
-                  <div key={index} className="h-[76px] rounded-xl bg-slate-100" />
+                  <div
+                    key={index}
+                    className="h-[52px] rounded-lg bg-slate-100"
+                  />
                 ))}
               </div>
             </div>
@@ -383,24 +392,26 @@ function NikaWheelPage() {
                 <div className="mt-8 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
                   <AlertCircle size={19} className="mt-0.5 shrink-0" />
                   <p>
-                    Tài khoản chưa có nhân vật game. Hãy tạo nhân vật trước khi quay và nhận quà.
+                    Tài khoản chưa có nhân vật game. Hãy tạo nhân vật trước khi
+                    quay và nhận quà.
                   </p>
                 </div>
               )}
 
-              <div className="mt-10">
+              <div className="mt-3">
                 <NikaWheelArena
                   rewards={state.rewards}
-                  wallet={state.wallet}
                   activeRewardId={activeRewardId}
                   disabled={wheelBusy || !state.player}
+                  spinning={wheelBusy}
                   onSpin={requestSpin}
                 />
               </div>
 
-              <p className="mt-4 text-center text-xs font-semibold leading-5 text-slate-500">
-                Ưu tiên dùng Vé. Khi thiếu Vé, hệ thống sẽ hỏi trước khi dùng webCoin cho lượt còn thiếu.
-              </p>
+              {/* <p className="mt-4 text-center text-xs font-semibold leading-5 text-slate-500">
+                Ưu tiên dùng Vé. Khi thiếu Vé, hệ thống sẽ hỏi trước khi dùng
+                webCoin cho lượt còn thiếu.
+              </p> */}
 
               <section id="nika-reward-tabs" className="mt-14">
                 <div
@@ -463,7 +474,7 @@ function NikaWheelPage() {
                 )}
               </section>
 
-              <RewardPool rewards={state.rewards} />
+              {/* <RewardPool rewards={state.rewards} /> */}
             </>
           )}
         </div>
@@ -486,7 +497,9 @@ function NikaWheelPage() {
         }}
       >
         <p className="leading-7 text-slate-600">
-          Bạn hiện có {mixedTickets}/{mixedCount ?? 0} Vé Quay Nika. Hệ thống sẽ dùng {mixedTickets} Vé và {numberFormatter.format(mixedCoin)} webCoin cho lượt còn thiếu. Tiếp tục quay?
+          Bạn hiện có {mixedTickets}/{mixedCount ?? 0} Vé Quay Nika. Hệ thống sẽ
+          dùng {mixedTickets} Vé và {numberFormatter.format(mixedCoin)} webCoin
+          cho lượt còn thiếu. Tiếp tục quay?
         </p>
       </Modal>
 
@@ -524,7 +537,8 @@ function NikaWheelPage() {
             <div className="mt-5 flex items-start gap-3 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900">
               <Gift size={18} className="mt-0.5 shrink-0" />
               <p>
-                Quà đã được lưu vào Kho quà. GiftBox chỉ được tạo khi bạn bấm Nhận tất cả.
+                Quà đã được lưu vào Kho quà. GiftBox chỉ được tạo khi bạn bấm
+                Nhận tất cả.
               </p>
             </div>
           </>
@@ -534,7 +548,9 @@ function NikaWheelPage() {
       {wheelBusy && (
         <div className="pointer-events-none fixed inset-x-0 bottom-5 z-40 mx-auto flex w-fit items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white shadow-xl">
           <Loader2 size={16} className="animate-spin" />
-          {spinMutation.isPending ? "Đang xác nhận lượt quay" : "Vòng quay đang chạy"}
+          {spinMutation.isPending
+            ? "Đang xác nhận lượt quay"
+            : "Vòng quay đang chạy"}
         </div>
       )}
     </div>
