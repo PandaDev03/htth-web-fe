@@ -18,7 +18,7 @@ type NikaWheelArenaProps = {
 const numberFormatter = new Intl.NumberFormat("vi-VN");
 
 function paymentLabel(wallet: NikaWallet, count: 1 | 5 | 10) {
-  const tickets = Math.min(wallet.nikaTickets, count);
+  const tickets = Math.min(wallet.tickets, count);
   const coin = (count - tickets) * 1_000;
   if (tickets === count) return `${count} Vé`;
   if (tickets === 0) return `${numberFormatter.format(coin)} webCoin`;
@@ -75,7 +75,7 @@ export function NikaWheelArena({
           >
             <span className="flex items-center justify-between gap-3">
               <strong className="text-xl font-extrabold">Quay X{count}</strong>
-              {wallet.nikaTickets > 0 ? (
+              {wallet.tickets > 0 ? (
                 <Ticket size={20} aria-hidden="true" />
               ) : (
                 <Coins size={20} aria-hidden="true" />
