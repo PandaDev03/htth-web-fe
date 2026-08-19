@@ -32,37 +32,59 @@ export function NikaMilestoneRail({
         </p>
       </div>
 
-      <div className="mt-6 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4">
+      <div className="mt-6 space-y-3">
         {milestones.map((milestone) => {
           const claiming = claimingId === milestone.id;
           const locked = totalSpins < milestone.target;
           return (
             <article
               key={milestone.id}
-              className="min-w-[250px] snap-start rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_12px_30px_rgba(120,53,15,0.06)] sm:min-w-[280px]"
+              className={`grid gap-4 rounded-2xl border border-l-4 bg-white p-4 shadow-[0_10px_28px_rgba(120,53,15,0.05)] sm:grid-cols-[9rem_minmax(0,1fr)] sm:items-center sm:gap-5 lg:grid-cols-[10rem_minmax(0,1fr)_11rem] lg:px-5 ${
+                milestone.claimed
+                  ? "border-emerald-200 border-l-emerald-500"
+                  : milestone.claimable
+                    ? "border-amber-200 border-l-amber-500 bg-amber-50/35"
+                    : "border-slate-200 border-l-slate-300"
+              }`}
             >
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span
+                  className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${
+                    milestone.claimed
+                      ? "bg-emerald-50 text-emerald-600"
+                      : milestone.claimable
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-slate-100 text-slate-400"
+                  }`}
+                  aria-hidden="true"
+                >
+                  {milestone.claimed ? (
+                    <CheckCircle2 size={20} />
+                  ) : locked ? (
+                    <LockKeyhole size={18} />
+                  ) : (
+                    <Gift size={20} />
+                  )}
+                </span>
                 <div>
-                  <p className="text-xs font-bold text-amber-700">Mốc quay</p>
-                  <p className="mt-1 text-2xl font-extrabold tabular-nums text-slate-900">
+                  <p className="text-[0.65rem] font-extrabold uppercase tracking-[0.16em] text-amber-700">
+                    Mốc tích lũy
+                  </p>
+                  <p className="mt-0.5 text-xl font-extrabold tabular-nums text-slate-900">
                     {numberFormatter.format(milestone.target)}
+                    <span className="ml-1 text-xs font-bold text-slate-400">
+                      lượt
+                    </span>
                   </p>
                 </div>
-                {milestone.claimed ? (
-                  <CheckCircle2 className="text-emerald-600" size={21} />
-                ) : locked ? (
-                  <LockKeyhole className="text-slate-400" size={20} />
-                ) : (
-                  <Gift className="text-amber-700" size={21} />
-                )}
               </div>
 
-              <div className="mt-4 space-y-2">
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {milestone.rewards.map((reward) => (
-                  <div key={reward.id} className="flex items-center gap-3">
-                    <RewardIcon item={reward} className="h-11 w-11" />
+                  <div key={reward.id} className="flex min-w-0 items-center gap-3">
+                    <RewardIcon item={reward} className="h-10 w-10 shrink-0" />
                     <div className="min-w-0">
-                      <p className="line-clamp-2 text-xs font-bold leading-5 text-slate-700">
+                      <p className="line-clamp-2 text-xs font-bold leading-4 text-slate-700">
                         {reward.name}
                       </p>
                       <p className="text-xs font-semibold text-slate-400">
@@ -77,7 +99,7 @@ export function NikaMilestoneRail({
                 type="button"
                 onClick={() => onClaim(milestone.id)}
                 disabled={!milestone.claimable || claimingId !== null}
-                className={`mt-5 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl px-3 text-sm font-bold transition active:translate-y-px disabled:cursor-not-allowed motion-reduce:transition-none ${
+                className={`inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl px-3 text-sm font-bold transition active:translate-y-px disabled:cursor-not-allowed motion-reduce:transition-none sm:col-start-2 sm:w-auto sm:justify-self-start lg:col-start-auto lg:w-full lg:justify-self-stretch ${
                   milestone.claimed
                     ? "bg-emerald-50 text-emerald-700"
                     : milestone.claimable

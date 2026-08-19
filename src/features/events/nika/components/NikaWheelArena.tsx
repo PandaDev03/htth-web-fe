@@ -1,39 +1,38 @@
-import { Coins, Sparkles, Ticket } from "lucide-react";
 import type { CSSProperties } from "react";
+import { useState } from "react";
 
-import type {
-  NikaWallet,
-  NikaWheelReward,
-} from "@/features/events/nika/api/nikaWheelApi";
+import { NikaSpinWheel } from "@/assets/images";
+import type { NikaWheelReward } from "@/features/events/nika/api/nikaWheelApi";
 import { RewardIcon } from "@/shared/components/RewardIcon";
 
 type NikaWheelArenaProps = {
   rewards: NikaWheelReward[];
-  wallet: NikaWallet;
   activeRewardId: string | null;
   disabled: boolean;
+  spinning: boolean;
   onSpin: (count: 1 | 5 | 10) => void;
 };
 
 const numberFormatter = new Intl.NumberFormat("vi-VN");
 
-function paymentLabel(wallet: NikaWallet, count: 1 | 5 | 10) {
-  const tickets = Math.min(wallet.tickets, count);
-  const coin = (count - tickets) * 1_000;
-  if (tickets === count) return `${count} Vé`;
-  if (tickets === 0) return `${numberFormatter.format(coin)} webCoin`;
-  return `${tickets} Vé + ${numberFormatter.format(coin)} webCoin`;
+function paymentLabel(count: 1 | 5 | 10) {
+  return `${count} Vé/${numberFormatter.format(count * 1_000)} Coin`;
 }
 
 export function NikaWheelArena({
   rewards,
-  wallet,
   activeRewardId,
   disabled,
+  spinning,
   onSpin,
 }: NikaWheelArenaProps) {
+  const [selectedCount, setSelectedCount] = useState<1 | 5 | 10>(1);
+
   return (
     <section aria-labelledby="nika-wheel-heading" className="nika-wheel-shell">
+      <h2 id="nika-wheel-heading" className="sr-only">
+        Vòng Quay Nika
+      </h2>
       <div className="nika-wheel-stage" aria-label="Danh sách quà Vòng Quay Nika">
         <div className="nika-wheel-orbit" aria-hidden="true" />
         {rewards.map((reward, index) => {
@@ -55,34 +54,45 @@ export function NikaWheelArena({
           );
         })}
 
-        <div className="nika-wheel-hub">
-          <span className="nika-wheel-sun" aria-hidden="true">
-            <Sparkles size={32} strokeWidth={1.8} />
-          </span>
-          <h2 id="nika-wheel-heading">NIKA</h2>
-          <p>Chạm vận may</p>
-        </div>
+        <button
+          type="button"
+          className={`nika-wheel-hub ${spinning ? "is-spinning" : ""}`}
+          disabled={disabled}
+          onClick={() => onSpin(selectedCount)}
+          aria-label={`Quay ${selectedCount} lượt bằng ${paymentLabel(selectedCount)}`}
+        >
+          <img
+            src={NikaSpinWheel}
+            alt=""
+            aria-hidden="true"
+            className="nika-wheel-hub-image"
+          />
+        </button>
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+      <div className="mx-auto mt-4 grid max-w-xl grid-cols-3 gap-2">
         {([1, 5, 10] as const).map((count) => (
           <button
             key={count}
             type="button"
             disabled={disabled}
-            onClick={() => onSpin(count)}
-            className="group min-h-[76px] rounded-xl border border-amber-300 bg-amber-600 px-4 py-3 text-left text-white shadow-[0_10px_24px_rgba(180,83,9,0.16)] transition hover:-translate-y-0.5 hover:bg-amber-700 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
+            onClick={() => setSelectedCount(count)}
+            aria-pressed={selectedCount === count}
+            className={`min-h-[52px] rounded-lg border px-2 py-2 text-center shadow-sm transition hover:-translate-y-0.5 active:translate-y-px disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 motion-reduce:transition-none ${
+              selectedCount === count
+                ? "border-amber-600 bg-amber-600 text-white shadow-[0_8px_18px_rgba(180,83,9,0.18)]"
+                : "border-amber-300 bg-white text-amber-800 hover:border-amber-400 hover:bg-amber-50"
+            }`}
           >
-            <span className="flex items-center justify-between gap-3">
-              <strong className="text-xl font-extrabold">Quay X{count}</strong>
-              {wallet.tickets > 0 ? (
-                <Ticket size={20} aria-hidden="true" />
-              ) : (
-                <Coins size={20} aria-hidden="true" />
-              )}
-            </span>
-            <span className="mt-1 block text-xs font-semibold text-amber-100">
-              {paymentLabel(wallet, count)}
+            <strong className="block text-sm font-extrabold leading-4 sm:text-base">
+              x{count}
+            </strong>
+            <span
+              className={`mt-1 block whitespace-nowrap text-[0.55rem] font-bold sm:text-[0.65rem] ${
+                selectedCount === count ? "text-amber-100" : "text-amber-600"
+              }`}
+            >
+              {paymentLabel(count)}
             </span>
           </button>
         ))}

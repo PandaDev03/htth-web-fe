@@ -29,7 +29,7 @@ export function NikaRewardInventory({
             Kho quà vòng quay
           </h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            Quà được giữ tại đây sau mỗi lượt quay. Nhận một lần để tránh nhiều GiftBox liên tiếp.
+            Quà từ các lượt quay sẽ được lưu tại đây. Khi nhận, hệ thống sẽ gửi toàn bộ phần thưởng vào GiftBox trong game.
           </p>
         </div>
         <button
