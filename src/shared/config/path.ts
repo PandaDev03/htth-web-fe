@@ -8,6 +8,7 @@
   WALLET_DEPOSIT: "/donate",
   ARTICLES: "/articles",
   ARTICLE_DETAIL: "/articles/:id",
+  NIKA_WHEEL: "/event/vong-quay-nika",
   ADMIN_ROOT: "/admin",
   ADMIN_DASHBOARD: "/admin/dashboard",
   ADMIN_ARTICLES: "/admin/articles",

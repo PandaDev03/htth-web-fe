@@ -22,6 +22,9 @@ const ArticlesPage = lazy(
   () => import("@/features/articles/pages/ArticlesPage"),
 );
 const ArticlePage = lazy(() => import("@/features/articles/pages/ArticlePage"));
+const NikaWheelPage = lazy(
+  () => import("@/features/events/nika/pages/NikaWheelPage"),
+);
 const AdminDashboardPage = lazy(
   () => import("@/features/admin/pages/AdminDashboardPage"),
 );
@@ -39,6 +42,11 @@ export const appRoutes: AppRoute[] = [
   { path: PATH.ARTICLES, element: <ArticlesPage />, isPublic: true },
   { path: PATH.ARTICLE_DETAIL, element: <ArticlePage />, isPublic: true },
   { path: PATH.AUTH, element: <PlayerAuthPage />, isPublic: true },
+  {
+    path: PATH.NIKA_WHEEL,
+    element: <NikaWheelPage />,
+    allowedRoles: ["user", "moderator", "admin"],
+  },
   {
     path: PATH.ACCOUNT,
     element: <PlayerAccountPage />,
