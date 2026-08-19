@@ -483,7 +483,7 @@ function NikaWheelPage() {
 
       <Modal
         open={mixedCount !== null}
-        title="Kết hợp Vé và webCoin"
+        title="Không đủ Vé Quay Nika"
         okText="Xác nhận quay"
         cancelText="Quay lại"
         centered
@@ -498,7 +498,7 @@ function NikaWheelPage() {
       >
         <p className="leading-7 text-slate-600">
           Bạn hiện có {mixedTickets}/{mixedCount ?? 0} Vé Quay Nika. Hệ thống sẽ
-          dùng {mixedTickets} Vé và {numberFormatter.format(mixedCoin)} webCoin
+          dùng {mixedTickets} Vé và {numberFormatter.format(mixedCoin)} Coin
           cho lượt còn thiếu. Tiếp tục quay?
         </p>
       </Modal>
