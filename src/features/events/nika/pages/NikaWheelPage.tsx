@@ -210,7 +210,7 @@ function NikaWheelPage() {
 
   async function animateToReward(results: SpinResponse["results"]) {
     const rewards = wheelQuery.data?.rewards ?? [];
-    const target = results.at(-1);
+    const target = results[results.length - 1];
     const targetIndex = rewards.findIndex((reward) => reward.id === target?.id);
     if (!target || targetIndex < 0) return;
 
