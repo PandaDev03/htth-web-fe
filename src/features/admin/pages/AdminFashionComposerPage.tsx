@@ -145,9 +145,6 @@ type PreviewFrameMode = "game" | "custom";
 type CharacterFrameOverrides = Partial<
   Record<number, Record<PartKey, number>>
 >;
-type OffsetEditOwners = Partial<
-  Record<PartKey, Partial<Record<number, number>>>
->;
 type OffsetChangeContext = {
   source: "preview-drag" | "preview-keyboard";
   characterFrame: number;
@@ -406,6 +403,39 @@ const getRuntimeCharacterFrames = (
     (frame) => CHARACTER_POSE_FRAMES[frame][partKey].frame === partFrame,
   );
 
+const getOffsetAlignmentOwner = (partKey: PartKey, partFrame: number) =>
+  getRuntimeCharacterFrames(partKey, partFrame)[0];
+
+const getCharacterFrameCategory = (characterFrame: number) => {
+  if (characterFrame <= 1) {
+    return {
+      label: "Stand",
+      description: "Frame đứng yên lấy trực tiếp từ MainObject.feStand.",
+      isSpecial: false,
+    };
+  }
+  if (characterFrame <= 7) {
+    return {
+      label: "Run",
+      description: "Frame chạy lấy trực tiếp từ MainObject.feRun.",
+      isSpecial: false,
+    };
+  }
+  if (characterFrame === 38) {
+    return {
+      label: "Die",
+      description: "Frame gục ngã cố định của Action = 4.",
+      isSpecial: false,
+    };
+  }
+  return {
+    label: "Skill / trạng thái đặc biệt",
+    description:
+      "Game chỉ dùng frame này khi action hoặc Plash của skill trỏ tới. Ảnh ghép tĩnh có thể trông lạ khi thiếu chuyển động và effect.",
+    isSpecial: true,
+  };
+};
+
 const getEffectivePreviewPartFrame = (
   frameOverrides: CharacterFrameOverrides,
   characterFrame: number,
@@ -424,20 +454,6 @@ const getPreviewCharacterFrames = (
       getEffectivePreviewPartFrame(frameOverrides, frame, partKey) ===
       partFrame,
   );
-
-const getValidOffsetOwner = (
-  owners: OffsetEditOwners,
-  frameOverrides: CharacterFrameOverrides,
-  partKey: PartKey,
-  partFrame: number,
-) => {
-  const owner = owners[partKey]?.[partFrame];
-  if (owner === undefined) return undefined;
-  return getEffectivePreviewPartFrame(frameOverrides, owner, partKey) ===
-    partFrame
-    ? owner
-    : undefined;
-};
 
 const formatCharacterFrames = (frames: number[]) => {
   const visibleFrames = frames.slice(0, 12).join(", ");
@@ -779,8 +795,6 @@ function ComposerPreview({
   const [frameOverrides, setFrameOverrides] =
     useState<CharacterFrameOverrides>({});
   const [selectionVisible, setSelectionVisible] = useState(true);
-  const [offsetEditOwners, setOffsetEditOwners] =
-    useState<OffsetEditOwners>({});
   const [referenceCharacterFrame, setReferenceCharacterFrame] = useState(0);
   const dragSessionRef = useRef<PreviewDragSession | null>(null);
   const layerRefs = useRef<Partial<Record<PartKey, HTMLDivElement | null>>>({});
@@ -845,9 +859,7 @@ function ComposerPreview({
     selectedLayer,
     selectedFrameIndex,
   );
-  const selectedOffsetOwner = getValidOffsetOwner(
-    offsetEditOwners,
-    frameOverrides,
+  const selectedOffsetOwner = getOffsetAlignmentOwner(
     selectedLayer,
     selectedFrameIndex,
   );
@@ -886,6 +898,63 @@ function ComposerPreview({
         direction,
       )
     : { x: 0, y: 0 };
+  const characterFrameCategory = getCharacterFrameCategory(characterFrame);
+  const getAlignmentPartsForCharacterFrame = (candidateFrame: number) =>
+    PART_SPECS.filter((spec) => {
+      if (
+        !parts[spec.key].enabled ||
+        parts[spec.key].partId === null
+      ) {
+        return false;
+      }
+      const partFrame = CHARACTER_POSE_FRAMES[candidateFrame][spec.key].frame;
+      const frame = parts[spec.key].frames[partFrame];
+      return (
+        Boolean(frame?.assetId) &&
+        getOffsetAlignmentOwner(spec.key, partFrame) === candidateFrame
+      );
+    });
+  const alignmentPartsAtCurrentFrame =
+    getAlignmentPartsForCharacterFrame(characterFrame);
+  const alignmentFrames = Array.from(
+    new Set(
+      PART_SPECS.flatMap((spec) => {
+        if (
+          !parts[spec.key].enabled ||
+          parts[spec.key].partId === null
+        ) {
+          return [];
+        }
+        return parts[spec.key].frames.flatMap((frame, partFrame) => {
+          if (!frame.assetId) return [];
+          const owner = getOffsetAlignmentOwner(spec.key, partFrame);
+          return owner === undefined ? [] : [owner];
+        });
+      }),
+    ),
+  ).sort((a, b) => a - b);
+  const previousAlignmentFrame = alignmentFrames.reduce<number | undefined>(
+    (previous, frame) => (frame < characterFrame ? frame : previous),
+    undefined,
+  );
+  const nextAlignmentFrame = alignmentFrames.find(
+    (frame) => frame > characterFrame,
+  );
+  const configuredPartFrameCount = PART_SPECS.reduce((total, spec) => {
+    const configuration = parts[spec.key];
+    if (!configuration.enabled || configuration.partId === null) return total;
+    return total + configuration.frames.filter((frame) => frame.assetId).length;
+  }, 0);
+  const currentAlignmentIndex = alignmentFrames.indexOf(characterFrame);
+  const currentRuntimePartSummary = PART_SPECS.filter((spec) => {
+    const configuration = parts[spec.key];
+    return configuration.enabled && configuration.partId !== null;
+  })
+    .map(
+      (spec) =>
+        `${spec.label} ${characterPoseFrame[spec.key].frame}`,
+    )
+    .join(" | ");
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -931,13 +1000,7 @@ function ComposerPreview({
       const partFrame = effectivePreviewFrames[spec.key];
       const storedOffset = parts[spec.key].frames[partFrame];
       const baseOffset = characterPoseFrame[spec.key];
-      const rawOwner = offsetEditOwners[spec.key]?.[partFrame];
-      const activeOwner = getValidOffsetOwner(
-        offsetEditOwners,
-        frameOverrides,
-        spec.key,
-        partFrame,
-      );
+      const alignmentOwner = getOffsetAlignmentOwner(spec.key, partFrame);
       return {
         part: spec.key,
         characterFrame,
@@ -948,11 +1011,8 @@ function ComposerPreview({
         storedDy: storedOffset?.dy ?? null,
         renderX: baseOffset.baseDx + (storedOffset?.dx ?? 0),
         renderY: baseOffset.baseDy + (storedOffset?.dy ?? 0),
-        activeOwner: activeOwner ?? null,
-        staleOwner:
-          rawOwner !== undefined && activeOwner === undefined
-            ? rawOwner
-            : null,
+        alignmentOwner: alignmentOwner ?? null,
+        editableAtCurrentFrame: alignmentOwner === characterFrame,
         previewConsumers: getPreviewCharacterFrames(
           frameOverrides,
           spec.key,
@@ -974,22 +1034,8 @@ function ComposerPreview({
     characterPoseFrame,
     effectivePreviewFrames,
     frameOverrides,
-    offsetEditOwners,
     parts,
   ]);
-
-  const claimOffsetOwner = (
-    partKey: PartKey,
-    partFrame: number,
-    ownerCharacterFrame: number,
-  ) =>
-    setOffsetEditOwners((current) => ({
-      ...current,
-      [partKey]: {
-        ...current[partKey],
-        [partFrame]: ownerCharacterFrame,
-      },
-    }));
 
   const warnOffsetLocked = (
     partKey: PartKey,
@@ -1015,10 +1061,11 @@ function ComposerPreview({
       attemptedCharacterFrame,
       previewCharacterFrames,
       runtimeCharacterFrames,
-      reason: "Shared PartImage.dx/dy is owned by another character frame",
+      reason:
+        "PartImage.dx/dy can only be edited at its earliest CharInfo consumer",
     });
     toast.warning(
-      `${PART_SPEC_BY_KEY[partKey].label} frame ${partFrame} đã căn tại character frame ${ownerCharacterFrame}. Frame ${attemptedCharacterFrame} đang dùng chung part frame trong Preview nên thao tác đã bị chặn.`,
+      `${PART_SPEC_BY_KEY[partKey].label} frame ${partFrame} chỉ được căn tại character frame mốc ${ownerCharacterFrame}. Frame ${attemptedCharacterFrame} chỉ dùng để kiểm tra nên thao tác đã bị chặn.`,
       { id: `offset-lock-${partKey}-${partFrame}` },
     );
   };
@@ -1094,12 +1141,7 @@ function ComposerPreview({
     const frameIndex = effectivePreviewFrames[partKey];
     const frame = configuration.frames[frameIndex];
     const asset = assets[partKey].find((item) => item.id === frame?.assetId);
-    const offsetOwner = getValidOffsetOwner(
-      offsetEditOwners,
-      frameOverrides,
-      partKey,
-      frameIndex,
-    );
+    const offsetOwner = getOffsetAlignmentOwner(partKey, frameIndex);
 
     if (!configuration.enabled || !visibility[partKey] || !frame || !asset) {
       return;
@@ -1181,11 +1223,15 @@ function ComposerPreview({
       session.nextDx !== session.startDx ||
       session.nextDy !== session.startDy
     ) {
-      claimOffsetOwner(
-        session.partKey,
-        session.frameIndex,
-        session.characterFrame,
-      );
+      console.debug("[FashionComposer][offset:alignment-owner]", {
+        partKey: session.partKey,
+        partFrame: session.frameIndex,
+        alignmentCharacterFrame: getOffsetAlignmentOwner(
+          session.partKey,
+          session.frameIndex,
+        ),
+        editedAtCharacterFrame: session.characterFrame,
+      });
     }
     onChangeOffset(
       session.partKey,
@@ -1255,7 +1301,6 @@ function ComposerPreview({
     const nextDy = clampOffset(selectedFrame.dy + keyDirection[1] * step);
     if (nextDx === selectedFrame.dx && nextDy === selectedFrame.dy) return;
 
-    claimOffsetOwner(selectedLayer, selectedFrameIndex, characterFrame);
     onChangeOffset(
       selectedLayer,
       selectedFrameIndex,
@@ -1404,7 +1449,9 @@ function ComposerPreview({
             </span>
           </div>
           {selectionVisible &&
-            (isSelectedPreviewShared || isSelectedRuntimeShared) && (
+            (isSelectedOffsetLocked ||
+              isSelectedPreviewShared ||
+              isSelectedRuntimeShared) && (
             <Alert
               className="mt-3"
               type={
@@ -1415,10 +1462,10 @@ function ComposerPreview({
               showIcon
               message={
                 isSelectedOffsetLocked
-                  ? "Offset dùng chung trong Preview đang bị khóa"
+                  ? "Frame kiểm tra, offset đang được khóa"
                   : !previewMatchesRuntime
                     ? "Preview tùy chỉnh khác CharInfo của Game"
-                    : "Part frame này dùng chung offset"
+                    : "Đây là frame mốc của PartImage"
               }
               description={
                 <span className="text-xs leading-5">
@@ -1434,13 +1481,13 @@ function ComposerPreview({
                     </>
                   )}
                   {isSelectedOffsetLocked
-                    ? `Character frame ${selectedOffsetOwner} đang là mốc nên frame ${characterFrame} bị chặn để không ghi đè cùng một PartImage.dx/dy.`
+                    ? `Character frame ${selectedOffsetOwner} là lần xuất hiện sớm nhất của part frame này trong CharInfo. Chỉ frame mốc đó được sửa offset; frame ${characterFrame} chỉ kiểm tra nên không thể làm lệch frame trước.`
                     : isSelectedPreviewShared &&
                         selectedOffsetOwner === characterFrame
-                      ? `Character frame ${characterFrame} đang là mốc. Các frame Preview dùng chung khác sẽ không được sửa offset này.`
+                      ? `Character frame ${characterFrame} là lần xuất hiện sớm nhất nên được phép căn. Các character frame sau dùng lại PartImage này chỉ được xem.`
                       : isSelectedPreviewShared
-                        ? `Lần chỉnh đầu tại character frame ${characterFrame} sẽ được dùng làm mốc cho offset này.`
-                        : "Frame này không còn dùng chung part frame trong Preview nên có thể căn chỉnh độc lập tại đây."}
+                        ? "Offset vẫn thuộc character frame mốc nhỏ nhất theo CharInfo của Game."
+                        : `Character frame ${characterFrame} là mốc duy nhất của PartImage này.`}
                 </span>
               }
             />
@@ -1505,13 +1552,77 @@ function ComposerPreview({
                 className="w-full"
                 value={characterFrame}
                 disabled={animationEnabled}
-                options={SUPPORTED_CHARACTER_FRAMES.map((frame) => ({
-                  value: frame,
-                  label: `Frame ${frame}`,
-                }))}
+                optionFilterProp="label"
+                options={SUPPORTED_CHARACTER_FRAMES.map((frame) => {
+                  const category = getCharacterFrameCategory(frame);
+                  const alignmentParts =
+                    getAlignmentPartsForCharacterFrame(frame);
+                  return {
+                    value: frame,
+                    label: `Frame ${frame} | ${category.label}${
+                      alignmentParts.length
+                        ? ` | Mốc ${alignmentParts
+                            .map((spec) => spec.label)
+                            .join(", ")}`
+                        : " | Chỉ kiểm tra"
+                    }`,
+                  };
+                })}
                 onChange={setReferenceCharacterFrame}
               />
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <Button
+                  size="small"
+                  disabled={
+                    animationEnabled || previousAlignmentFrame === undefined
+                  }
+                  icon={<SkipBack size={13} />}
+                  onClick={() =>
+                    previousAlignmentFrame !== undefined &&
+                    setReferenceCharacterFrame(previousAlignmentFrame)
+                  }
+                >
+                  Mốc trước
+                </Button>
+                <Button
+                  size="small"
+                  disabled={animationEnabled || nextAlignmentFrame === undefined}
+                  icon={<SkipForward size={13} />}
+                  onClick={() =>
+                    nextAlignmentFrame !== undefined &&
+                    setReferenceCharacterFrame(nextAlignmentFrame)
+                  }
+                >
+                  Mốc tiếp
+                </Button>
+              </div>
             </div>
+          </div>
+          <div
+            className={`mt-3 rounded-lg border px-3 py-2 text-[11px] leading-4 ${
+              characterFrameCategory.isSpecial
+                ? "border-amber-200 bg-amber-50 text-amber-800"
+                : "border-slate-200 bg-slate-50 text-slate-600"
+            }`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2 font-semibold">
+              <span>
+                {currentAlignmentIndex >= 0
+                  ? `Mốc căn ${currentAlignmentIndex + 1}/${alignmentFrames.length}: ${alignmentPartsAtCurrentFrame
+                      .map((spec) => spec.label)
+                      .join(", ")}`
+                  : `Frame ${characterFrame} chỉ dùng để kiểm tra`}
+              </span>
+              <span className="font-mono">
+                {configuredPartFrameCount} PartImage | {alignmentFrames.length} mốc
+              </span>
+            </div>
+            <p className="mt-1">{characterFrameCategory.description}</p>
+            {currentRuntimePartSummary && (
+              <p className="mt-1 font-mono text-[10px] opacity-80">
+                CharInfo Game: {currentRuntimePartSummary}
+              </p>
+            )}
           </div>
           <p className="mt-2 text-[11px] leading-4 text-slate-400">
             Chọn đúng thư mục resource đang upload. PC x4 dùng x4, mobile x1-x3
@@ -1782,8 +1893,9 @@ function ComposerPreview({
                 })}
               </div>
               <p className="mt-3 text-[10px] leading-4 text-slate-400">
-                Frame hỗ trợ: {SUPPORTED_CHARACTER_FRAMES.join(", ")}. Attack là
-                preset đánh cơ bản, skill riêng có thể dùng chuỗi khác.
+                Frame hỗ trợ: {SUPPORTED_CHARACTER_FRAMES.join(", ")}. Stand, Run
+                và Die lấy trực tiếp từ MainObject. Attack chỉ là preset xem nhanh;
+                Game lấy chuỗi thật từ Plash.mDataPlash của từng skill.
               </p>
             </details>
           </div>
@@ -1882,6 +1994,7 @@ function AdminFashionComposerPage() {
           partKey: key,
           partFrame: index,
           characterFrame: context?.characterFrame ?? null,
+          alignmentCharacterFrame: getOffsetAlignmentOwner(key, index) ?? null,
           previewCharacterFrames,
           runtimeCharacterFrames,
           baseDx: context?.baseDx ?? null,
