@@ -298,7 +298,7 @@ function NikaWheelPage() {
   function requestSpin(count: 1 | 5 | 10) {
     const wallet = wheelQuery.data?.wallet;
     if (!wallet) return;
-    if (wallet.nikaTickets > 0 && wallet.nikaTickets < count) {
+    if (wallet.tickets > 0 && wallet.tickets < count) {
       setMixedCount(count);
       return;
     }
@@ -308,7 +308,7 @@ function NikaWheelPage() {
   const state = wheelQuery.data;
   const wheelBusy = spinMutation.isPending || isAnimating;
   const mixedTickets = mixedCount
-    ? Math.min(state?.wallet.nikaTickets ?? 0, mixedCount)
+    ? Math.min(state?.wallet.tickets ?? 0, mixedCount)
     : 0;
   const mixedCoin = mixedCount ? (mixedCount - mixedTickets) * 1_000 : 0;
 
@@ -338,7 +338,7 @@ function NikaWheelPage() {
             </div>
             {state && (
               <WalletSummary
-                tickets={state.wallet.nikaTickets}
+                tickets={state.wallet.tickets}
                 availableCoin={state.wallet.availableWebCoin}
                 totalSpins={state.progress.totalSpins}
               />

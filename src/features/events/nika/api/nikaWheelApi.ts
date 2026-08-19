@@ -31,7 +31,7 @@ export type NikaMilestone = {
 };
 
 export type NikaWallet = {
-  nikaTickets: number;
+  tickets: number;
   webCoin: number;
   reservedCoin: number;
   availableWebCoin: number;
