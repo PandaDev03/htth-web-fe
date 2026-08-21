@@ -106,7 +106,9 @@ export async function claimCoinMilestone(tierId: number) {
     const response = await httpClient.post<
       ApiEnvelope<{
         tierId: number;
-        pendingGiftId: number;
+        pendingGiftId: number | null;
+        ticketsReceived: number;
+        ticket: number;
         status: string;
       }>
     >(`/coin-conversion/milestones/${tierId}/claim`);

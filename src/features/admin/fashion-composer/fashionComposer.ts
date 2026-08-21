@@ -1,6 +1,12 @@
-export type PartKey = "head" | "body" | "legs" | "accessory" | "cloak";
+export type PartKey =
+  | "head"
+  | "body"
+  | "legs"
+  | "weapon"
+  | "accessory"
+  | "cloak";
 
-export type PoseKey = "stand" | "run" | "attack" | "die";
+export type PoseKey = "all" | "stand" | "run" | "attack" | "die";
 
 export type PosePartFrame = {
   frame: number;
@@ -13,11 +19,17 @@ export type CharacterPoseFrame = Record<PartKey, PosePartFrame>;
 export type PartSpec = {
   key: PartKey;
   label: string;
-  type: 0 | 1 | 2 | 4;
+  type: 0 | 1 | 2 | 3 | 4;
   frameCount: number;
   defaultMwearSlot: number;
+  defaultEnabled?: boolean;
+  sqlRequirement: "required" | "head-or-hat" | "optional";
   description: string;
 };
+
+export type MwearOverrideSlot = 1 | 4 | 7;
+export type MwearOverrides = Record<MwearOverrideSlot, boolean>;
+export const MWEAR_OVERRIDE_SLOTS = [1, 4, 7] as const;
 
 export type UploadedPartAsset = {
   id: string;
@@ -51,6 +63,7 @@ export type FashionConfiguration = {
   shopSale: boolean;
   op: string;
   specOp: string;
+  mwearOverrides: MwearOverrides;
 };
 
 export type ComposerAssets = Record<PartKey, UploadedPartAsset[]>;
@@ -63,7 +76,8 @@ export const PART_SPECS: PartSpec[] = [
     type: 0,
     frameCount: 5,
     defaultMwearSlot: 6,
-    description: "Đầu hoặc mũ, 5 frame",
+    sqlRequirement: "head-or-hat",
+    description: "Đầu nhân vật, 5 frame",
   },
   {
     key: "body",
@@ -71,6 +85,7 @@ export const PART_SPECS: PartSpec[] = [
     type: 1,
     frameCount: 20,
     defaultMwearSlot: 3,
+    sqlRequirement: "required",
     description: "Thân nhân vật, 20 frame",
   },
   {
@@ -79,7 +94,18 @@ export const PART_SPECS: PartSpec[] = [
     type: 2,
     frameCount: 15,
     defaultMwearSlot: 5,
+    sqlRequirement: "required",
     description: "Chân nhân vật, 15 frame",
+  },
+  {
+    key: "weapon",
+    label: "Weapon",
+    type: 3,
+    frameCount: 24,
+    defaultMwearSlot: 0,
+    defaultEnabled: false,
+    sqlRequirement: "optional",
+    description: "Vũ khí, 24 frame theo CharInfo slot 3",
   },
   {
     key: "accessory",
@@ -87,6 +113,8 @@ export const PART_SPECS: PartSpec[] = [
     type: 4,
     frameCount: 2,
     defaultMwearSlot: 1,
+    defaultEnabled: false,
+    sqlRequirement: "head-or-hat",
     description: "Mũ hoặc part phủ phía trước nhân vật, 2 frame",
   },
   {
@@ -95,6 +123,8 @@ export const PART_SPECS: PartSpec[] = [
     type: 4,
     frameCount: 2,
     defaultMwearSlot: 4,
+    defaultEnabled: false,
+    sqlRequirement: "optional",
     description: "Áo choàng, mây hoặc part nền phía sau nhân vật, 2 frame",
   },
 ];
@@ -103,22 +133,62 @@ export const PART_SPEC_BY_KEY = Object.fromEntries(
   PART_SPECS.map((spec) => [spec.key, spec]),
 ) as Record<PartKey, PartSpec>;
 
+// MainObject.setHeadBigBody runtime rules.
+export const BIG_BODY_HEAD_SHIFT_IDS = new Set([
+  719, 748, 751, 756, 798, 799, 801, 802, 849, 851, 894, 896, 950, 963,
+  972,
+]);
+export const HEAD_SHIFT_EXEMPT_IDS = new Set([893, 889]);
+export const BODY_STAND_OVERLAY_EFFECT_BY_PART_ID: Readonly<
+  Record<number, number>
+> = {
+  719: 301,
+  748: 300,
+  756: 302,
+};
+
 export const POSE_SPECS: Array<{
   key: PoseKey;
   label: string;
   description: string;
 }> = [
+  {
+    key: "all",
+    label: "All poses",
+    description: "Chạy lần lượt Stand, Run, Attack và Die",
+  },
   { key: "stand", label: "Stand", description: "Đứng yên" },
   { key: "run", label: "Run", description: "Chạy" },
-  { key: "attack", label: "Attack", description: "Đánh cơ bản" },
+  {
+    key: "attack",
+    label: "Attack",
+    description: "Preset mặc định lấy trực tiếp từ Plashdata của Unity",
+  },
   { key: "die", label: "Die", description: "Gục ngã" },
 ];
 
+const STAND_POSE_SEQUENCE = [0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0];
+const RUN_POSE_SEQUENCE = [
+  2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7,
+];
+// Plashdata() fallback sequence. Skill-specific Plash data may replace it at
+// runtime, but this is the complete default attack rather than frames 8-10.
+const ATTACK_POSE_SEQUENCE = [
+  8, 8, 8, 9, 9, 9, 10, 10, 10, 13, 13, 17, 18, 17, 17,
+];
+const DIE_POSE_SEQUENCE = [38];
+
 export const DEFAULT_POSE_SEQUENCES: Record<PoseKey, number[]> = {
-  stand: [0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0],
-  run: [2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7],
-  attack: [8, 8, 8, 9, 9, 9, 10, 10, 10, 10, 10, 10, 10, 10, 10],
-  die: [38],
+  all: [
+    ...STAND_POSE_SEQUENCE,
+    ...RUN_POSE_SEQUENCE,
+    ...ATTACK_POSE_SEQUENCE,
+    ...DIE_POSE_SEQUENCE,
+  ],
+  stand: [...STAND_POSE_SEQUENCE],
+  run: [...RUN_POSE_SEQUENCE],
+  attack: [...ATTACK_POSE_SEQUENCE],
+  die: [...DIE_POSE_SEQUENCE],
 };
 
 // MainObject.CharInfo[characterFrame][slot] = [partFrame, baseDx, baseDy].
@@ -196,7 +266,73 @@ const CHARACTER_POSE_DATA: readonly CharacterPoseTuple[] = [
   [[1, -8, -42], [0, -11, -18], [5, -16, -31], [0, -12, -44]], // 61
 ];
 
-const POSE_PART_KEYS: readonly PartKey[] = [
+// MainObject.CharInfo[characterFrame][3] for standard weapon paint index 3.
+const CHARACTER_WEAPON_POSE_DATA: readonly CharacterPartTuple[] = [
+  [0, -15, -39], // 0
+  [0, -15, -38], // 1
+  [1, -18, -42], // 2
+  [2, -14, -43], // 3
+  [3, -17, -45], // 4
+  [4, -17, -43], // 5
+  [2, -14, -44], // 6
+  [5, -17, -46], // 7
+  [6, -22, -47], // 8
+  [6, -22, -46], // 9
+  [6, -22, -46], // 10
+  [7, -22, -43], // 11
+  [8, -22, -42], // 12
+  [9, -18, -32], // 13
+  [9, -18, -33], // 14
+  [10, -1, -31], // 15
+  [10, -1, -31], // 16
+  [11, 5, -17], // 17
+  [11, 5, -17], // 18
+  [12, -9, -55], // 19
+  [12, -9, -55], // 20
+  [13, -4, -56], // 21
+  [13, -4, -56], // 22
+  [14, 4, -50], // 23
+  [14, 4, -50], // 24
+  [15, 5, -17], // 25
+  [15, 5, -17], // 26
+  [16, -16, -41], // 27
+  [17, -17, -41], // 28
+  [17, -17, -41], // 29
+  [17, -17, -41], // 30
+  [18, -25, -42], // 31
+  [18, -25, -42], // 32
+  [19, -16, -47], // 33
+  [19, -16, -47], // 34
+  [20, -28, -43], // 35
+  [20, -28, -43], // 36
+  [21, -20, -48], // 37
+  [21, -20, -48], // 38
+  [22, -26, -31], // 39
+  [22, -26, -31], // 40
+  [23, -19, -39], // 41
+  [23, -19, -39], // 42
+  [14, 3, -50], // 43
+  [14, 3, -51], // 44
+  [14, 3, -53], // 45
+  [14, 3, -51], // 46
+  [14, 3, -52], // 47
+  [14, 3, -55], // 48
+  [21, -19, -48], // 49
+  [21, -20, -48], // 50
+  [21, -20, -49], // 51
+  [10, -1, -31], // 52
+  [11, 5, -17], // 53
+  [15, 5, -17], // 54
+  [5, -23, -46], // 55
+  [5, -22, -45], // 56
+  [10, -8, -35], // 57
+  [11, -1, -21], // 58
+  [11, -1, -21], // 59
+  [1, -18, -42], // 60
+  [6, -23, -49], // 61
+];
+
+const POSE_PART_KEYS: readonly Exclude<PartKey, "cloak" | "weapon">[] = [
   "head",
   "legs",
   "body",
@@ -217,11 +353,14 @@ export const CHARACTER_POSE_FRAMES: Record<number, CharacterPoseFrame> =
           key,
           toPosePartFrame(pose[index]),
         ]),
-      ) as Omit<CharacterPoseFrame, "cloak">;
+      ) as Omit<CharacterPoseFrame, "cloak" | "weapon">;
       return [
         characterFrame,
         {
           ...basePose,
+          weapon: toPosePartFrame(
+            CHARACTER_WEAPON_POSE_DATA[characterFrame],
+          ),
           cloak: { ...basePose.accessory },
         },
       ];
@@ -240,7 +379,7 @@ export const createInitialParts = (): ComposerParts =>
     PART_SPECS.map((spec) => [
       spec.key,
       {
-        enabled: true,
+        enabled: spec.defaultEnabled ?? true,
         partId: null,
         mwearSlot: spec.defaultMwearSlot,
         frames: createFrames(spec.frameCount),
@@ -252,6 +391,7 @@ export const createInitialAssets = (): ComposerAssets => ({
   head: [],
   body: [],
   legs: [],
+  weapon: [],
   accessory: [],
   cloak: [],
 });
@@ -266,6 +406,7 @@ export const DEFAULT_FASHION: FashionConfiguration = {
   shopSale: false,
   op: "[]",
   specOp: "[]",
+  mwearOverrides: { 1: false, 4: false, 7: false },
 };
 
 export function inferRawIconId(fileName: string): number | null {
@@ -320,7 +461,16 @@ export function validateComposer(
   const parsedSpecOp = parseJsonArray(fashion.specOp, "spec_op", errors);
   const enabledSpecs = PART_SPECS.filter((spec) => parts[spec.key].enabled);
 
-  if (!enabledSpecs.length) errors.push("Cần bật ít nhất một nhóm part.");
+  for (const spec of PART_SPECS.filter(
+    (candidate) => candidate.sqlRequirement === "required",
+  )) {
+    if (!parts[spec.key].enabled) {
+      errors.push(`${spec.label}: bắt buộc phải bật để sinh SQL.`);
+    }
+  }
+  if (!parts.head.enabled && !parts.accessory.enabled) {
+    errors.push("Cần bật ít nhất một trong Head hoặc Hat / Phụ kiện.");
+  }
 
   const seenPartIds = new Set<number>();
   const seenSlots = new Set<number>();
@@ -369,6 +519,14 @@ export function validateComposer(
     });
   }
 
+  for (const slot of MWEAR_OVERRIDE_SLOTS) {
+    if (fashion.mwearOverrides[slot] && seenSlots.has(slot)) {
+      errors.push(
+        `mwear slot ${slot}: Không thể vừa gắn Part ID vừa đặt sentinel -2.`,
+      );
+    }
+  }
+
   return { errors, parsedOp, parsedSpecOp };
 }
 
@@ -408,6 +566,9 @@ export function generateFashionSql(
     if (configuration.mwearSlot >= 0) {
       mwear[configuration.mwearSlot] = configuration.partId as number;
     }
+  }
+  for (const slot of MWEAR_OVERRIDE_SLOTS) {
+    if (fashion.mwearOverrides[slot]) mwear[slot] = -2;
   }
 
   const sql = [

@@ -119,6 +119,23 @@ textarea:focus-visible {
   }
 }
 
+.reward-icon-sprite {
+  animation-duration: var(--reward-icon-animation-duration);
+  animation-iteration-count: infinite;
+  animation-name: reward-icon-sprite-frames;
+  animation-timing-function: steps(var(--reward-icon-frame-count), end);
+  will-change: transform;
+}
+
+@keyframes reward-icon-sprite-frames {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, -100%, 0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -127,5 +144,9 @@ textarea:focus-visible {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  .reward-icon-sprite {
+    animation: none !important;
+    transform: translate3d(0, 0, 0);
   }
 }
