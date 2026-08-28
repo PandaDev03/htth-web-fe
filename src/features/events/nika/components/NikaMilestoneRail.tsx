@@ -1,4 +1,4 @@
-import { CheckCircle2, Gift, Loader2, LockKeyhole } from "lucide-react";
+import { Check, CheckCircle2, Gift, Loader2, LockKeyhole } from "lucide-react";
 import type { CSSProperties } from "react";
 
 import type { NikaMilestone } from "@/features/events/nika/api/nikaWheelApi";
@@ -153,7 +153,7 @@ export function NikaMilestoneRail({
                           aria-hidden="true"
                         >
                           {milestone.claimed ? (
-                            <CheckCircle2 size={16} />
+                            <Check size={16} color="green" />
                           ) : milestone.claimable ? (
                             <Gift size={15} />
                           ) : (
