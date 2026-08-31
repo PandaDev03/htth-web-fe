@@ -60,11 +60,19 @@ function getInitial(username: string) {
   return username.trim().charAt(0).toUpperCase() || "P";
 }
 
+function getRewardTierTitle(tier: RankingRewardTier) {
+  return tier.rankLabel.trim().toLowerCase() === "top 4"
+    ? "Top 4 - 10"
+    : tier.rankLabel;
+}
+
 function RewardTierCard({ tier }: { tier: RankingRewardTier }) {
   return (
     <article className="rounded-lg border p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h3 className="text-base font-800 text-gray-800">{tier.rankLabel}</h3>
+        <h3 className="text-base font-800 text-gray-800">
+          {getRewardTierTitle(tier)}
+        </h3>
         <span className="rounded-lg bg-white px-2.5 py-1 font-mono text-xs font-bold text-amber-600 shadow-sm">
           {tier.items.length} món
         </span>
