@@ -16,6 +16,8 @@ import { ZaloLogoArc } from "@/assets/images";
 import { PirateBrandMark } from "@/shared/components/site/BrandMark";
 
 export function Footer() {
+  const zaloGroupLink = import.meta.env.VITE_ZALO_GROUP_LINK || "";
+
   const links = [
     { label: "Trang Chủ", href: PATH.HOME, icon: <Home size={13} /> },
     {
@@ -80,8 +82,8 @@ export function Footer() {
               nhất.
             </p>
             <a
-              href="https://zalo.me/g/cclw6mvkgskdtmkfj9ik"
               target="_blank"
+              href={zaloGroupLink}
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-600 hover:text-white"
             >
