@@ -3,6 +3,8 @@ import { Image } from "antd";
 import { Bell, Send, Shield } from "lucide-react";
 
 const ZaloCommunityBanner = () => {
+  const zaloGroupLink = import.meta.env.VITE_ZALO_GROUP_LINK || "";
+
   const pills = [
     { icon: <Bell size={12} />, label: "Thông báo sự kiện" },
     { icon: <Shield size={12} />, label: "Hỗ trợ 24/7" },
@@ -46,8 +48,8 @@ const ZaloCommunityBanner = () => {
             <div className="flex shrink-0 flex-col items-center gap-3">
               <a
                 target="_blank"
+                href={zaloGroupLink}
                 rel="noopener noreferrer"
-                href="https://zalo.me/g/3wmujcbyl9qez9denzx4"
                 className="inline-flex items-center gap-2 rounded-xl bg-blue-500 px-7 py-3.5 text-base font-700 text-white shadow-md shadow-blue-200 transition-all hover:bg-blue-600 hover:text-white"
               >
                 <Send size={18} />
