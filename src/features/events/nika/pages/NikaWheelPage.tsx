@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
+import { useAppSelector } from "@/app/store/hooks";
 import {
   claimNikaInventory,
   claimNikaMilestone,
@@ -178,6 +179,8 @@ function RewardPool({ rewards }: { rewards: NikaWheelReward[] }) {
 
 function NikaWheelPage() {
   const queryClient = useQueryClient();
+  const { serverId, user } = useAppSelector((state) => state.auth);
+  const wheelQueryKey = ["nika-wheel", serverId, user?.id] as const;
   const reducedMotion = useReducedMotion();
   const [activeRewardId, setActiveRewardId] = useState<string | null>(null);
   const [mixedCount, setMixedCount] = useState<1 | 5 | 10 | null>(null);
@@ -190,8 +193,9 @@ function NikaWheelPage() {
   const timers = useRef<number[]>([]);
 
   const wheelQuery = useQuery({
-    queryKey: ["nika-wheel"],
+    queryKey: wheelQueryKey,
     queryFn: getNikaWheelState,
+    enabled: Boolean(serverId && user),
   });
 
   useEffect(
@@ -244,7 +248,7 @@ function NikaWheelPage() {
     mutationFn: claimNikaMilestone,
     onSuccess: async (result) => {
       toast.success(result.message);
-      await queryClient.invalidateQueries({ queryKey: ["nika-wheel"] });
+      await queryClient.invalidateQueries({ queryKey: wheelQueryKey });
     },
     onError: (error) =>
       toast.error(
@@ -256,7 +260,7 @@ function NikaWheelPage() {
     mutationFn: claimNikaInventory,
     onSuccess: async (result) => {
       toast.success(result.message);
-      await queryClient.invalidateQueries({ queryKey: ["nika-wheel"] });
+      await queryClient.invalidateQueries({ queryKey: wheelQueryKey });
     },
     onError: (error) =>
       toast.error(
@@ -275,7 +279,7 @@ function NikaWheelPage() {
       setActiveRewardTab("inventory");
       setResultOpen(true);
       toast.success(result.message);
-      await queryClient.invalidateQueries({ queryKey: ["nika-wheel"] });
+      await queryClient.invalidateQueries({ queryKey: wheelQueryKey });
     } catch (error) {
       setIsAnimating(false);
       if (

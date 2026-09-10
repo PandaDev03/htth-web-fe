@@ -75,7 +75,9 @@ const DepositPageHeader = () => {
 
 function WalletDepositPage() {
   const dispatch = useAppDispatch();
-  const refreshToken = useAppSelector((state) => state.auth.refreshToken);
+  const { refreshToken, serverId, user } = useAppSelector(
+    (state) => state.auth,
+  );
   const queryClient = useQueryClient();
   const { modal } = AntdApp.useApp();
   const qrContainerRef = useRef<HTMLDivElement | null>(null);
@@ -177,9 +179,11 @@ function WalletDepositPage() {
           );
         }
 
-        void queryClient.invalidateQueries({ queryKey: ["deposit-history"] });
         void queryClient.invalidateQueries({
-          queryKey: ["coin-conversion-summary"],
+          queryKey: ["deposit-history", serverId, user?.id],
+        });
+        void queryClient.invalidateQueries({
+          queryKey: ["coin-conversion-summary", serverId, user?.id],
         });
         void refreshAccountSnapshot();
         resetDeposit();

@@ -7,6 +7,7 @@ import {
   ReceiptText,
 } from "lucide-react";
 
+import { useAppSelector } from "@/app/store/hooks";
 import {
   getDepositHistory,
   type DepositHistoryItem,
@@ -85,9 +86,11 @@ function MobileHistoryCard({ item }: { item: DepositHistoryItem }) {
 }
 
 export function DepositHistoryTable() {
+  const { serverId, user } = useAppSelector((state) => state.auth);
   const historyQuery = useQuery({
-    queryKey: ["deposit-history"],
+    queryKey: ["deposit-history", serverId, user?.id],
     queryFn: getDepositHistory,
+    enabled: Boolean(serverId && user),
   });
 
   return (

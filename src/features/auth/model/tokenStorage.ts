@@ -1,5 +1,6 @@
 import type { AuthUser } from "@/shared/types/auth";
 import { isServerId, type ServerId } from "@/shared/types/server";
+import { queryClient } from "@/shared/api/queryClient";
 
 export const ACCESS_TOKEN_STORAGE_KEY = "htth_access_token";
 export const REFRESH_TOKEN_STORAGE_KEY = "htth_refresh_token";
@@ -89,6 +90,7 @@ export function clearAuthSession() {
   localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
   localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
   localStorage.removeItem(AUTH_SERVER_STORAGE_KEY);
+  queryClient.clear();
 }
 
 export function getRememberedUsername() {
