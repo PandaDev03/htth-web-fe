@@ -21,8 +21,11 @@ import {
 } from "@/features/auth/model/accountRules";
 import { clearAuthError } from "@/features/auth/model/authSlice";
 import { registerUser } from "@/features/auth/model/authThunks";
+import { ServerSelectField } from "@/features/auth/components/ServerSelectField";
+import type { ServerId } from "@/shared/types/server";
 
 interface RegisterFields {
+  serverId: ServerId;
   username: string;
   password: string;
 }
@@ -59,7 +62,7 @@ export function PlayerRegisterPanel({ onLogin, redirectTo }: RegisterPanelProps)
     handleSubmit,
     formState: { errors },
   } = useForm<RegisterFields>({
-    defaultValues: { username: "", password: "" },
+    defaultValues: { serverId: "server1", username: "", password: "" },
   });
 
   async function submit(data: RegisterFields) {
@@ -68,6 +71,7 @@ export function PlayerRegisterPanel({ onLogin, redirectTo }: RegisterPanelProps)
     try {
       await dispatch(
         registerUser({
+          serverId: data.serverId,
           username: data.username.trim(),
           password: data.password,
         }),
@@ -109,6 +113,21 @@ export function PlayerRegisterPanel({ onLogin, redirectTo }: RegisterPanelProps)
           <p className="text-sm leading-relaxed">{authError}</p>
         </div>
       )}
+
+      <Controller
+        name="serverId"
+        control={control}
+        rules={{ required: "Vui lòng chọn server" }}
+        render={({ field }) => (
+          <ServerSelectField
+            id="register-server"
+            value={field.value}
+            onChange={field.onChange}
+            disabled={loading}
+            error={errors.serverId?.message}
+          />
+        )}
+      />
 
       <div className="space-y-1.5">
         <label

@@ -13,13 +13,16 @@ import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "@/app/store/hooks";
 import { clearAuthError } from "@/features/auth/model/authSlice";
 import { loginUser } from "@/features/auth/model/authThunks";
+import { ServerSelectField } from "@/features/auth/components/ServerSelectField";
 import {
   clearRememberedUsername,
   getRememberedUsername,
   setRememberedUsername,
 } from "@/features/auth/model/tokenStorage";
+import type { ServerId } from "@/shared/types/server";
 
 interface LoginFields {
+  serverId: ServerId;
   username: string;
   password: string;
   rememberMe: boolean;
@@ -57,6 +60,7 @@ export function PlayerLoginPanel({ onRegister, redirectTo }: LoginPanelProps) {
     formState: { errors },
   } = useForm<LoginFields>({
     defaultValues: {
+      serverId: "server1",
       username: rememberedUsername,
       password: "",
       rememberMe: Boolean(rememberedUsername),
@@ -69,7 +73,11 @@ export function PlayerLoginPanel({ onRegister, redirectTo }: LoginPanelProps) {
     try {
       const username = data.username.trim().toLowerCase();
       await dispatch(
-        loginUser({ username, password: data.password }),
+        loginUser({
+          serverId: data.serverId,
+          username,
+          password: data.password,
+        }),
       ).unwrap();
 
       if (data.rememberMe) {
@@ -112,6 +120,21 @@ export function PlayerLoginPanel({ onRegister, redirectTo }: LoginPanelProps) {
           <p className="text-sm leading-relaxed">{authError}</p>
         </div>
       )}
+
+      <Controller
+        name="serverId"
+        control={control}
+        rules={{ required: "Vui lòng chọn server" }}
+        render={({ field }) => (
+          <ServerSelectField
+            id="login-server"
+            value={field.value}
+            onChange={field.onChange}
+            disabled={loading}
+            error={errors.serverId?.message}
+          />
+        )}
+      />
 
       <div className="space-y-1.5">
         <label

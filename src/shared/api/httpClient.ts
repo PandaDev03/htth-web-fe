@@ -8,6 +8,7 @@ import {
 } from "@/features/auth/model/tokenStorage";
 import { env } from "@/shared/config/env";
 import type { AuthUser } from "@/shared/types/auth";
+import type { ServerId } from "@/shared/types/server";
 
 type RetriableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
@@ -15,6 +16,7 @@ type RefreshResponse = {
   user: AuthUser;
   accessToken: string;
   refreshToken: string;
+  serverId: ServerId;
 };
 
 export const httpClient = axios.create({

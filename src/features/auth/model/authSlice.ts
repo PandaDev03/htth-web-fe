@@ -10,16 +10,19 @@ import {
   getStoredAccessToken,
   getStoredAuthUser,
   getStoredRefreshToken,
+  getStoredServerId,
   setAuthSession,
   setStoredAuthUser,
   type AuthSession,
 } from "@/features/auth/model/tokenStorage";
 import type { AuthUser } from "@/shared/types/auth";
+import type { ServerId } from "@/shared/types/server";
 
 export type AuthState = {
   user: AuthUser | null;
   accessToken: string | null;
   refreshToken: string | null;
+  serverId: ServerId | null;
   loading: boolean;
   error: string | null;
 };
@@ -28,6 +31,7 @@ const initialState: AuthState = {
   user: getStoredAuthUser(),
   accessToken: getStoredAccessToken(),
   refreshToken: getStoredRefreshToken(),
+  serverId: getStoredServerId(),
   loading: false,
   error: null,
 };
@@ -36,6 +40,7 @@ function applySession(state: AuthState, session: AuthSession) {
   state.user = session.user;
   state.accessToken = session.accessToken;
   state.refreshToken = session.refreshToken;
+  state.serverId = session.serverId;
   state.loading = false;
   state.error = null;
 
@@ -46,6 +51,7 @@ function clearSession(state: AuthState) {
   state.user = null;
   state.accessToken = null;
   state.refreshToken = null;
+  state.serverId = null;
   state.loading = false;
   state.error = null;
 
