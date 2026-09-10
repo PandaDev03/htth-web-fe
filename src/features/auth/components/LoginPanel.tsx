@@ -1,11 +1,5 @@
 import { Input } from "antd";
-import {
-  AlertCircle,
-  KeyRound,
-  Loader2,
-  LogIn,
-  UserRound,
-} from "lucide-react";
+import { AlertCircle, KeyRound, Loader2, LogIn, UserRound } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -121,21 +115,6 @@ export function PlayerLoginPanel({ onRegister, redirectTo }: LoginPanelProps) {
         </div>
       )}
 
-      <Controller
-        name="serverId"
-        control={control}
-        rules={{ required: "Vui lòng chọn server" }}
-        render={({ field }) => (
-          <ServerSelectField
-            id="login-server"
-            value={field.value}
-            onChange={field.onChange}
-            disabled={loading}
-            error={errors.serverId?.message}
-          />
-        )}
-      />
-
       <div className="space-y-1.5">
         <label
           htmlFor="login-username"
@@ -212,6 +191,21 @@ export function PlayerLoginPanel({ onRegister, redirectTo }: LoginPanelProps) {
           </p>
         )}
       </div>
+
+      <Controller
+        name="serverId"
+        control={control}
+        rules={{ required: "Vui lòng chọn server" }}
+        render={({ field }) => (
+          <ServerSelectField
+            id="login-server"
+            value={field.value}
+            onChange={field.onChange}
+            disabled={loading}
+            error={errors.serverId?.message}
+          />
+        )}
+      />
 
       <label className="flex cursor-pointer items-start gap-2.5 text-sm text-gray-600">
         <input
