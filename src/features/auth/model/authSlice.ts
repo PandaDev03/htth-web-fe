@@ -7,10 +7,7 @@ import {
 } from "@/features/auth/model/authThunks";
 import {
   clearAuthSession,
-  getStoredAccessToken,
-  getStoredAuthUser,
-  getStoredRefreshToken,
-  getStoredServerId,
+  getStoredAuthSession,
   setAuthSession,
   setStoredAuthUser,
   type AuthSession,
@@ -27,11 +24,13 @@ export type AuthState = {
   error: string | null;
 };
 
+const storedSession = getStoredAuthSession();
+
 const initialState: AuthState = {
-  user: getStoredAuthUser(),
-  accessToken: getStoredAccessToken(),
-  refreshToken: getStoredRefreshToken(),
-  serverId: getStoredServerId(),
+  user: storedSession?.user ?? null,
+  accessToken: storedSession?.accessToken ?? null,
+  refreshToken: storedSession?.refreshToken ?? null,
+  serverId: storedSession?.serverId ?? null,
   loading: false,
   error: null,
 };

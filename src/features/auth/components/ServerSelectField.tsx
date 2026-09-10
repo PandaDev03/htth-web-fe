@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, Server } from "lucide-react";
+import { useEffect } from "react";
 
 import { getGameServers } from "@/features/auth/api/serverApi";
 import type { ServerId } from "@/shared/types/server";
@@ -10,6 +11,7 @@ type ServerSelectFieldProps = {
   onChange: (serverId: ServerId) => void;
   disabled?: boolean;
   error?: string;
+  description?: string;
 };
 
 export function ServerSelectField({
@@ -18,12 +20,33 @@ export function ServerSelectField({
   onChange,
   disabled = false,
   error,
+  description,
 }: ServerSelectFieldProps) {
   const serversQuery = useQuery({
     queryKey: ["game-servers"],
     queryFn: getGameServers,
     staleTime: 5 * 60 * 1000,
   });
+  const servers = serversQuery.data ?? [];
+  const enabledServers = servers.filter((server) => server.enabled);
+
+  useEffect(() => {
+    if (!serversQuery.data) return;
+
+    const selectedServer = serversQuery.data.find(
+      (server) => server.id === value,
+    );
+    const fallbackServer = serversQuery.data.find((server) => server.enabled);
+
+    if ((!selectedServer || !selectedServer.enabled) && fallbackServer) {
+      onChange(fallbackServer.id);
+    }
+  }, [onChange, serversQuery.data, value]);
+
+  const unavailable =
+    serversQuery.isPending ||
+    serversQuery.isError ||
+    enabledServers.length === 0;
 
   return (
     <div className="space-y-1.5">
@@ -38,7 +61,8 @@ export function ServerSelectField({
         <select
           id={id}
           value={value}
-          disabled={disabled || serversQuery.isPending || serversQuery.isError}
+          disabled={disabled || unavailable}
+          aria-busy={serversQuery.isPending}
           aria-invalid={Boolean(error || serversQuery.isError)}
           className={[
             "h-12 w-full appearance-none rounded-xl border bg-gray-50/90 pl-11 pr-10 text-sm text-gray-900 outline-none transition focus:bg-white focus:ring-4 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none",
@@ -50,10 +74,19 @@ export function ServerSelectField({
         >
           {serversQuery.isPending ? (
             <option value={value}>Đang tải danh sách server...</option>
+          ) : serversQuery.isError ? (
+            <option value={value}>Không thể tải danh sách server</option>
+          ) : servers.length === 0 ? (
+            <option value={value}>Chưa có server khả dụng</option>
           ) : (
-            serversQuery.data?.map((server) => (
-              <option key={server.id} value={server.id} disabled={!server.enabled}>
-                {server.displayName}{server.enabled ? "" : " (Chưa mở)"}
+            servers.map((server) => (
+              <option
+                key={server.id}
+                value={server.id}
+                disabled={!server.enabled}
+              >
+                {server.displayName}
+                {server.enabled ? "" : " (Chưa mở)"}
               </option>
             ))
           )}
@@ -71,7 +104,9 @@ export function ServerSelectField({
           {error ?? "Không thể tải danh sách server. Vui lòng thử lại."}
         </p>
       )}
+      {!error && !serversQuery.isError && description && (
+        <p className="text-xs leading-relaxed text-gray-500">{description}</p>
+      )}
     </div>
   );
 }
-

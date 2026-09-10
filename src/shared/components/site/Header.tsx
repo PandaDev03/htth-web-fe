@@ -10,8 +10,8 @@ import { PATH } from "@/shared/config/path";
 export function Header() {
   const { pathname } = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { accessToken, user } = useAppSelector((state) => state.auth);
-  const isAuthenticated = Boolean(accessToken && user);
+  const { accessToken, serverId, user } = useAppSelector((state) => state.auth);
+  const isAuthenticated = Boolean(accessToken && serverId && user);
 
   const PUBLIC_NAV_ITEMS = [
     { label: "Trang Chủ", href: PATH.HOME },

@@ -14,7 +14,9 @@ function PlayerAuthPage() {
   const redirectTo = getAuthRedirectPath(location.state);
   const mode: AuthMode =
     searchParams.get("mode") === "register" ? "register" : "login";
-  const accessToken = useAppSelector((state) => state.auth.accessToken);
+  const isAuthenticated = useAppSelector((state) =>
+    Boolean(state.auth.accessToken && state.auth.serverId && state.auth.user),
+  );
 
   function setMode(nextMode: AuthMode) {
     setSearchParams(nextMode === "register" ? { mode: "register" } : {}, {
@@ -22,7 +24,7 @@ function PlayerAuthPage() {
     });
   }
 
-  if (accessToken) {
+  if (isAuthenticated) {
     return <Navigate to={redirectTo} replace />;
   }
 
