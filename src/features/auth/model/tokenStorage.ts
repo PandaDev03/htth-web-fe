@@ -1,5 +1,5 @@
 import type { AuthUser } from "@/shared/types/auth";
-import type { ServerId } from "@/shared/types/server";
+import { isServerId, type ServerId } from "@/shared/types/server";
 
 export const ACCESS_TOKEN_STORAGE_KEY = "htth_access_token";
 export const REFRESH_TOKEN_STORAGE_KEY = "htth_refresh_token";
@@ -18,10 +18,42 @@ function safeParseUser(value: string | null) {
   if (!value) return null;
 
   try {
-    return JSON.parse(value) as AuthUser;
+    const user = JSON.parse(value) as Partial<AuthUser> | null;
+    if (
+      !user ||
+      typeof user.id !== "string" ||
+      typeof user.username !== "string" ||
+      typeof user.name !== "string" ||
+      !isUserRole(user.role)
+    ) {
+      return null;
+    }
+
+    return user as AuthUser;
   } catch {
     return null;
   }
+}
+
+function isUserRole(value: unknown): value is AuthUser["role"] {
+  return value === "admin" || value === "moderator" || value === "user";
+}
+
+export function getStoredAuthSession(): AuthSession | null {
+  const user = getStoredAuthUser();
+  const accessToken = getStoredAccessToken();
+  const refreshToken = getStoredRefreshToken();
+  const serverId = getStoredServerId();
+
+  if (user && accessToken && refreshToken && serverId) {
+    return { user, accessToken, refreshToken, serverId };
+  }
+
+  if (user || accessToken || refreshToken || serverId) {
+    clearAuthSession();
+  }
+
+  return null;
 }
 
 export function getStoredAccessToken() {
@@ -38,7 +70,7 @@ export function getStoredAuthUser() {
 
 export function getStoredServerId(): ServerId | null {
   const value = localStorage.getItem(AUTH_SERVER_STORAGE_KEY);
-  return value === "server1" || value === "tan_binh" ? value : null;
+  return isServerId(value) ? value : null;
 }
 
 export function setStoredAuthUser(user: AuthUser) {

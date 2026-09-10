@@ -13,13 +13,13 @@ type GuardedRouteProps = {
 
 export function GuardedRoute({ route, children }: GuardedRouteProps) {
   const location = useLocation();
-  const { accessToken, user } = useAppSelector((state) => state.auth);
+  const { accessToken, serverId, user } = useAppSelector((state) => state.auth);
 
   if (route.isPublic) {
     return children;
   }
 
-  if (!accessToken) {
+  if (!accessToken || !serverId || !user) {
     return <Navigate to={PATH.AUTH} replace state={{ from: location }} />;
   }
 

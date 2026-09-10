@@ -199,10 +199,11 @@ export function PlayerLoginPanel({ onRegister, redirectTo }: LoginPanelProps) {
         render={({ field }) => (
           <ServerSelectField
             id="login-server"
+            disabled={loading}
             value={field.value}
             onChange={field.onChange}
-            disabled={loading}
             error={errors.serverId?.message}
+            description="Chọn server bạn đã dùng khi đăng ký tài khoản."
           />
         )}
       />

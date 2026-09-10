@@ -50,11 +50,13 @@ function getInputClassName(hasError: boolean, hasTrailingAction = false) {
     .join(" ");
 }
 
-export function PlayerRegisterPanel({ onLogin, redirectTo }: RegisterPanelProps) {
+export function PlayerRegisterPanel({
+  onLogin,
+  redirectTo,
+}: RegisterPanelProps) {
   const dispatch = useAppDispatch();
   const { error: authError, loading } = useAppSelector((state) => state.auth);
   const navigate = useNavigate();
-
 
   const {
     control,
@@ -100,7 +102,7 @@ export function PlayerRegisterPanel({ onLogin, redirectTo }: RegisterPanelProps)
           Tạo tài khoản mới
         </h1>
         <p className="mt-1.5 text-sm leading-relaxed text-gray-500">
-          Một tài khoản dùng chung cho website và game
+          Tài khoản dùng cho website và server bạn chọn
         </p>
       </header>
 
@@ -113,21 +115,6 @@ export function PlayerRegisterPanel({ onLogin, redirectTo }: RegisterPanelProps)
           <p className="text-sm leading-relaxed">{authError}</p>
         </div>
       )}
-
-      <Controller
-        name="serverId"
-        control={control}
-        rules={{ required: "Vui lòng chọn server" }}
-        render={({ field }) => (
-          <ServerSelectField
-            id="register-server"
-            value={field.value}
-            onChange={field.onChange}
-            disabled={loading}
-            error={errors.serverId?.message}
-          />
-        )}
-      />
 
       <div className="space-y-1.5">
         <label
@@ -243,6 +230,22 @@ export function PlayerRegisterPanel({ onLogin, redirectTo }: RegisterPanelProps)
           </p>
         )}
       </div>
+
+      <Controller
+        name="serverId"
+        control={control}
+        rules={{ required: "Vui lòng chọn server" }}
+        render={({ field }) => (
+          <ServerSelectField
+            id="register-server"
+            value={field.value}
+            onChange={field.onChange}
+            disabled={loading}
+            error={errors.serverId?.message}
+            description="Tên tài khoản được giữ duy nhất trên toàn bộ server."
+          />
+        )}
+      />
 
       <button
         type="submit"
