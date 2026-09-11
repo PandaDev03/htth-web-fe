@@ -22,6 +22,7 @@ export type AuthState = {
   serverId: ServerId | null;
   loading: boolean;
   error: string | null;
+  activeRequestId: string | null;
 };
 
 const storedSession = getStoredAuthSession();
@@ -33,6 +34,7 @@ const initialState: AuthState = {
   serverId: storedSession?.serverId ?? null,
   loading: false,
   error: null,
+  activeRequestId: null,
 };
 
 function applySession(state: AuthState, session: AuthSession) {
@@ -42,6 +44,7 @@ function applySession(state: AuthState, session: AuthSession) {
   state.serverId = session.serverId;
   state.loading = false;
   state.error = null;
+  state.activeRequestId = null;
 
   setAuthSession(session);
 }
@@ -53,6 +56,7 @@ function clearSession(state: AuthState) {
   state.serverId = null;
   state.loading = false;
   state.error = null;
+  state.activeRequestId = null;
 
   clearAuthSession();
 }
@@ -79,37 +83,65 @@ const authSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(loginUser.pending, (state) => {
+      .addCase(loginUser.pending, (state, action) => {
         state.loading = true;
         state.error = null;
+        state.activeRequestId = action.meta.requestId;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
+        if (state.activeRequestId !== action.meta.requestId) return;
+
         applySession(state, action.payload);
       })
       .addCase(loginUser.rejected, (state, action) => {
+        if (state.activeRequestId !== action.meta.requestId) return;
+
         state.loading = false;
         state.error = action.payload ?? "Không thể đăng nhập.";
+        state.activeRequestId = null;
       })
-      .addCase(registerUser.pending, (state) => {
+      .addCase(registerUser.pending, (state, action) => {
         state.loading = true;
         state.error = null;
+        state.activeRequestId = action.meta.requestId;
       })
       .addCase(registerUser.fulfilled, (state, action) => {
+        if (state.activeRequestId !== action.meta.requestId) return;
+
         applySession(state, action.payload);
       })
       .addCase(registerUser.rejected, (state, action) => {
+        if (state.activeRequestId !== action.meta.requestId) return;
+
         state.loading = false;
         state.error = action.payload ?? "Không thể tạo tài khoản.";
+        state.activeRequestId = null;
       })
-      .addCase(refreshAuthSession.pending, (state) => {
-        state.loading = true;
+      .addCase(refreshAuthSession.pending, (state, action) => {
+        if (state.refreshToken === action.meta.arg) {
+          state.loading = true;
+          state.activeRequestId = action.meta.requestId;
+        }
       })
       .addCase(refreshAuthSession.fulfilled, (state, action) => {
+        if (
+          state.refreshToken !== action.meta.arg ||
+          state.activeRequestId !== action.meta.requestId
+        )
+          return;
+
         applySession(state, action.payload);
       })
       .addCase(refreshAuthSession.rejected, (state, action) => {
+        if (
+          state.refreshToken !== action.meta.arg ||
+          state.activeRequestId !== action.meta.requestId
+        )
+          return;
+
         if (action.meta.aborted) {
           state.loading = false;
+          state.activeRequestId = null;
           return;
         }
 

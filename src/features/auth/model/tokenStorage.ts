@@ -79,10 +79,22 @@ export function setStoredAuthUser(user: AuthUser) {
 }
 
 export function setAuthSession(session: AuthSession) {
+  const previousUser = getStoredAuthUser();
+  const previousServerId = getStoredServerId();
+  const hasChangedAuthenticatedIdentity = Boolean(
+    previousUser &&
+      previousServerId &&
+      (previousUser.id !== session.user.id || previousServerId !== session.serverId),
+  );
+
   localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(session.user));
   localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, session.accessToken);
   localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, session.refreshToken);
   localStorage.setItem(AUTH_SERVER_STORAGE_KEY, session.serverId);
+
+  if (hasChangedAuthenticatedIdentity) {
+    queryClient.clear();
+  }
 }
 
 export function clearAuthSession() {
