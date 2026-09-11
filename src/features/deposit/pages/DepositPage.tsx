@@ -96,6 +96,7 @@ function WalletDepositPage() {
   const handledOrderCodeRef = useRef("");
   const bankSuccessOrderCodeRef = useRef("");
   const generatedAmountRef = useRef<number | null>(null);
+  const creatingRef = useRef<CreateVariables | null>(null);
   const generationRef = useRef(0);
   const mountedRef = useRef(true);
   const session = [serverId, user?.id ?? "", user?.username ?? ""].join(":");
@@ -123,6 +124,9 @@ function WalletDepositPage() {
     mutationFn: (variables: CreateVariables) => {
       if (!isCurrent(variables)) throw new Error("Yêu cầu tạo QR đã thay đổi.");
       return createPayosPayment(variables.amount);
+    },
+    onSettled: (_result, _error, variables) => {
+      if (creatingRef.current === variables) creatingRef.current = null;
     },
     onSuccess: (result, variables) => {
       if (!isCurrent(variables)) return;
@@ -254,16 +258,10 @@ function WalletDepositPage() {
   useEffect(() => {
     mountedRef.current = true;
     let previousSession = activeDepositSession();
-    let previousRequestId = store.getState().auth.activeRequestId;
     const unsubscribe = store.subscribe(() => {
       const nextSession = activeDepositSession();
-      const nextRequestId = store.getState().auth.activeRequestId;
-      if (
-        nextSession !== previousSession ||
-        nextRequestId !== previousRequestId
-      ) {
+      if (nextSession !== previousSession) {
         previousSession = nextSession;
-        previousRequestId = nextRequestId;
         sessionRef.current = nextSession;
         generationRef.current += 1;
         resetDeposit(false);
@@ -298,8 +296,7 @@ function WalletDepositPage() {
       mountedRef.current &&
       context.session === sessionRef.current &&
       context.session === activeDepositSession() &&
-      context.generation === generationRef.current &&
-      !store.getState().auth.activeRequestId
+      context.generation === generationRef.current
     );
   }
 
@@ -334,19 +331,19 @@ function WalletDepositPage() {
   }
 
   function resetQrIfAmountChanged(nextAmount: number) {
-    // Invalidate even a QR request that has not returned yet.
+    const trackedAmount =
+      generatedAmountRef.current ??
+      createPaymentMutation.variables?.amount ??
+      null;
+    if (trackedAmount === null || trackedAmount === nextAmount) return;
+
     generationRef.current += 1;
-    if (
-      generatedAmountRef.current &&
-      generatedAmountRef.current !== nextAmount
-    ) {
-      generatedAmountRef.current = null;
-      activeOrderCodeRef.current = "";
-      setPayment(null);
-      setPaymentState("Chưa tạo mã");
-      setStatusText("");
-      clearStatusTimer();
-    }
+    generatedAmountRef.current = null;
+    activeOrderCodeRef.current = "";
+    setPayment(null);
+    setPaymentState("Chưa tạo mã");
+    setStatusText("");
+    clearStatusTimer();
   }
 
   async function copy(value: string, key: string) {
@@ -438,19 +435,30 @@ function WalletDepositPage() {
       scrollToQr();
       return;
     }
+    const inFlight = creatingRef.current;
+    if (inFlight && isCurrent(inFlight) && inFlight.amount === nextAmount) {
+      return;
+    }
 
     setError("");
     generationRef.current += 1;
+    generatedAmountRef.current = null;
     activeOrderCodeRef.current = "";
     clearStatusTimer();
     setPayment(null);
     setStatusText("Đang tạo mã QR...");
     setPaymentState("Đang tạo QR");
-    createPaymentMutation.mutate({ ...requestContext(), amount: nextAmount });
+    const variables = { ...requestContext(), amount: nextAmount };
+    creatingRef.current = variables;
+    createPaymentMutation.mutate(variables);
   }
 
   function scheduleGenerateQr(nextAmount: number) {
     clearDebounceTimer();
+    if (generatedAmountRef.current === nextAmount && payment) return;
+    const inFlight = creatingRef.current;
+    if (inFlight && isCurrent(inFlight) && inFlight.amount === nextAmount)
+      return;
 
     if (nextAmount < MIN_DEPOSIT_AMOUNT || nextAmount > MAX_DEPOSIT_AMOUNT) {
       return;
