@@ -18,6 +18,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 import { useAppDispatch, useAppSelector } from "@/app/store/hooks";
+import { store } from "@/app/store/store";
 import { refreshSession } from "@/features/auth/api/authApi";
 import { setCredentials } from "@/features/auth/model/authSlice";
 import { PATH } from "@/shared/config/path";
@@ -42,6 +43,17 @@ const QR_CREATE_DEBOUNCE_MS = 900;
 const PAYMENT_STATUS_DELAY_MS = 6_000;
 const MAX_STATUS_ATTEMPTS = 100;
 
+type RequestContext = { session: string; generation: number };
+type CreateVariables = RequestContext & { amount: number };
+type StatusVariables = RequestContext & { orderCode: string; silent: boolean };
+
+function activeDepositSession() {
+  const auth = store.getState().auth;
+  return [auth.serverId, auth.user?.id ?? "", auth.user?.username ?? ""].join(
+    ":",
+  );
+}
+
 const formatNumber = (amount: number) => amount.toLocaleString("vi-VN");
 const formatVnd = (amount: number) => formatNumber(amount) + " đ";
 
@@ -63,9 +75,7 @@ const DepositPageHeader = () => {
           Donate
         </span>
       </div>
-      <h1 className="text-2xl font-bold text-gray-800">
-        Donate Coin PayOS
-      </h1>
+      <h1 className="text-2xl font-bold text-gray-800">Donate Coin PayOS</h1>
       <p className="mt-1 text-sm text-gray-500">
         Chọn hoặc nhập số tiền donate, hệ thống sẽ tự tạo QR thanh toán PayOS.
       </p>
@@ -75,9 +85,7 @@ const DepositPageHeader = () => {
 
 function WalletDepositPage() {
   const dispatch = useAppDispatch();
-  const { refreshToken, serverId, user } = useAppSelector(
-    (state) => state.auth,
-  );
+  const { serverId, user } = useAppSelector((state) => state.auth);
   const queryClient = useQueryClient();
   const { modal } = AntdApp.useApp();
   const qrContainerRef = useRef<HTMLDivElement | null>(null);
@@ -88,6 +96,11 @@ function WalletDepositPage() {
   const handledOrderCodeRef = useRef("");
   const bankSuccessOrderCodeRef = useRef("");
   const generatedAmountRef = useRef<number | null>(null);
+  const generationRef = useRef(0);
+  const mountedRef = useRef(true);
+  const session = [serverId, user?.id ?? "", user?.username ?? ""].join(":");
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
 
   const [amountInput, setAmountInput] = useState("");
   const [payment, setPayment] = useState<PayosPayment | null>(null);
@@ -107,9 +120,15 @@ function WalletDepositPage() {
   }, []);
 
   const createPaymentMutation = useMutation({
-    mutationFn: createPayosPayment,
-    onSuccess: (result, nextAmount) => {
-      generatedAmountRef.current = Number(result.data.amount || nextAmount);
+    mutationFn: (variables: CreateVariables) => {
+      if (!isCurrent(variables)) throw new Error("Yêu cầu tạo QR đã thay đổi.");
+      return createPayosPayment(variables.amount);
+    },
+    onSuccess: (result, variables) => {
+      if (!isCurrent(variables)) return;
+      generatedAmountRef.current = Number(
+        result.data.amount || variables.amount,
+      );
       activeOrderCodeRef.current = result.data.order_code || "";
       handledOrderCodeRef.current = "";
       bankSuccessOrderCodeRef.current = "";
@@ -120,10 +139,15 @@ function WalletDepositPage() {
       setStatusText("Quét QR hoặc mở cổng PayOS để thanh toán.");
 
       toast.success(result.message || "Tạo mã QR thanh toán thành công.");
-      scrollToQr();
-      schedulePaymentStatusCheck(PAYMENT_STATUS_DELAY_MS);
+      scrollToQr(variables);
+      schedulePaymentStatusCheck(PAYMENT_STATUS_DELAY_MS, {
+        ...variables,
+        orderCode: activeOrderCodeRef.current,
+        silent: false,
+      });
     },
-    onError: (requestError) => {
+    onError: (requestError, variables) => {
+      if (!isCurrent(variables)) return;
       setPayment(null);
       generatedAmountRef.current = null;
       activeOrderCodeRef.current = "";
@@ -140,13 +164,18 @@ function WalletDepositPage() {
   });
 
   const paymentStatusMutation = useMutation({
-    mutationFn: ({ orderCode }: { orderCode: string; silent: boolean }) =>
-      getPayosPaymentStatus(orderCode),
-    onMutate: ({ silent }) => {
-      if (!silent) statusAttemptsRef.current += 1;
+    mutationFn: (variables: StatusVariables) => {
+      if (!isCurrentOrder(variables))
+        throw new Error("Đơn thanh toán đã thay đổi.");
+      return getPayosPaymentStatus(variables.orderCode);
     },
-    onSuccess: (result, { orderCode }) => {
-      if (orderCode !== activeOrderCodeRef.current) return;
+    onMutate: (variables) => {
+      if (isCurrentOrder(variables) && !variables.silent)
+        statusAttemptsRef.current += 1;
+    },
+    onSuccess: (result, variables) => {
+      if (!isCurrentOrder(variables)) return;
+      const { orderCode } = variables;
 
       const data = result.data;
 
@@ -156,6 +185,7 @@ function WalletDepositPage() {
           showPaymentReceivedModal(
             result.message ||
               "PayOS đã xác nhận thanh toán thành công. Hệ thống đang cập nhật ví web.",
+            variables,
           );
           clearPaymentAfterBankSuccess();
         }
@@ -164,7 +194,7 @@ function WalletDepositPage() {
         setStatusText(
           result.message || "Đã thanh toán, server game đang cộng Coin vào ví.",
         );
-        schedulePaymentStatusCheck(PAYMENT_STATUS_DELAY_MS);
+        schedulePaymentStatusCheck(PAYMENT_STATUS_DELAY_MS, variables);
         return;
       }
 
@@ -176,6 +206,7 @@ function WalletDepositPage() {
           bankSuccessOrderCodeRef.current = orderCode;
           showPaymentReceivedModal(
             "PayOS đã xác nhận thanh toán thành công. Hệ thống đang cập nhật ví web.",
+            variables,
           );
         }
 
@@ -185,19 +216,29 @@ function WalletDepositPage() {
         void queryClient.invalidateQueries({
           queryKey: ["coin-conversion-summary", serverId, user?.id],
         });
-        void refreshAccountSnapshot();
+        void refreshAccountSnapshot(variables.session);
         resetDeposit();
+        return;
+      }
+
+      if (["failed", "cancelled", "canceled", "expired"].includes(data.state)) {
+        clearStatusTimer();
+        setPaymentState("Giao dịch không còn hiệu lực");
+        setStatusText(
+          result.message || "Mã QR đã hết hiệu lực. Vui lòng tạo mã mới.",
+        );
         return;
       }
 
       if (data.state !== "empty") {
         setPaymentState("Đang chờ thanh toán");
         setStatusText("Đang chờ thanh toán...");
-        schedulePaymentStatusCheck(PAYMENT_STATUS_DELAY_MS);
+        schedulePaymentStatusCheck(PAYMENT_STATUS_DELAY_MS, variables);
       }
     },
-    onError: (requestError, { orderCode, silent }) => {
-      if (orderCode !== activeOrderCodeRef.current) return;
+    onError: (requestError, variables) => {
+      if (!isCurrentOrder(variables)) return;
+      const { silent } = variables;
 
       if (!silent) {
         setStatusText(
@@ -205,13 +246,37 @@ function WalletDepositPage() {
             ? requestError.message
             : "Chưa kiểm tra được trạng thái thanh toán.",
         );
-        schedulePaymentStatusCheck(5_000);
+        schedulePaymentStatusCheck(5_000, variables);
       }
     },
   });
 
   useEffect(() => {
+    mountedRef.current = true;
+    let previousSession = activeDepositSession();
+    let previousRequestId = store.getState().auth.activeRequestId;
+    const unsubscribe = store.subscribe(() => {
+      const nextSession = activeDepositSession();
+      const nextRequestId = store.getState().auth.activeRequestId;
+      if (
+        nextSession !== previousSession ||
+        nextRequestId !== previousRequestId
+      ) {
+        previousSession = nextSession;
+        previousRequestId = nextRequestId;
+        sessionRef.current = nextSession;
+        generationRef.current += 1;
+        resetDeposit(false);
+        handledOrderCodeRef.current = "";
+        bankSuccessOrderCodeRef.current = "";
+        createPaymentMutation.reset();
+        paymentStatusMutation.reset();
+      }
+    });
     return () => {
+      mountedRef.current = false;
+      generationRef.current += 1;
+      unsubscribe();
       if (debounceTimerRef.current) {
         window.clearTimeout(debounceTimerRef.current);
       }
@@ -221,8 +286,32 @@ function WalletDepositPage() {
     };
   }, []);
 
-  function scrollToQr() {
+  function requestContext(): RequestContext {
+    return {
+      session: activeDepositSession(),
+      generation: generationRef.current,
+    };
+  }
+
+  function isCurrent(context: RequestContext) {
+    return (
+      mountedRef.current &&
+      context.session === sessionRef.current &&
+      context.session === activeDepositSession() &&
+      context.generation === generationRef.current &&
+      !store.getState().auth.activeRequestId
+    );
+  }
+
+  function isCurrentOrder(context: StatusVariables) {
+    return (
+      isCurrent(context) && context.orderCode === activeOrderCodeRef.current
+    );
+  }
+
+  function scrollToQr(context = requestContext()) {
     window.setTimeout(() => {
+      if (!isCurrent(context)) return;
       qrContainerRef.current?.scrollIntoView({
         behavior: "smooth",
         block: "start",
@@ -245,6 +334,8 @@ function WalletDepositPage() {
   }
 
   function resetQrIfAmountChanged(nextAmount: number) {
+    // Invalidate even a QR request that has not returned yet.
+    generationRef.current += 1;
     if (
       generatedAmountRef.current &&
       generatedAmountRef.current !== nextAmount
@@ -273,12 +364,22 @@ function WalletDepositPage() {
   function checkPaymentStatus(
     orderCode = activeOrderCodeRef.current,
     silent = false,
+    context = requestContext(),
   ) {
-    if (!orderCode) return;
-    paymentStatusMutation.mutate({ orderCode, silent });
+    const variables: StatusVariables = { ...context, orderCode, silent };
+    if (!orderCode || !isCurrentOrder(variables)) return;
+    paymentStatusMutation.mutate(variables);
   }
 
-  function schedulePaymentStatusCheck(delay = PAYMENT_STATUS_DELAY_MS) {
+  function schedulePaymentStatusCheck(
+    delay = PAYMENT_STATUS_DELAY_MS,
+    variables: StatusVariables = {
+      ...requestContext(),
+      orderCode: activeOrderCodeRef.current,
+      silent: false,
+    },
+  ) {
+    if (!isCurrentOrder(variables)) return;
     clearStatusTimer();
 
     if (!activeOrderCodeRef.current) return;
@@ -292,19 +393,20 @@ function WalletDepositPage() {
     }
 
     statusTimerRef.current = window.setTimeout(() => {
-      checkPaymentStatus(activeOrderCodeRef.current, false);
+      if (isCurrentOrder(variables)) {
+        checkPaymentStatus(variables.orderCode, false, variables);
+      }
     }, delay);
   }
 
-  function showPaymentReceivedModal(message: string) {
-    window.setTimeout(() => {
-      modal.success({
-        centered: true,
-        title: "Thanh toán thành công",
-        content: message,
-        okText: "OK",
-      });
-    }, 0);
+  function showPaymentReceivedModal(message: string, context: RequestContext) {
+    if (!isCurrent(context)) return;
+    modal.success({
+      centered: true,
+      title: "Thanh toán thành công",
+      content: message,
+      okText: "OK",
+    });
   }
 
   function clearPaymentAfterBankSuccess() {
@@ -316,7 +418,12 @@ function WalletDepositPage() {
     clearDebounceTimer();
   }
 
-  function generatePayosQr(nextAmount = amount, force = false) {
+  function generatePayosQr(
+    nextAmount = amount,
+    force = false,
+    scheduledContext = requestContext(),
+  ) {
+    if (!isCurrent(scheduledContext)) return;
     if (nextAmount < MIN_DEPOSIT_AMOUNT) {
       setError(nextAmount > 0 ? "Số tiền donate tối thiểu là 1.000 đ." : "");
       return;
@@ -333,9 +440,13 @@ function WalletDepositPage() {
     }
 
     setError("");
+    generationRef.current += 1;
+    activeOrderCodeRef.current = "";
+    clearStatusTimer();
+    setPayment(null);
     setStatusText("Đang tạo mã QR...");
     setPaymentState("Đang tạo QR");
-    createPaymentMutation.mutate(nextAmount);
+    createPaymentMutation.mutate({ ...requestContext(), amount: nextAmount });
   }
 
   function scheduleGenerateQr(nextAmount: number) {
@@ -346,8 +457,9 @@ function WalletDepositPage() {
     }
 
     setStatusText("Đang chuẩn bị mã QR...");
+    const context = requestContext();
     debounceTimerRef.current = window.setTimeout(() => {
-      generatePayosQr(nextAmount);
+      if (isCurrent(context)) generatePayosQr(nextAmount, false, context);
     }, QR_CREATE_DEBOUNCE_MS);
   }
 
@@ -367,22 +479,34 @@ function WalletDepositPage() {
     scheduleGenerateQr(value);
   }
 
-  async function refreshAccountSnapshot() {
-    if (!refreshToken) return;
+  async function refreshAccountSnapshot(expectedSession: string) {
+    const { refreshToken } = store.getState().auth;
+    if (!refreshToken || activeDepositSession() !== expectedSession) return;
 
     try {
       const session = await refreshSession(refreshToken);
+      const currentAuth = store.getState().auth;
+      if (
+        !mountedRef.current ||
+        activeDepositSession() !== expectedSession ||
+        currentAuth.refreshToken !== refreshToken ||
+        currentAuth.activeRequestId
+      )
+        return;
       dispatch(setCredentials(session));
       toast.success("Ví web đã được cộng Coin thành công.");
     } catch {
+      if (!mountedRef.current || activeDepositSession() !== expectedSession)
+        return;
       toast.warning(
         "Chưa thể làm mới số dư ví. Vui lòng tải lại trang tài khoản.",
       );
     }
   }
 
-  function resetDeposit() {
-    scrollToTop({ behavior: "smooth" });
+  function resetDeposit(scroll = true) {
+    generationRef.current += 1;
+    if (scroll) scrollToTop({ behavior: "smooth" });
 
     setAmountInput("");
     setPayment(null);
@@ -423,9 +547,7 @@ function WalletDepositPage() {
                     <Wallet size={24} />
                   </div>
                   <div>
-                    <p className="font-bold text-gray-800">
-                      Gói Donate
-                    </p>
+                    <p className="font-bold text-gray-800">Gói Donate</p>
                     <p className="text-xs text-gray-500">
                       Coin được cộng sau khi PayOS xác nhận giao dịch thành
                       công.
@@ -686,7 +808,7 @@ function WalletDepositPage() {
               {payment && (
                 <button
                   type="button"
-                  onClick={resetDeposit}
+                  onClick={() => resetDeposit()}
                   className="mt-4 w-full rounded-xl border border-gray-200 py-3 text-sm font-bold text-gray-600 transition-all hover:bg-gray-50 active:translate-y-px"
                 >
                   Tạo giao dịch Donate khác

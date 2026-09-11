@@ -246,8 +246,10 @@ function NikaWheelPage() {
 
   const claimMutation = useMutation({
     mutationFn: claimNikaMilestone,
-    onSuccess: async (result) => {
-      toast.success(result.message);
+    onSuccess: async () => {
+      toast.success(
+        "Quà đã được ghi nhận. Vui lòng đăng nhập lại game để nhận quà.",
+      );
       await queryClient.invalidateQueries({ queryKey: wheelQueryKey });
     },
     onError: (error) =>
@@ -258,8 +260,10 @@ function NikaWheelPage() {
 
   const inventoryClaimMutation = useMutation({
     mutationFn: claimNikaInventory,
-    onSuccess: async (result) => {
-      toast.success(result.message);
+    onSuccess: async () => {
+      toast.success(
+        "Quà đã được ghi nhận. Vui lòng đăng nhập lại game để nhận quà.",
+      );
       await queryClient.invalidateQueries({ queryKey: wheelQueryKey });
     },
     onError: (error) =>
@@ -502,8 +506,8 @@ function NikaWheelPage() {
       >
         <p className="leading-7 text-slate-600">
           Bạn hiện có {mixedTickets}/{mixedCount ?? 0} Vé Quay Nika. Hệ thống sẽ
-          dùng {mixedTickets} Vé và {numberFormatter.format(mixedCoin)} Coin
-          cho lượt còn thiếu. Tiếp tục quay?
+          dùng {mixedTickets} Vé và {numberFormatter.format(mixedCoin)} Coin cho
+          lượt còn thiếu. Tiếp tục quay?
         </p>
       </Modal>
 

@@ -27,8 +27,10 @@ export function CoinMilestonePanel({
 }: CoinMilestonePanelProps) {
   const mutation = useMutation({
     mutationFn: claimCoinMilestone,
-    onSuccess: async (result) => {
-      toast.success(result.message || "Đã gửi yêu cầu nhận quà.");
+    onSuccess: async () => {
+      toast.success(
+        "Quà đã được ghi nhận. Vui lòng đăng nhập lại game để nhận quà.",
+      );
       await onClaimed();
     },
     onError: (error) =>
