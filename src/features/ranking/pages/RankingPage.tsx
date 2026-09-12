@@ -41,6 +41,10 @@ function formatPoints(value: number) {
   return value.toLocaleString("vi-VN");
 }
 
+function formatVnd(value: number) {
+  return `${formatPoints(value)} đ`;
+}
+
 function formatUpdatedAt(value?: string) {
   if (!value) return "Chưa cập nhật";
 
@@ -129,9 +133,11 @@ function RankingRewards({ rewards }: { rewards: RankingRewardSet }) {
 function PodiumCard({
   entry,
   valueLabel,
+  formatValue,
 }: {
   entry: DisplayRankingEntry;
   valueLabel: string;
+  formatValue: (value: number) => string;
 }) {
   const isChampion = entry.rank === 1;
   const placement =
@@ -194,7 +200,7 @@ function PodiumCard({
         </div>
       </div>
       <p className="font-mono text-2xl font-bold text-amber-600">
-        {formatPoints(entry.value)}
+        {formatValue(entry.value)}
       </p>
       <p className="mt-1 text-xs font-medium text-gray-400">{valueLabel}</p>
     </article>
@@ -235,9 +241,11 @@ function RankingSkeleton() {
 function RemainingRanking({
   entries,
   valueLabel,
+  formatValue,
 }: {
   entries: DisplayRankingEntry[];
   valueLabel: string;
+  formatValue: (value: number) => string;
 }) {
   if (entries.length === 0) return null;
 
@@ -290,7 +298,7 @@ function RemainingRanking({
                   </div>
                 </td>
                 <td className="px-6 py-4 text-right font-mono text-sm font-bold text-amber-600">
-                  {formatPoints(entry.value)}
+                  {formatValue(entry.value)}
                 </td>
               </tr>
             ))}
@@ -308,6 +316,13 @@ const rankingTypes: RankingType[] = [
   "top-fireworks",
   "top-boss-hunt",
 ];
+const visibleRankingTypesByServer: Record<
+  ServerId,
+  readonly RankingType[]
+> = {
+  server1: ["top-donates", "top-fireworks", "top-boss-hunt"],
+  tan_binh: ["top-donates", "top-levels"],
+};
 
 function parseRankingType(value: string | null): RankingType | null {
   if (value === "san-boss") return "top-boss-hunt";
@@ -381,8 +396,11 @@ function RankingPage() {
   });
   const requestedRankingType = parseRankingType(searchParams.get("tab"));
   const defaultRankingType: RankingType =
-    viewedServerId === "server1" ? "top-fireworks" : "top-levels";
-  const availableRankings = catalogQuery.data?.items ?? [];
+    viewedServerId === "server1" ? "top-donates" : "top-levels";
+  const visibleRankingTypes = visibleRankingTypesByServer[viewedServerId];
+  const availableRankings = (catalogQuery.data?.items ?? []).filter((item) =>
+    visibleRankingTypes.includes(item.id),
+  );
   const activeTab =
     availableRankings.find((item) => item.id === requestedRankingType)?.id ??
     availableRankings.find((item) => item.id === defaultRankingType)?.id ??
@@ -410,11 +428,11 @@ function RankingPage() {
     rankingData && "rewards" in rankingData ? rankingData.rewards : undefined;
   const presentation = {
     "top-donates": {
-      title: "Top Donate",
+      title: "Top Nạp",
       description:
-        "Vinh danh thuyền trưởng ủng hộ nhiều nhất trong mùa hiện tại.",
-      valueLabel: "Coin donate",
-      empty: "Bảng Top Donate sẽ hiển thị khi có giao dịch donate trong mùa hiện tại.",
+        "Vinh danh những thuyền trưởng nạp nhiều nhất trong mùa hiện tại.",
+      valueLabel: "Tổng VND đã nạp",
+      empty: "Bảng Top Nạp sẽ hiển thị khi có giao dịch trong mùa hiện tại.",
     },
     "top-levels": {
       title: "Top Level",
@@ -452,6 +470,8 @@ function RankingPage() {
     }
   >;
   const currentPresentation = presentation[activeTab];
+  const formatRankingValue =
+    activeTab === "top-donates" ? formatVnd : formatPoints;
   const contextLabel =
     rankingData?.category === "top-deposit"
       ? rankingData.season?.name || "Theo mùa"
@@ -632,12 +652,14 @@ function RankingPage() {
                       key={entry.rank}
                       entry={entry}
                       valueLabel={currentPresentation.valueLabel}
+                      formatValue={formatRankingValue}
                     />
                   ))}
                 </div>
                 <RemainingRanking
                   entries={remaining}
                   valueLabel={currentPresentation.valueLabel}
+                  formatValue={formatRankingValue}
                 />
               </div>
             )}
