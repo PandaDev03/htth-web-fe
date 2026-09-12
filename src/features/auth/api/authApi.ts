@@ -1,12 +1,15 @@
 import { httpClient } from "@/shared/api/httpClient";
 import type { AuthUser } from "@/shared/types/auth";
+import type { ServerId } from "@/shared/types/server";
 
 export type LoginRequest = {
+  serverId: ServerId;
   username: string;
   password: string;
 };
 
 export type RegisterRequest = {
+  serverId: ServerId;
   username: string;
   password: string;
 };
@@ -15,6 +18,7 @@ export type AuthResponse = {
   user: AuthUser;
   accessToken: string;
   refreshToken: string;
+  serverId: ServerId;
 };
 
 export async function login(payload: LoginRequest) {

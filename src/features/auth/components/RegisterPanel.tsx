@@ -21,8 +21,11 @@ import {
 } from "@/features/auth/model/accountRules";
 import { clearAuthError } from "@/features/auth/model/authSlice";
 import { registerUser } from "@/features/auth/model/authThunks";
+import { ServerSelectField } from "@/features/auth/components/ServerSelectField";
+import type { ServerId } from "@/shared/types/server";
 
 interface RegisterFields {
+  serverId: ServerId;
   username: string;
   password: string;
 }
@@ -47,11 +50,13 @@ function getInputClassName(hasError: boolean, hasTrailingAction = false) {
     .join(" ");
 }
 
-export function PlayerRegisterPanel({ onLogin, redirectTo }: RegisterPanelProps) {
+export function PlayerRegisterPanel({
+  onLogin,
+  redirectTo,
+}: RegisterPanelProps) {
   const dispatch = useAppDispatch();
   const { error: authError, loading } = useAppSelector((state) => state.auth);
   const navigate = useNavigate();
-
 
   const {
     control,
@@ -59,7 +64,7 @@ export function PlayerRegisterPanel({ onLogin, redirectTo }: RegisterPanelProps)
     handleSubmit,
     formState: { errors },
   } = useForm<RegisterFields>({
-    defaultValues: { username: "", password: "" },
+    defaultValues: { serverId: "server1", username: "", password: "" },
   });
 
   async function submit(data: RegisterFields) {
@@ -68,6 +73,7 @@ export function PlayerRegisterPanel({ onLogin, redirectTo }: RegisterPanelProps)
     try {
       await dispatch(
         registerUser({
+          serverId: data.serverId,
           username: data.username.trim(),
           password: data.password,
         }),
@@ -96,7 +102,7 @@ export function PlayerRegisterPanel({ onLogin, redirectTo }: RegisterPanelProps)
           Tạo tài khoản mới
         </h1>
         <p className="mt-1.5 text-sm leading-relaxed text-gray-500">
-          Một tài khoản dùng chung cho website và game
+          Tài khoản dùng cho website và server bạn chọn
         </p>
       </header>
 
@@ -224,6 +230,22 @@ export function PlayerRegisterPanel({ onLogin, redirectTo }: RegisterPanelProps)
           </p>
         )}
       </div>
+
+      <Controller
+        name="serverId"
+        control={control}
+        rules={{ required: "Vui lòng chọn server" }}
+        render={({ field }) => (
+          <ServerSelectField
+            id="register-server"
+            value={field.value}
+            onChange={field.onChange}
+            disabled={loading}
+            error={errors.serverId?.message}
+            description="Tên tài khoản được giữ duy nhất trên toàn bộ server."
+          />
+        )}
+      />
 
       <button
         type="submit"

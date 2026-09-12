@@ -12,6 +12,7 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { useAppSelector } from "@/app/store/hooks";
 import {
   createCoinConversion,
   getCoinSummary,
@@ -50,9 +51,11 @@ const coin = (n: number) => fmt(n) + " Coin";
 function CoinExchangePage() {
   const [input, setInput] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const { serverId, user } = useAppSelector((state) => state.auth);
   const query = useQuery({
-    queryKey: ["coin-conversion-summary"],
+    queryKey: ["coin-conversion-summary", serverId, user?.id],
     queryFn: getCoinSummary,
+    enabled: Boolean(serverId && user),
   });
   const mutation = useMutation({
     mutationFn: createCoinConversion,

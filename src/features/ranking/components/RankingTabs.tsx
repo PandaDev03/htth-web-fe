@@ -1,34 +1,26 @@
-import { Flame, Swords, Trophy } from "lucide-react";
+import { Flame, Shield, Swords, TrendingUp, Trophy } from "lucide-react";
 
-export type RankingTabId = "fireworks" | "boss" | "deposit";
+import type {
+  RankingCatalogItem,
+  RankingType,
+} from "@/features/ranking/api/rankingApi";
 
-const rankingTabs = [
-  {
-    id: "deposit" as const,
-    label: "Top Donate",
-    status: "Theo mùa",
-    icon: Trophy,
-  },
-  {
-    id: "fireworks" as const,
-    label: "Top Đốt pháo",
-    status: "Sự kiện Pháo hoa",
-    icon: Flame,
-  },
-  {
-    id: "boss" as const,
-    label: "Top Săn Boss",
-    status: "Lân Sư Vũ",
-    icon: Swords,
-  },
-];
+const iconByRankingType = {
+  "top-donates": Trophy,
+  "top-levels": TrendingUp,
+  "top-pvp": Shield,
+  "top-fireworks": Flame,
+  "top-boss-hunt": Swords,
+} satisfies Record<RankingType, typeof Trophy>;
 
 export function RankingTabs({
+  tabs,
   activeTab,
   onChange,
 }: {
-  activeTab: RankingTabId;
-  onChange: (tab: RankingTabId) => void;
+  tabs: RankingCatalogItem[];
+  activeTab: RankingType;
+  onChange: (tab: RankingType) => void;
 }) {
   return (
     <div className="relative mx-auto -mt-5 max-w-screen-xl px-4 sm:px-6 lg:px-8">
@@ -38,8 +30,8 @@ export function RankingTabs({
           aria-label="Chọn bảng xếp hạng"
           className="flex min-w-max gap-1.5"
         >
-          {rankingTabs.map((tab) => {
-            const Icon = tab.icon;
+          {tabs.map((tab) => {
+            const Icon = iconByRankingType[tab.id];
             const isActive = activeTab === tab.id;
 
             return (
