@@ -22,7 +22,6 @@ import {
   spinNikaWheel,
   type NikaRarity,
   type NikaSpinResult,
-  type NikaWheelReward,
 } from "@/features/events/nika/api/nikaWheelApi";
 import { NikaMilestoneRail } from "@/features/events/nika/components/NikaMilestoneRail";
 import { NikaRewardInventory } from "@/features/events/nika/components/NikaRewardInventory";
@@ -34,10 +33,6 @@ import { Header } from "@/shared/components/site/Header";
 import { PATH } from "@/shared/config/path";
 
 const numberFormatter = new Intl.NumberFormat("vi-VN");
-const probabilityFormatter = new Intl.NumberFormat("vi-VN", {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 3,
-});
 
 const rarityContent: Record<NikaRarity, { label: string; className: string }> =
   {
@@ -127,56 +122,6 @@ function WalletSummary({
   );
 }
 
-function RewardPool({ rewards }: { rewards: NikaWheelReward[] }) {
-  const rarityOrder: NikaRarity[] = ["very_rare", "rare", "uncommon", "common"];
-
-  return (
-    <details className="mt-12 rounded-2xl border border-slate-200 bg-white p-5 open:shadow-[0_16px_38px_rgba(120,53,15,0.06)] sm:p-7">
-      <summary className="cursor-pointer text-lg font-extrabold text-slate-900 marker:text-amber-600">
-        Xem toàn bộ phần thưởng và tỷ lệ
-      </summary>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-        Tỷ lệ đã được chuẩn hóa từ tổng trọng số{" "}
-        {rewards.reduce((sum, reward) => sum + reward.weight, 0)} và giữ nguyên
-        tương quan độ hiếm.
-      </p>
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        {rarityOrder.map((rarity) => {
-          const items = rewards.filter((reward) => reward.rarity === rarity);
-          const content = rarityContent[rarity];
-          return (
-            <section key={rarity} aria-label={content.label}>
-              <h3 className="text-sm font-extrabold text-slate-800">
-                {content.label}
-              </h3>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                {items.map((reward) => (
-                  <div
-                    key={reward.id}
-                    className={`flex items-center gap-3 rounded-xl border p-3 ${content.className}`}
-                  >
-                    <RewardIcon item={reward} className="h-11 w-11" />
-                    <div className="min-w-0 flex-1">
-                      <p className="line-clamp-2 text-xs font-bold leading-5">
-                        {reward.name}
-                      </p>
-                      <p className="mt-0.5 text-[11px] font-semibold opacity-75">
-                        x{numberFormatter.format(reward.quantity)} |{" "}
-                        {probabilityFormatter.format(reward.probabilityPercent)}
-                        %
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          );
-        })}
-      </div>
-    </details>
-  );
-}
-
 function NikaWheelPage() {
   const queryClient = useQueryClient();
   const { serverId, user } = useAppSelector((state) => state.auth);
@@ -246,9 +191,11 @@ function NikaWheelPage() {
 
   const claimMutation = useMutation({
     mutationFn: claimNikaMilestone,
-    onSuccess: async () => {
+    onSuccess: async (result) => {
       toast.success(
-        "Quà đã được ghi nhận. Vui lòng đăng nhập lại game để nhận quà.",
+        result.pendingGiftId
+          ? "Quà đã được ghi nhận. Vui lòng đăng nhập lại game để nhận vật phẩm trong GiftBox."
+          : result.message,
       );
       await queryClient.invalidateQueries({ queryKey: wheelQueryKey });
     },
@@ -262,7 +209,7 @@ function NikaWheelPage() {
     mutationFn: claimNikaInventory,
     onSuccess: async () => {
       toast.success(
-        "Quà đã được ghi nhận. Vui lòng đăng nhập lại game để nhận quà.",
+        "Quà đã được ghi nhận. Vui lòng đăng nhập lại game để nhận vật phẩm trong GiftBox.",
       );
       await queryClient.invalidateQueries({ queryKey: wheelQueryKey });
     },
@@ -482,7 +429,6 @@ function NikaWheelPage() {
                 )}
               </section>
 
-              {/* <RewardPool rewards={state.rewards} /> */}
             </>
           )}
         </div>
