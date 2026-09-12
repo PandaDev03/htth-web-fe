@@ -15,9 +15,11 @@ import {
 
 const formatVnd = (amount: number) =>
   Number(amount || 0).toLocaleString("vi-VN") + " đ";
+const formatWebCoin = (amount: number) =>
+  Number(amount || 0).toLocaleString("vi-VN") + " Coin";
 
 function formatPaidAt(value: string) {
-  if (!value) return "—";
+  if (!value) return "Chưa rõ";
 
   const normalized = value.includes("T") ? value : value.replace(" ", "T");
   const date = new Date(normalized);
@@ -63,6 +65,9 @@ function MobileHistoryCard({ item }: { item: DepositHistoryItem }) {
           </p>
           <p className="mt-1 text-lg font-black text-amber-600">
             {formatVnd(item.amount)}
+          </p>
+          <p className="mt-1 text-xs font-bold text-gray-500">
+            Nhận {formatWebCoin(item.webCoinAmount)}
           </p>
         </div>
         <PaymentStatus status={item.status} />
@@ -136,11 +141,12 @@ export function DepositHistoryTable() {
             ))}
           </div>
           <div className="hidden overflow-x-auto sm:block">
-            <table className="w-full min-w-[620px] text-left text-sm">
+            <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-400">
                 <tr>
                   <th className="px-5 py-3 font-semibold">Mã giao dịch</th>
-                  <th className="px-4 py-3 font-semibold">Số tiền</th>
+                  <th className="px-4 py-3 font-semibold">VND đã nạp</th>
+                  <th className="px-4 py-3 font-semibold">Web Coin nhận</th>
                   <th className="px-4 py-3 font-semibold">Ngân hàng</th>
                   <th className="px-4 py-3 font-semibold">Thời gian</th>
                   <th className="px-5 py-3 text-right font-semibold">
@@ -156,6 +162,9 @@ export function DepositHistoryTable() {
                     </td>
                     <td className="whitespace-nowrap px-4 py-4 font-bold text-amber-600">
                       {formatVnd(item.amount)}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-4 font-bold text-gray-700">
+                      {formatWebCoin(item.webCoinAmount)}
                     </td>
                     <td className="whitespace-nowrap px-4 py-4 font-medium">
                       {item.bank || "PayOS"}

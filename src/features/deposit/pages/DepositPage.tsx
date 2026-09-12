@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { App as AntdApp } from "antd";
 import {
   Banknote,
@@ -25,6 +25,7 @@ import { PATH } from "@/shared/config/path";
 
 import {
   createPayosPayment,
+  getPayosDepositConfig,
   getPayosPaymentStatus,
   type PayosPayment,
 } from "@/features/deposit/api/payosApi";
@@ -37,11 +38,10 @@ const DEPOSIT_PRESETS = [
   10_000_000,
 ];
 
-const MIN_DEPOSIT_AMOUNT = 1_000;
-const MAX_DEPOSIT_AMOUNT = 2_000_000_000;
 const QR_CREATE_DEBOUNCE_MS = 900;
 const PAYMENT_STATUS_DELAY_MS = 6_000;
 const MAX_STATUS_ATTEMPTS = 100;
+const MAX_WEB_COIN_AMOUNT = 2_147_483_647;
 
 type RequestContext = { session: string; generation: number };
 type CreateVariables = RequestContext & { amount: number };
@@ -58,6 +58,8 @@ function activeDepositSession() {
 
 const formatNumber = (amount: number) => amount.toLocaleString("vi-VN");
 const formatVnd = (amount: number) => formatNumber(amount) + " đ";
+const formatMultiplier = (multiplier: number) =>
+  multiplier.toLocaleString("vi-VN", { maximumFractionDigits: 2 });
 
 function parseAmount(value: string) {
   return Number.parseInt(value.replace(/\D/g, ""), 10) || 0;
@@ -77,9 +79,9 @@ const DepositPageHeader = () => {
           Donate
         </span>
       </div>
-      <h1 className="text-2xl font-bold text-gray-800">Donate Coin PayOS</h1>
+      <h1 className="text-2xl font-bold text-gray-800">Donate Web Coin PayOS</h1>
       <p className="mt-1 text-sm text-gray-500">
-        Chọn hoặc nhập số tiền donate, hệ thống sẽ tự tạo QR thanh toán PayOS.
+        Chọn số tiền donate để nhận Web Coin theo tỷ lệ của server hiện tại.
       </p>
     </header>
   );
@@ -106,6 +108,14 @@ function WalletDepositPage() {
   const session = [serverId, user?.id ?? "", user?.username ?? ""].join(":");
   const sessionRef = useRef(session);
   sessionRef.current = session;
+  const configQuery = useQuery({
+    queryKey: ["payos-deposit-config", serverId, user?.id],
+    queryFn: getPayosDepositConfig,
+    enabled: Boolean(serverId && user),
+    staleTime: 60_000,
+    retry: 1,
+  });
+  const depositConfig = configQuery.data;
 
   const [amountInput, setAmountInput] = useState("");
   const [payment, setPayment] = useState<PayosPayment | null>(null);
@@ -117,8 +127,19 @@ function WalletDepositPage() {
   const [copied, setCopied] = useState<string | null>(null);
 
   const amount = parseAmount(amountInput);
+  const expectedWebCoinAmount = depositConfig
+    ? Math.floor(amount * depositConfig.multiplier)
+    : 0;
+  const maximumDepositAmount = depositConfig
+    ? Math.min(
+        depositConfig.maxAmount,
+        Math.floor(MAX_WEB_COIN_AMOUNT / depositConfig.multiplier),
+      )
+    : 0;
   const canCreateQr =
-    amount >= MIN_DEPOSIT_AMOUNT && amount <= MAX_DEPOSIT_AMOUNT;
+    depositConfig?.enabled === true &&
+    amount >= depositConfig.minAmount &&
+    amount <= maximumDepositAmount;
   const isSameGeneratedAmount =
     generatedAmountRef.current === amount && Boolean(payment);
 
@@ -194,15 +215,16 @@ function WalletDepositPage() {
           bankSuccessOrderCodeRef.current = orderCode;
           showPaymentReceivedModal(
             result.message ||
-              "PayOS đã xác nhận thanh toán thành công. Hệ thống đang cập nhật ví web.",
+              "PayOS đã xác nhận thanh toán thành công. Hệ thống đang cập nhật Web Coin.",
             variables,
           );
           clearPaymentAfterBankSuccess();
         }
 
-        setPaymentState("Đang cộng Coin");
+        setPaymentState("Đang cộng Web Coin");
         setStatusText(
-          result.message || "Đã thanh toán, server game đang cộng Coin vào ví.",
+          result.message ||
+            "Đã thanh toán, server game đang cộng Web Coin vào ví.",
         );
         schedulePaymentStatusCheck(PAYMENT_STATUS_DELAY_MS, variables);
         return;
@@ -217,7 +239,7 @@ function WalletDepositPage() {
         setStatusText("");
         const message =
           result.message ||
-          "Giao dịch đã thanh toán nhưng chưa thể cộng Coin. Vui lòng liên hệ hỗ trợ.";
+          "Giao dịch đã thanh toán nhưng chưa thể cộng Web Coin. Vui lòng liên hệ hỗ trợ.";
         setError(`${message} Mã đơn PayOS: ${orderCode}.`);
         showPaymentDeliveryFailedModal(message, orderCode, variables);
         return;
@@ -228,7 +250,7 @@ function WalletDepositPage() {
         handledOrderCodeRef.current = orderCode;
         bankSuccessOrderCodeRef.current = orderCode;
         showPaymentCompletedModal(
-          result.message || "Giao dịch thành công. Coin đã được cộng vào ví web.",
+          result.message || "Giao dịch thành công. Web Coin đã được cộng vào ví.",
           variables,
         );
 
@@ -518,13 +540,31 @@ function WalletDepositPage() {
     scheduledContext = requestContext(),
   ) {
     if (!isCurrent(scheduledContext)) return;
-    if (nextAmount < MIN_DEPOSIT_AMOUNT) {
-      setError(nextAmount > 0 ? "Số tiền donate tối thiểu là 1.000 đ." : "");
+    if (!depositConfig) {
+      setError(
+        configQuery.error instanceof Error
+          ? configQuery.error.message
+          : "Chưa tải được cấu hình Donate PayOS.",
+      );
+      return;
+    }
+    if (!depositConfig.enabled) {
+      setError("Kênh Donate PayOS hiện đang tạm đóng. Vui lòng quay lại sau.");
+      return;
+    }
+    if (nextAmount < depositConfig.minAmount) {
+      setError(
+        nextAmount > 0
+          ? `Số tiền donate tối thiểu là ${formatVnd(depositConfig.minAmount)}.`
+          : "",
+      );
       return;
     }
 
-    if (nextAmount > MAX_DEPOSIT_AMOUNT) {
-      setError("Số tiền donate tối đa là 2.000.000.000 đ.");
+    if (nextAmount > maximumDepositAmount) {
+      setError(
+        `Số tiền donate tối đa theo tỷ lệ hiện tại là ${formatVnd(maximumDepositAmount)}.`,
+      );
       return;
     }
 
@@ -559,7 +599,11 @@ function WalletDepositPage() {
     if (inFlight && isCurrent(inFlight) && inFlight.amount === nextAmount)
       return;
 
-    if (nextAmount < MIN_DEPOSIT_AMOUNT || nextAmount > MAX_DEPOSIT_AMOUNT) {
+    if (
+      !depositConfig?.enabled ||
+      nextAmount < depositConfig.minAmount ||
+      nextAmount > maximumDepositAmount
+    ) {
       return;
     }
 
@@ -601,7 +645,7 @@ function WalletDepositPage() {
       )
         return;
       dispatch(setCredentials(session));
-      toast.success("Ví web đã được cộng Coin thành công.");
+      toast.success("Ví đã được cộng Web Coin thành công.");
     } catch {
       if (!mountedRef.current || activeDepositSession() !== expectedSession)
         return;
@@ -634,7 +678,7 @@ function WalletDepositPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
+    <div className="flex min-h-[100dvh] flex-col bg-gray-50">
       <Header />
       <main className="flex-1 px-4 pb-16 pt-24">
         <div className="mx-auto max-w-6xl">
@@ -659,8 +703,11 @@ function WalletDepositPage() {
                   <div>
                     <p className="font-bold text-gray-800">Gói Donate</p>
                     <p className="text-xs text-gray-500">
-                      Coin được cộng sau khi PayOS xác nhận giao dịch thành
-                      công.
+                      {configQuery.isPending
+                        ? "Đang tải tỷ lệ Web Coin của server..."
+                        : depositConfig?.enabled
+                          ? `Tỷ lệ hiện tại: x${formatMultiplier(depositConfig.multiplier)} Web Coin.`
+                          : "Kênh Donate PayOS hiện đang tạm đóng."}
                     </p>
                   </div>
                 </div>
@@ -676,6 +723,7 @@ function WalletDepositPage() {
                   pattern="[0-9.,]*"
                   value={amountInput}
                   onChange={changeAmount}
+                  disabled={!depositConfig?.enabled}
                   placeholder="Nhập số tiền..."
                   autoComplete="off"
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-14 text-sm font-semibold text-gray-800 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-300"
@@ -685,8 +733,11 @@ function WalletDepositPage() {
                 </span>
               </div>
               <p className="mt-2 min-h-5 text-xs text-gray-400">
-                Tối thiểu {formatVnd(MIN_DEPOSIT_AMOUNT)}. QR sẽ tự tạo sau khi
-                bạn chọn hoặc nhập số tiền hợp lệ.
+                {depositConfig?.enabled
+                  ? `Từ ${formatVnd(depositConfig.minAmount)} đến ${formatVnd(maximumDepositAmount)}. QR sẽ tự tạo khi số tiền hợp lệ.`
+                  : configQuery.isPending
+                    ? "Đang tải hạn mức Donate..."
+                    : "Chưa thể tạo giao dịch Donate lúc này."}
               </p>
 
               <div className="mt-5">
@@ -694,26 +745,38 @@ function WalletDepositPage() {
                   Chọn mệnh giá
                 </p>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {DEPOSIT_PRESETS.map((preset) => (
-                    <button
-                      type="button"
-                      key={preset}
-                      onClick={() => choosePreset(preset)}
-                      className={
-                        "rounded-xl border p-3 text-left transition-all active:translate-y-px " +
-                        (amount === preset
-                          ? "border-amber-500 bg-amber-50 text-amber-700"
-                          : "border-gray-100 bg-gray-50 text-gray-600 hover:border-amber-200 hover:text-amber-600")
-                      }
-                    >
-                      <span className="block text-sm font-black leading-tight">
-                        {formatVnd(preset)}
-                      </span>
-                      <span className="mt-1 block text-xs font-semibold text-gray-400">
-                        {formatNumber(preset)} Coin
-                      </span>
-                    </button>
-                  ))}
+                  {DEPOSIT_PRESETS.map((preset) => {
+                    const presetAvailable =
+                      depositConfig?.enabled === true &&
+                      preset >= depositConfig.minAmount &&
+                      preset <= maximumDepositAmount;
+                    const presetWebCoin = depositConfig
+                      ? Math.floor(preset * depositConfig.multiplier)
+                      : 0;
+                    return (
+                      <button
+                        type="button"
+                        key={preset}
+                        disabled={!presetAvailable}
+                        onClick={() => choosePreset(preset)}
+                        className={
+                          "rounded-xl border p-3 text-left transition-all active:translate-y-px disabled:cursor-not-allowed disabled:opacity-45 " +
+                          (amount === preset
+                            ? "border-amber-500 bg-amber-50 text-amber-700"
+                            : "border-gray-100 bg-gray-50 text-gray-600 hover:border-amber-200 hover:text-amber-600")
+                        }
+                      >
+                        <span className="block text-sm font-black leading-tight">
+                          {formatVnd(preset)}
+                        </span>
+                        <span className="mt-1 block text-xs font-semibold text-gray-400">
+                          {presetWebCoin > 0
+                            ? `${formatNumber(presetWebCoin)} Web Coin`
+                            : "Đang tải tỷ lệ"}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -724,6 +787,16 @@ function WalletDepositPage() {
                   </span>
                   <span className="font-bold text-gray-800">
                     {amount > 0 ? formatVnd(amount) : "Chưa chọn"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-b border-gray-100 py-3 text-sm">
+                  <span className="font-semibold text-gray-500">
+                    Web Coin nhận được
+                  </span>
+                  <span className="font-bold text-amber-600">
+                    {payment?.webCoinAmount || expectedWebCoinAmount
+                      ? `${formatNumber(payment?.webCoinAmount ?? expectedWebCoinAmount)} Coin`
+                      : "Chưa xác định"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-b border-gray-100 py-3 text-sm">
@@ -749,6 +822,14 @@ function WalletDepositPage() {
                   </span>
                 </div>
               </div>
+
+              {configQuery.isError && !error && (
+                <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+                  {configQuery.error instanceof Error
+                    ? configQuery.error.message
+                    : "Không thể tải cấu hình Donate PayOS."}
+                </div>
+              )}
 
               {error && (
                 <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
@@ -845,6 +926,11 @@ function WalletDepositPage() {
                         formatVnd(payment.amount || amount),
                         "amount",
                       ],
+                      [
+                        "Web Coin",
+                        `${formatNumber(payment.webCoinAmount)} Coin (x${formatMultiplier(payment.multiplier)})`,
+                        "web-coin",
+                      ],
                       ["Nội dung", payment.description, "description"],
                       ["Mã đơn", payment.order_code, "order"],
                     ].map(([label, value, key]) => (
@@ -915,7 +1001,7 @@ function WalletDepositPage() {
                   <p className="mt-0.5 text-xs leading-relaxed text-amber-700">
                     Vui lòng giữ nguyên nội dung chuyển khoản do PayOS tạo. Sau
                     khi giao dịch thành công, hệ thống sẽ tự xác nhận và cộng
-                    Coin.
+                    Web Coin.
                   </p>
                 </div>
               </div>
