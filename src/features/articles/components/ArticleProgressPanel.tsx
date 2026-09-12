@@ -64,8 +64,10 @@ export function ArticleProgressPanel({
   const mutation = useMutation({
     mutationFn: (tierId: number) =>
       claimArticleProgressMilestone(articleIdentifier, tierId),
-    onSuccess: async (result) => {
-      toast.success(result.message || "Đã gửi yêu cầu nhận quà.");
+    onSuccess: async () => {
+      toast.success(
+        "Quà đã được ghi nhận. Vui lòng đăng nhập lại game để nhận quà.",
+      );
       await onClaimed?.();
     },
     onError: (error) =>
@@ -162,7 +164,8 @@ export function ArticleProgressPanel({
                 const claimInfo = claimStatusByTierId.get(tierId);
                 const claimed = Boolean(claimInfo?.claimed);
                 const claimable = Boolean(claimInfo?.claimable);
-                const claiming = mutation.isPending && mutation.variables === tierId;
+                const claiming =
+                  mutation.isPending && mutation.variables === tierId;
                 const claimBlocked = Boolean(claimStatusError);
                 const buttonDisabled =
                   claimStatusLoading ||
@@ -171,98 +174,101 @@ export function ArticleProgressPanel({
                   mutation.isPending;
 
                 return (
-                <div
-                  key={milestone.target}
-                  className={[
-                    "rounded-xl border px-3 py-3",
-                    milestone.reached
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                      : "border-slate-200 bg-white text-slate-500",
-                  ].join(" ")}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wide">
-                      Mốc {index + 1}
-                    </span>
-                    {milestone.reached && <CheckCircle2 size={15} />}
-                  </div>
-                  <p className="mt-1 text-lg font-extrabold tabular-nums text-slate-900">
-                    {numberFormatter.format(milestone.target)}
-                  </p>
-                  <p className="mt-0.5 text-xs font-semibold">
-                    {milestone.reached ? "Đã đạt" : "Chưa đạt"}
-                  </p>
+                  <div
+                    key={milestone.target}
+                    className={[
+                      "rounded-xl border px-3 py-3",
+                      milestone.reached
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : "border-slate-200 bg-white text-slate-500",
+                    ].join(" ")}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wide">
+                        Mốc {index + 1}
+                      </span>
+                      {milestone.reached && <CheckCircle2 size={15} />}
+                    </div>
+                    <p className="mt-1 text-lg font-extrabold tabular-nums text-slate-900">
+                      {numberFormatter.format(milestone.target)}
+                    </p>
+                    <p className="mt-0.5 text-xs font-semibold">
+                      {milestone.reached ? "Đã đạt" : "Chưa đạt"}
+                    </p>
 
-                  <div className="mt-3">
-                    {!isAuthenticated && milestone.reached ? (
-                      <Link
-                        to={PATH.AUTH}
-                        state={{ from: location }}
-                        className="inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-white px-2.5 py-2 text-center text-xs font-bold text-amber-700 transition hover:bg-amber-50 active:scale-[0.98]"
-                      >
-                        <LogIn size={14} aria-hidden="true" />
-                        Đăng nhập nhận quà
-                      </Link>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => mutation.mutate(tierId)}
-                        disabled={buttonDisabled}
-                        className={[
-                          "inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg px-2.5 py-2 text-center text-xs font-bold transition active:scale-[0.98] disabled:cursor-not-allowed",
-                          claimed
-                            ? "bg-emerald-100 text-emerald-700"
-                            : claimable
-                              ? "bg-amber-700 text-white hover:bg-amber-800"
-                              : "bg-slate-100 text-slate-500",
-                        ].join(" ")}
-                      >
-                        {claiming ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : claimed ? (
-                          <CheckCircle2 size={14} aria-hidden="true" />
-                        ) : claimable ? (
-                          <Gift size={14} aria-hidden="true" />
-                        ) : (
-                          <LockKeyhole size={14} aria-hidden="true" />
-                        )}
-                        {claiming
-                          ? "Đang nhận"
-                          : claimStatusLoading
-                            ? "Đang tải"
-                            : claimBlocked
-                              ? "Không thể nhận"
-                              : claimed
-                                ? "Đã nhận"
-                                : claimable
-                                  ? "Nhận quà"
-                                  : "Chưa đạt"}
-                      </button>
+                    <div className="mt-3">
+                      {!isAuthenticated && milestone.reached ? (
+                        <Link
+                          to={PATH.AUTH}
+                          state={{ from: location }}
+                          className="inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-white px-2.5 py-2 text-center text-xs font-bold text-amber-700 transition hover:bg-amber-50 active:scale-[0.98]"
+                        >
+                          <LogIn size={14} aria-hidden="true" />
+                          Đăng nhập nhận quà
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => mutation.mutate(tierId)}
+                          disabled={buttonDisabled}
+                          className={[
+                            "inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg px-2.5 py-2 text-center text-xs font-bold transition active:scale-[0.98] disabled:cursor-not-allowed",
+                            claimed
+                              ? "bg-emerald-100 text-emerald-700"
+                              : claimable
+                                ? "bg-amber-700 text-white hover:bg-amber-800"
+                                : "bg-slate-100 text-slate-500",
+                          ].join(" ")}
+                        >
+                          {claiming ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : claimed ? (
+                            <CheckCircle2 size={14} aria-hidden="true" />
+                          ) : claimable ? (
+                            <Gift size={14} aria-hidden="true" />
+                          ) : (
+                            <LockKeyhole size={14} aria-hidden="true" />
+                          )}
+                          {claiming
+                            ? "Đang nhận"
+                            : claimStatusLoading
+                              ? "Đang tải"
+                              : claimBlocked
+                                ? "Không thể nhận"
+                                : claimed
+                                  ? "Đã nhận"
+                                  : claimable
+                                    ? "Nhận quà"
+                                    : "Chưa đạt"}
+                        </button>
+                      )}
+                    </div>
+
+                    {milestone.rewards.length > 0 && (
+                      <div className="mt-3 grid gap-2">
+                        {milestone.rewards.map((reward) => (
+                          <div
+                            key={reward.source + ":" + String(reward.itemId)}
+                            className="flex items-start gap-2 rounded-lg border border-amber-100 bg-white px-2 py-1.5"
+                            title={reward.name ?? undefined}
+                          >
+                            <RewardIcon
+                              item={reward}
+                              className="h-10 w-10 shrink-0"
+                            />
+                            <div className="min-w-0 flex-1 overflow-hidden">
+                              <p className="whitespace-normal break-words text-xs font-semibold leading-4 text-slate-700">
+                                {reward.name ?? "Vật phẩm"}
+                              </p>
+                              <p className="text-[11px] font-medium text-slate-500">
+                                x{numberFormatter.format(reward.quantity)}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
-
-                  {milestone.rewards.length > 0 && (
-                    <div className="mt-3 grid gap-2">
-                      {milestone.rewards.map((reward) => (
-                        <div
-                          key={reward.source + ":" + String(reward.itemId)}
-                          className="flex items-start gap-2 rounded-lg border border-amber-100 bg-white px-2 py-1.5"
-                          title={reward.name ?? undefined}
-                        >
-                          <RewardIcon item={reward} className="h-10 w-10 shrink-0" />
-                          <div className="min-w-0 flex-1 overflow-hidden">
-                            <p className="whitespace-normal break-words text-xs font-semibold leading-4 text-slate-700">
-                              {reward.name ?? "Vật phẩm"}
-                            </p>
-                            <p className="text-[11px] font-medium text-slate-500">
-                              x{numberFormatter.format(reward.quantity)}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
                 );
               })}
             </div>

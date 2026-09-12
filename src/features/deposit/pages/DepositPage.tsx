@@ -18,6 +18,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 import { useAppDispatch, useAppSelector } from "@/app/store/hooks";
+import { store } from "@/app/store/store";
 import { refreshSession } from "@/features/auth/api/authApi";
 import { setCredentials } from "@/features/auth/model/authSlice";
 import { PATH } from "@/shared/config/path";
@@ -42,6 +43,19 @@ const QR_CREATE_DEBOUNCE_MS = 900;
 const PAYMENT_STATUS_DELAY_MS = 6_000;
 const MAX_STATUS_ATTEMPTS = 100;
 
+type RequestContext = { session: string; generation: number };
+type CreateVariables = RequestContext & { amount: number };
+type StatusVariables = RequestContext & { orderCode: string; silent: boolean };
+type TerminalPaymentState = "failed" | "delivery_failed" | null;
+type PaymentModalHandle = { destroy: () => void };
+
+function activeDepositSession() {
+  const auth = store.getState().auth;
+  return [auth.serverId, auth.user?.id ?? "", auth.user?.username ?? ""].join(
+    ":",
+  );
+}
+
 const formatNumber = (amount: number) => amount.toLocaleString("vi-VN");
 const formatVnd = (amount: number) => formatNumber(amount) + " đ";
 
@@ -63,9 +77,7 @@ const DepositPageHeader = () => {
           Donate
         </span>
       </div>
-      <h1 className="text-2xl font-bold text-gray-800">
-        Donate Coin PayOS
-      </h1>
+      <h1 className="text-2xl font-bold text-gray-800">Donate Coin PayOS</h1>
       <p className="mt-1 text-sm text-gray-500">
         Chọn hoặc nhập số tiền donate, hệ thống sẽ tự tạo QR thanh toán PayOS.
       </p>
@@ -75,23 +87,31 @@ const DepositPageHeader = () => {
 
 function WalletDepositPage() {
   const dispatch = useAppDispatch();
-  const { refreshToken, serverId, user } = useAppSelector(
-    (state) => state.auth,
-  );
+  const { serverId, user } = useAppSelector((state) => state.auth);
   const queryClient = useQueryClient();
   const { modal } = AntdApp.useApp();
   const qrContainerRef = useRef<HTMLDivElement | null>(null);
   const debounceTimerRef = useRef<number | null>(null);
   const statusTimerRef = useRef<number | null>(null);
+  const copiedTimerRef = useRef<number | null>(null);
+  const paymentModalRef = useRef<PaymentModalHandle | null>(null);
   const statusAttemptsRef = useRef(0);
   const activeOrderCodeRef = useRef("");
   const handledOrderCodeRef = useRef("");
   const bankSuccessOrderCodeRef = useRef("");
   const generatedAmountRef = useRef<number | null>(null);
+  const creatingRef = useRef<CreateVariables | null>(null);
+  const generationRef = useRef(0);
+  const mountedRef = useRef(true);
+  const session = [serverId, user?.id ?? "", user?.username ?? ""].join(":");
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
 
   const [amountInput, setAmountInput] = useState("");
   const [payment, setPayment] = useState<PayosPayment | null>(null);
   const [paymentState, setPaymentState] = useState("Chưa tạo mã");
+  const [terminalPaymentState, setTerminalPaymentState] =
+    useState<TerminalPaymentState>(null);
   const [statusText, setStatusText] = useState("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
@@ -107,9 +127,18 @@ function WalletDepositPage() {
   }, []);
 
   const createPaymentMutation = useMutation({
-    mutationFn: createPayosPayment,
-    onSuccess: (result, nextAmount) => {
-      generatedAmountRef.current = Number(result.data.amount || nextAmount);
+    mutationFn: (variables: CreateVariables) => {
+      if (!isCurrent(variables)) throw new Error("Yêu cầu tạo QR đã thay đổi.");
+      return createPayosPayment(variables.amount);
+    },
+    onSettled: (_result, _error, variables) => {
+      if (creatingRef.current === variables) creatingRef.current = null;
+    },
+    onSuccess: (result, variables) => {
+      if (!isCurrent(variables)) return;
+      generatedAmountRef.current = Number(
+        result.data.amount || variables.amount,
+      );
       activeOrderCodeRef.current = result.data.order_code || "";
       handledOrderCodeRef.current = "";
       bankSuccessOrderCodeRef.current = "";
@@ -120,10 +149,15 @@ function WalletDepositPage() {
       setStatusText("Quét QR hoặc mở cổng PayOS để thanh toán.");
 
       toast.success(result.message || "Tạo mã QR thanh toán thành công.");
-      scrollToQr();
-      schedulePaymentStatusCheck(PAYMENT_STATUS_DELAY_MS);
+      scrollToQr(variables);
+      schedulePaymentStatusCheck(PAYMENT_STATUS_DELAY_MS, {
+        ...variables,
+        orderCode: activeOrderCodeRef.current,
+        silent: false,
+      });
     },
-    onError: (requestError) => {
+    onError: (requestError, variables) => {
+      if (!isCurrent(variables)) return;
       setPayment(null);
       generatedAmountRef.current = null;
       activeOrderCodeRef.current = "";
@@ -140,13 +174,18 @@ function WalletDepositPage() {
   });
 
   const paymentStatusMutation = useMutation({
-    mutationFn: ({ orderCode }: { orderCode: string; silent: boolean }) =>
-      getPayosPaymentStatus(orderCode),
-    onMutate: ({ silent }) => {
-      if (!silent) statusAttemptsRef.current += 1;
+    mutationFn: (variables: StatusVariables) => {
+      if (!isCurrentOrder(variables))
+        throw new Error("Đơn thanh toán đã thay đổi.");
+      return getPayosPaymentStatus(variables.orderCode);
     },
-    onSuccess: (result, { orderCode }) => {
-      if (orderCode !== activeOrderCodeRef.current) return;
+    onMutate: (variables) => {
+      if (isCurrentOrder(variables) && !variables.silent)
+        statusAttemptsRef.current += 1;
+    },
+    onSuccess: (result, variables) => {
+      if (!isCurrentOrder(variables)) return;
+      const { orderCode } = variables;
 
       const data = result.data;
 
@@ -156,6 +195,7 @@ function WalletDepositPage() {
           showPaymentReceivedModal(
             result.message ||
               "PayOS đã xác nhận thanh toán thành công. Hệ thống đang cập nhật ví web.",
+            variables,
           );
           clearPaymentAfterBankSuccess();
         }
@@ -164,20 +204,33 @@ function WalletDepositPage() {
         setStatusText(
           result.message || "Đã thanh toán, server game đang cộng Coin vào ví.",
         );
-        schedulePaymentStatusCheck(PAYMENT_STATUS_DELAY_MS);
+        schedulePaymentStatusCheck(PAYMENT_STATUS_DELAY_MS, variables);
+        return;
+      }
+
+      if (data.state === "delivery_failed") {
+        handledOrderCodeRef.current = orderCode;
+        clearStatusTimer();
+        dismissPaymentModal();
+        setTerminalPaymentState("delivery_failed");
+        setPaymentState("Cần hỗ trợ");
+        setStatusText("");
+        const message =
+          result.message ||
+          "Giao dịch đã thanh toán nhưng chưa thể cộng Coin. Vui lòng liên hệ hỗ trợ.";
+        setError(`${message} Mã đơn PayOS: ${orderCode}.`);
+        showPaymentDeliveryFailedModal(message, orderCode, variables);
         return;
       }
 
       if (data.paid) {
         if (handledOrderCodeRef.current === orderCode) return;
         handledOrderCodeRef.current = orderCode;
-
-        if (bankSuccessOrderCodeRef.current !== orderCode) {
-          bankSuccessOrderCodeRef.current = orderCode;
-          showPaymentReceivedModal(
-            "PayOS đã xác nhận thanh toán thành công. Hệ thống đang cập nhật ví web.",
-          );
-        }
+        bankSuccessOrderCodeRef.current = orderCode;
+        showPaymentCompletedModal(
+          result.message || "Giao dịch thành công. Coin đã được cộng vào ví web.",
+          variables,
+        );
 
         void queryClient.invalidateQueries({
           queryKey: ["deposit-history", serverId, user?.id],
@@ -185,19 +238,32 @@ function WalletDepositPage() {
         void queryClient.invalidateQueries({
           queryKey: ["coin-conversion-summary", serverId, user?.id],
         });
-        void refreshAccountSnapshot();
-        resetDeposit();
+        void refreshAccountSnapshot(variables.session);
+        resetDeposit(true, false);
+        return;
+      }
+
+      if (["failed", "cancelled", "canceled", "expired"].includes(data.state)) {
+        handledOrderCodeRef.current = orderCode;
+        clearStatusTimer();
+        setTerminalPaymentState("failed");
+        setPaymentState("Giao dịch không còn hiệu lực");
+        setStatusText(
+          result.message || "Mã QR đã hết hiệu lực. Vui lòng tạo mã mới.",
+        );
         return;
       }
 
       if (data.state !== "empty") {
+        setTerminalPaymentState(null);
         setPaymentState("Đang chờ thanh toán");
         setStatusText("Đang chờ thanh toán...");
-        schedulePaymentStatusCheck(PAYMENT_STATUS_DELAY_MS);
+        schedulePaymentStatusCheck(PAYMENT_STATUS_DELAY_MS, variables);
       }
     },
-    onError: (requestError, { orderCode, silent }) => {
-      if (orderCode !== activeOrderCodeRef.current) return;
+    onError: (requestError, variables) => {
+      if (!isCurrentOrder(variables)) return;
+      const { silent } = variables;
 
       if (!silent) {
         setStatusText(
@@ -205,24 +271,76 @@ function WalletDepositPage() {
             ? requestError.message
             : "Chưa kiểm tra được trạng thái thanh toán.",
         );
-        schedulePaymentStatusCheck(5_000);
+        schedulePaymentStatusCheck(5_000, variables);
       }
     },
   });
 
+  const createPaymentResetRef = useRef(createPaymentMutation.reset);
+  const paymentStatusResetRef = useRef(paymentStatusMutation.reset);
+  const resetDepositRef = useRef(resetDeposit);
+  createPaymentResetRef.current = createPaymentMutation.reset;
+  paymentStatusResetRef.current = paymentStatusMutation.reset;
+  resetDepositRef.current = resetDeposit;
+
   useEffect(() => {
+    mountedRef.current = true;
+    let previousSession = activeDepositSession();
+    const unsubscribe = store.subscribe(() => {
+      const nextSession = activeDepositSession();
+      if (nextSession !== previousSession) {
+        previousSession = nextSession;
+        sessionRef.current = nextSession;
+        generationRef.current += 1;
+        resetDepositRef.current(false);
+        handledOrderCodeRef.current = "";
+        bankSuccessOrderCodeRef.current = "";
+        createPaymentResetRef.current();
+        paymentStatusResetRef.current();
+      }
+    });
     return () => {
-      if (debounceTimerRef.current) {
+      mountedRef.current = false;
+      generationRef.current += 1;
+      unsubscribe();
+      if (debounceTimerRef.current !== null) {
         window.clearTimeout(debounceTimerRef.current);
       }
-      if (statusTimerRef.current) {
+      if (statusTimerRef.current !== null) {
         window.clearTimeout(statusTimerRef.current);
       }
+      if (copiedTimerRef.current !== null) {
+        window.clearTimeout(copiedTimerRef.current);
+      }
+      dismissPaymentModal();
     };
   }, []);
 
-  function scrollToQr() {
+  function requestContext(): RequestContext {
+    return {
+      session: activeDepositSession(),
+      generation: generationRef.current,
+    };
+  }
+
+  function isCurrent(context: RequestContext) {
+    return (
+      mountedRef.current &&
+      context.session === sessionRef.current &&
+      context.session === activeDepositSession() &&
+      context.generation === generationRef.current
+    );
+  }
+
+  function isCurrentOrder(context: StatusVariables) {
+    return (
+      isCurrent(context) && context.orderCode === activeOrderCodeRef.current
+    );
+  }
+
+  function scrollToQr(context = requestContext()) {
     window.setTimeout(() => {
+      if (!isCurrent(context)) return;
       qrContainerRef.current?.scrollIntoView({
         behavior: "smooth",
         block: "start",
@@ -231,31 +349,46 @@ function WalletDepositPage() {
   }
 
   function clearStatusTimer() {
-    if (statusTimerRef.current) {
+    if (statusTimerRef.current !== null) {
       window.clearTimeout(statusTimerRef.current);
       statusTimerRef.current = null;
     }
   }
 
   function clearDebounceTimer() {
-    if (debounceTimerRef.current) {
+    if (debounceTimerRef.current !== null) {
       window.clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
     }
   }
 
-  function resetQrIfAmountChanged(nextAmount: number) {
-    if (
-      generatedAmountRef.current &&
-      generatedAmountRef.current !== nextAmount
-    ) {
-      generatedAmountRef.current = null;
-      activeOrderCodeRef.current = "";
-      setPayment(null);
-      setPaymentState("Chưa tạo mã");
-      setStatusText("");
-      clearStatusTimer();
+  function clearCopiedTimer() {
+    if (copiedTimerRef.current !== null) {
+      window.clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = null;
     }
+  }
+
+  function dismissPaymentModal() {
+    paymentModalRef.current?.destroy();
+    paymentModalRef.current = null;
+  }
+
+  function resetQrIfAmountChanged(nextAmount: number) {
+    const trackedAmount =
+      generatedAmountRef.current ??
+      createPaymentMutation.variables?.amount ??
+      null;
+    if (trackedAmount === null || trackedAmount === nextAmount) return;
+
+    generationRef.current += 1;
+    generatedAmountRef.current = null;
+    activeOrderCodeRef.current = "";
+    setPayment(null);
+    setTerminalPaymentState(null);
+    setPaymentState("Chưa tạo mã");
+    setStatusText("");
+    clearStatusTimer();
   }
 
   async function copy(value: string, key: string) {
@@ -264,7 +397,11 @@ function WalletDepositPage() {
     try {
       await navigator.clipboard.writeText(value);
       setCopied(key);
-      window.setTimeout(() => setCopied(null), 1200);
+      clearCopiedTimer();
+      copiedTimerRef.current = window.setTimeout(() => {
+        copiedTimerRef.current = null;
+        if (mountedRef.current) setCopied(null);
+      }, 1200);
     } catch {
       toast.warning("Chưa thể sao chép tự động.");
     }
@@ -273,12 +410,27 @@ function WalletDepositPage() {
   function checkPaymentStatus(
     orderCode = activeOrderCodeRef.current,
     silent = false,
+    context = requestContext(),
   ) {
-    if (!orderCode) return;
-    paymentStatusMutation.mutate({ orderCode, silent });
+    const variables: StatusVariables = { ...context, orderCode, silent };
+    if (
+      !orderCode ||
+      handledOrderCodeRef.current === orderCode ||
+      !isCurrentOrder(variables)
+    )
+      return;
+    paymentStatusMutation.mutate(variables);
   }
 
-  function schedulePaymentStatusCheck(delay = PAYMENT_STATUS_DELAY_MS) {
+  function schedulePaymentStatusCheck(
+    delay = PAYMENT_STATUS_DELAY_MS,
+    variables: StatusVariables = {
+      ...requestContext(),
+      orderCode: activeOrderCodeRef.current,
+      silent: false,
+    },
+  ) {
+    if (!isCurrentOrder(variables)) return;
     clearStatusTimer();
 
     if (!activeOrderCodeRef.current) return;
@@ -292,19 +444,62 @@ function WalletDepositPage() {
     }
 
     statusTimerRef.current = window.setTimeout(() => {
-      checkPaymentStatus(activeOrderCodeRef.current, false);
+      if (isCurrentOrder(variables)) {
+        checkPaymentStatus(variables.orderCode, false, variables);
+      }
     }, delay);
   }
 
-  function showPaymentReceivedModal(message: string) {
-    window.setTimeout(() => {
-      modal.success({
-        centered: true,
-        title: "Thanh toán thành công",
-        content: message,
-        okText: "OK",
-      });
-    }, 0);
+  function showPaymentReceivedModal(message: string, context: RequestContext) {
+    if (!isCurrent(context)) return;
+    dismissPaymentModal();
+    let handle: PaymentModalHandle | null = null;
+    handle = modal.success({
+      centered: true,
+      title: "Đã nhận thanh toán",
+      content: message,
+      okText: "OK",
+      afterClose: () => {
+        if (paymentModalRef.current === handle) paymentModalRef.current = null;
+      },
+    });
+    paymentModalRef.current = handle;
+  }
+
+  function showPaymentCompletedModal(message: string, context: RequestContext) {
+    if (!isCurrent(context)) return;
+    dismissPaymentModal();
+    let handle: PaymentModalHandle | null = null;
+    handle = modal.success({
+      centered: true,
+      title: "Donate thành công",
+      content: message,
+      okText: "OK",
+      afterClose: () => {
+        if (paymentModalRef.current === handle) paymentModalRef.current = null;
+      },
+    });
+    paymentModalRef.current = handle;
+  }
+
+  function showPaymentDeliveryFailedModal(
+    message: string,
+    orderCode: string,
+    context: RequestContext,
+  ) {
+    if (!isCurrent(context)) return;
+    dismissPaymentModal();
+    let handle: PaymentModalHandle | null = null;
+    handle = modal.error({
+      centered: true,
+      title: "Giao dịch cần hỗ trợ",
+      content: `${message} Mã đơn PayOS: ${orderCode}.`,
+      okText: "Đã hiểu",
+      afterClose: () => {
+        if (paymentModalRef.current === handle) paymentModalRef.current = null;
+      },
+    });
+    paymentModalRef.current = handle;
   }
 
   function clearPaymentAfterBankSuccess() {
@@ -312,11 +507,17 @@ function WalletDepositPage() {
     setPayment(null);
     setError("");
     setCopied(null);
+    clearCopiedTimer();
     generatedAmountRef.current = null;
     clearDebounceTimer();
   }
 
-  function generatePayosQr(nextAmount = amount, force = false) {
+  function generatePayosQr(
+    nextAmount = amount,
+    force = false,
+    scheduledContext = requestContext(),
+  ) {
+    if (!isCurrent(scheduledContext)) return;
     if (nextAmount < MIN_DEPOSIT_AMOUNT) {
       setError(nextAmount > 0 ? "Số tiền donate tối thiểu là 1.000 đ." : "");
       return;
@@ -331,23 +532,41 @@ function WalletDepositPage() {
       scrollToQr();
       return;
     }
+    const inFlight = creatingRef.current;
+    if (inFlight && isCurrent(inFlight) && inFlight.amount === nextAmount) {
+      return;
+    }
 
     setError("");
+    setTerminalPaymentState(null);
+    dismissPaymentModal();
+    generationRef.current += 1;
+    generatedAmountRef.current = null;
+    activeOrderCodeRef.current = "";
+    clearStatusTimer();
+    setPayment(null);
     setStatusText("Đang tạo mã QR...");
     setPaymentState("Đang tạo QR");
-    createPaymentMutation.mutate(nextAmount);
+    const variables = { ...requestContext(), amount: nextAmount };
+    creatingRef.current = variables;
+    createPaymentMutation.mutate(variables);
   }
 
   function scheduleGenerateQr(nextAmount: number) {
     clearDebounceTimer();
+    if (generatedAmountRef.current === nextAmount && payment) return;
+    const inFlight = creatingRef.current;
+    if (inFlight && isCurrent(inFlight) && inFlight.amount === nextAmount)
+      return;
 
     if (nextAmount < MIN_DEPOSIT_AMOUNT || nextAmount > MAX_DEPOSIT_AMOUNT) {
       return;
     }
 
     setStatusText("Đang chuẩn bị mã QR...");
+    const context = requestContext();
     debounceTimerRef.current = window.setTimeout(() => {
-      generatePayosQr(nextAmount);
+      if (isCurrent(context)) generatePayosQr(nextAmount, false, context);
     }, QR_CREATE_DEBOUNCE_MS);
   }
 
@@ -367,22 +586,35 @@ function WalletDepositPage() {
     scheduleGenerateQr(value);
   }
 
-  async function refreshAccountSnapshot() {
-    if (!refreshToken) return;
+  async function refreshAccountSnapshot(expectedSession: string) {
+    const { refreshToken } = store.getState().auth;
+    if (!refreshToken || activeDepositSession() !== expectedSession) return;
 
     try {
       const session = await refreshSession(refreshToken);
+      const currentAuth = store.getState().auth;
+      if (
+        !mountedRef.current ||
+        activeDepositSession() !== expectedSession ||
+        currentAuth.refreshToken !== refreshToken ||
+        currentAuth.activeRequestId
+      )
+        return;
       dispatch(setCredentials(session));
       toast.success("Ví web đã được cộng Coin thành công.");
     } catch {
+      if (!mountedRef.current || activeDepositSession() !== expectedSession)
+        return;
       toast.warning(
         "Chưa thể làm mới số dư ví. Vui lòng tải lại trang tài khoản.",
       );
     }
   }
 
-  function resetDeposit() {
-    scrollToTop({ behavior: "smooth" });
+  function resetDeposit(scroll = true, closeModal = true) {
+    generationRef.current += 1;
+    if (scroll) scrollToTop({ behavior: "smooth" });
+    if (closeModal) dismissPaymentModal();
 
     setAmountInput("");
     setPayment(null);
@@ -390,6 +622,7 @@ function WalletDepositPage() {
     setStatusText("");
     setCopied(null);
     setPaymentState("Chưa tạo mã");
+    setTerminalPaymentState(null);
 
     generatedAmountRef.current = null;
     activeOrderCodeRef.current = "";
@@ -397,6 +630,7 @@ function WalletDepositPage() {
 
     clearDebounceTimer();
     clearStatusTimer();
+    clearCopiedTimer();
   }
 
   return (
@@ -423,9 +657,7 @@ function WalletDepositPage() {
                     <Wallet size={24} />
                   </div>
                   <div>
-                    <p className="font-bold text-gray-800">
-                      Gói Donate
-                    </p>
+                    <p className="font-bold text-gray-800">Gói Donate</p>
                     <p className="text-xs text-gray-500">
                       Coin được cộng sau khi PayOS xác nhận giao dịch thành
                       công.
@@ -652,7 +884,10 @@ function WalletDepositPage() {
                       onClick={() =>
                         checkPaymentStatus(payment.order_code, false)
                       }
-                      disabled={paymentStatusMutation.isPending}
+                      disabled={
+                        paymentStatusMutation.isPending ||
+                        terminalPaymentState !== null
+                      }
                       className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-amber-300 py-3 text-sm font-bold text-amber-600 transition-all hover:bg-amber-50 disabled:opacity-60 active:translate-y-px"
                     >
                       {paymentStatusMutation.isPending ? (
@@ -660,7 +895,9 @@ function WalletDepositPage() {
                       ) : (
                         <ShieldCheck size={16} />
                       )}
-                      Kiểm tra thanh toán
+                      {terminalPaymentState
+                        ? "Giao dịch đã kết thúc"
+                        : "Kiểm tra thanh toán"}
                     </button>
                   </div>
                 </div>
@@ -686,7 +923,7 @@ function WalletDepositPage() {
               {payment && (
                 <button
                   type="button"
-                  onClick={resetDeposit}
+                  onClick={() => resetDeposit()}
                   className="mt-4 w-full rounded-xl border border-gray-200 py-3 text-sm font-bold text-gray-600 transition-all hover:bg-gray-50 active:translate-y-px"
                 >
                   Tạo giao dịch Donate khác
