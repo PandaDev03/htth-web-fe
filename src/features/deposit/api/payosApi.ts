@@ -4,6 +4,8 @@ import { httpClient } from "@/shared/api/httpClient";
 
 export type PayosPayment = {
   amount: number;
+  webCoinAmount: number;
+  multiplier: number;
   description: string;
   order_code: string;
   qr_image_url: string;
@@ -27,6 +29,8 @@ export type PayosPaymentStatus = {
   state: PayosPaymentState | (string & {});
   order_code?: string;
   amount?: number;
+  webCoinAmount?: number;
+  multiplier?: number;
   coin?: number;
   tongnap?: number;
   support_required?: boolean;
@@ -37,8 +41,16 @@ export type DepositHistoryItem = {
   ref_no: string;
   paid_at: string;
   amount: number;
+  webCoinAmount: number;
   status: string;
   bank: string;
+};
+
+export type PayosDepositConfig = {
+  enabled: boolean;
+  multiplier: number;
+  minAmount: number;
+  maxAmount: number;
 };
 
 type ApiEnvelope<T> = { message?: string; data: T };
@@ -49,6 +61,19 @@ function apiErrorMessage(error: unknown, fallback: string) {
     if (typeof message === "string" && message) return message;
   }
   return error instanceof Error ? error.message : fallback;
+}
+
+export async function getPayosDepositConfig() {
+  try {
+    const response = await httpClient.get<ApiEnvelope<PayosDepositConfig>>(
+      "/donate/payos/config",
+    );
+    return response.data.data;
+  } catch (error) {
+    throw new Error(
+      apiErrorMessage(error, "Không thể tải cấu hình Donate PayOS."),
+    );
+  }
 }
 
 export async function createPayosPayment(amount: number) {
