@@ -10,13 +10,26 @@ export type PayosPayment = {
   checkout_url: string;
 };
 
+export type PayosPaymentState =
+  | "empty"
+  | "pending"
+  | "queued"
+  | "processed"
+  | "duplicate"
+  | "failed"
+  | "delivery_failed"
+  | "cancelled"
+  | "canceled"
+  | "expired";
+
 export type PayosPaymentStatus = {
   paid: boolean;
-  state: "empty" | "pending" | "queued" | "processed" | "duplicate" | string;
+  state: PayosPaymentState | (string & {});
   order_code?: string;
   amount?: number;
   coin?: number;
   tongnap?: number;
+  support_required?: boolean;
 };
 
 export type DepositHistoryItem = {

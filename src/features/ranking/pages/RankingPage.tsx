@@ -5,6 +5,7 @@ import {
   Gift,
   Medal,
   RefreshCw,
+  Server,
   ShieldAlert,
   Swords,
   Trophy,
@@ -12,25 +13,22 @@ import {
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import { useAppSelector } from "@/app/store/hooks";
+import { getGameServers } from "@/features/auth/api/serverApi";
 import {
-  getTopBossHuntRanking,
-  getTopDepositRanking,
-  getTopFireworksRanking,
+  getRanking,
+  getRankingCatalog,
+  type RankingData,
   type RankingRewardSet,
   type RankingRewardTier,
+  type RankingType,
 } from "@/features/ranking/api/rankingApi";
-import {
-  RankingTabs,
-  type RankingTabId,
-} from "@/features/ranking/components/RankingTabs";
+import { RankingTabs } from "@/features/ranking/components/RankingTabs";
 import { RewardIcon } from "@/shared/components/RewardIcon";
 import { Footer } from "@/shared/components/site/Footer";
 import { Header } from "@/shared/components/site/Header";
+import { isServerId, type ServerId } from "@/shared/types/server";
 import { scrollToTop } from "@/shared/utils/utils";
-
-const fireworksRankingQueryKey = ["rankings", "top-fireworks"] as const;
-const bossHuntRankingQueryKey = ["rankings", "top-boss-hunt"] as const;
-const topDepositRankingQueryKey = ["rankings", "top-donates"] as const;
 
 type DisplayRankingEntry = {
   rank: number;
@@ -234,7 +232,13 @@ function RankingSkeleton() {
   );
 }
 
-function RemainingRanking({ entries }: { entries: DisplayRankingEntry[] }) {
+function RemainingRanking({
+  entries,
+  valueLabel,
+}: {
+  entries: DisplayRankingEntry[];
+  valueLabel: string;
+}) {
   if (entries.length === 0) return null;
 
   return (
@@ -255,7 +259,7 @@ function RemainingRanking({ entries }: { entries: DisplayRankingEntry[] }) {
                 Nhân vật
               </th>
               <th scope="col" className="px-6 py-3 text-right">
-                Điểm
+                {valueLabel}
               </th>
             </tr>
           </thead>
@@ -297,97 +301,186 @@ function RemainingRanking({ entries }: { entries: DisplayRankingEntry[] }) {
   );
 }
 
+const rankingTypes: RankingType[] = [
+  "top-donates",
+  "top-levels",
+  "top-pvp",
+  "top-fireworks",
+  "top-boss-hunt",
+];
+
+function parseRankingType(value: string | null): RankingType | null {
+  if (value === "san-boss") return "top-boss-hunt";
+  if (value === "top-donate") return "top-donates";
+  return rankingTypes.includes(value as RankingType)
+    ? (value as RankingType)
+    : null;
+}
+
+function getRankingEntries(data?: RankingData): DisplayRankingEntry[] {
+  if (!data) return [];
+  if (data.category === "top-deposit") {
+    return data.items.map((entry) => ({
+      rank: entry.rank,
+      name: entry.playerName || entry.username,
+      subtitle: entry.playerName ? entry.username : undefined,
+      value: entry.tongnap,
+    }));
+  }
+  if (data.category === "top-level") {
+    return data.items.map((entry) => ({
+      rank: entry.rank,
+      name: entry.playerName,
+      subtitle: entry.accountUsername,
+      value: entry.level,
+    }));
+  }
+  if (data.category === "top-pvp") {
+    return data.items.map((entry) => ({
+      rank: entry.rank,
+      name: entry.playerName,
+      subtitle: entry.accountUsername,
+      value: entry.pvpPoints,
+    }));
+  }
+  return data.items.map((entry) => ({
+    rank: entry.rank,
+    name: entry.playerName,
+    subtitle: entry.accountUsername,
+    value: entry.points,
+  }));
+}
+
 function RankingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab: RankingTabId =
-    searchParams.get("tab") === "san-boss"
-      ? "boss"
-      : searchParams.get("tab") === "top-donate"
-        ? "deposit"
-        : "fireworks";
-  const showBossHunt = activeTab === "boss";
-  const showDeposit = activeTab === "deposit";
-  const topDepositRankingQuery = useQuery({
-    queryKey: topDepositRankingQueryKey,
-    queryFn: getTopDepositRanking,
-    staleTime: 60_000,
-    enabled: showDeposit,
+  const authServerId = useAppSelector((state) => state.auth.serverId);
+  const requestedServer = searchParams.get("server");
+  const preferredServerId: ServerId = isServerId(requestedServer)
+    ? requestedServer
+    : authServerId ?? "server1";
+  const serversQuery = useQuery({
+    queryKey: ["game-servers"],
+    queryFn: getGameServers,
+    staleTime: 5 * 60 * 1000,
   });
-  const fireworksRankingQuery = useQuery({
-    queryKey: fireworksRankingQueryKey,
-    queryFn: getTopFireworksRanking,
-    staleTime: 60_000,
-    enabled: !showBossHunt && !showDeposit,
+  const enabledServers = (serversQuery.data ?? []).filter(
+    (server) => server.enabled,
+  );
+  const viewedServerId =
+    enabledServers.find((server) => server.id === preferredServerId)?.id ??
+    enabledServers[0]?.id ??
+    preferredServerId;
+  const viewedServer = enabledServers.find(
+    (server) => server.id === viewedServerId,
+  );
+  const catalogQuery = useQuery({
+    queryKey: ["rankings", "catalog", viewedServerId],
+    queryFn: () => getRankingCatalog(viewedServerId),
+    staleTime: 5 * 60 * 1000,
+    enabled: Boolean(viewedServer),
   });
-  const bossHuntRankingQuery = useQuery({
-    queryKey: bossHuntRankingQueryKey,
-    queryFn: getTopBossHuntRanking,
+  const requestedRankingType = parseRankingType(searchParams.get("tab"));
+  const defaultRankingType: RankingType =
+    viewedServerId === "server1" ? "top-fireworks" : "top-levels";
+  const availableRankings = catalogQuery.data?.items ?? [];
+  const activeTab =
+    availableRankings.find((item) => item.id === requestedRankingType)?.id ??
+    availableRankings.find((item) => item.id === defaultRankingType)?.id ??
+    availableRankings[0]?.id ??
+    defaultRankingType;
+  const rankingAvailable = availableRankings.some(
+    (item) => item.id === activeTab,
+  );
+  const rankingQuery = useQuery({
+    queryKey: ["rankings", viewedServerId, activeTab],
+    queryFn: () => getRanking(viewedServerId, activeTab),
     staleTime: 60_000,
-    enabled: showBossHunt,
+    enabled: rankingAvailable,
   });
 
   useEffect(() => {
     scrollToTop({ behavior: "smooth" });
   }, []);
 
-  const rankingQuery = showDeposit
-    ? topDepositRankingQuery
-    : showBossHunt
-      ? bossHuntRankingQuery
-      : fireworksRankingQuery;
-  const depositEntries: DisplayRankingEntry[] = (
-    topDepositRankingQuery.data?.items ?? []
-  ).map((entry) => ({
-    rank: entry.rank,
-    name: entry.playerName || entry.username,
-    subtitle: entry.playerName ? entry.username : undefined,
-    value: entry.tongnap,
-  }));
-  const eventItems = showBossHunt
-    ? bossHuntRankingQuery.data?.items
-    : fireworksRankingQuery.data?.items;
-  const eventEntries: DisplayRankingEntry[] = (eventItems ?? []).map(
-    (entry) => ({
-      rank: entry.rank,
-      name: entry.playerName,
-      subtitle: entry.accountUsername,
-      value: entry.points,
-    }),
-  );
-  const entries = showDeposit ? depositEntries : eventEntries;
+  const rankingData = rankingQuery.data;
+  const entries = getRankingEntries(rankingData);
   const topThree = entries.slice(0, 3);
   const remaining = entries.slice(3);
-  const currentRewards = rankingQuery.data?.rewards;
-  const pageTitle = showDeposit
-    ? "Top Donate"
-    : showBossHunt
-      ? "Top Săn Boss"
-      : "Top Đốt Pháo";
-  const pageDescription = showDeposit
-    ? "Vinh danh thuyền trưởng ủng hộ nhiều nhất trong mùa hiện tại."
-    : showBossHunt
-      ? "Vinh danh những thuyền trưởng hạ gục nhiều boss Lân Sư Vũ nhất."
-      : "Vinh danh những thuyền trưởng có điểm Đốt pháo cao nhất event Pháo hoa.";
-  const valueLabel = showDeposit
-    ? "Coin donate"
-    : showBossHunt
-      ? "Điểm săn boss"
-      : "Điểm Đốt pháo";
-  const contextLabel = showDeposit
-    ? topDepositRankingQuery.data?.season?.name || "Theo mùa"
-    : "Event 12";
-
-  const changeTab = (nextTab: RankingTabId) => {
-    const nextParams = new URLSearchParams(searchParams);
-
-    if (nextTab === "boss") {
-      nextParams.set("tab", "san-boss");
-    } else if (nextTab === "deposit") {
-      nextParams.set("tab", "top-donate");
-    } else {
-      nextParams.delete("tab");
+  const currentRewards =
+    rankingData && "rewards" in rankingData ? rankingData.rewards : undefined;
+  const presentation = {
+    "top-donates": {
+      title: "Top Donate",
+      description:
+        "Vinh danh thuyền trưởng ủng hộ nhiều nhất trong mùa hiện tại.",
+      valueLabel: "Coin donate",
+      empty: "Bảng Top Donate sẽ hiển thị khi có giao dịch donate trong mùa hiện tại.",
+    },
+    "top-levels": {
+      title: "Top Level",
+      description: "Vinh danh những thuyền trưởng đạt cấp độ cao nhất.",
+      valueLabel: "Level",
+      empty: "Bảng Top Level sẽ hiển thị khi server có nhân vật hợp lệ.",
+    },
+    "top-pvp": {
+      title: "Top PvP",
+      description: "Vinh danh những thuyền trưởng có điểm PvP cao nhất.",
+      valueLabel: "Điểm PvP",
+      empty: "Bảng Top PvP sẽ hiển thị khi có điểm PvP đầu tiên.",
+    },
+    "top-fireworks": {
+      title: "Top Đốt Pháo",
+      description:
+        "Vinh danh những thuyền trưởng có điểm Đốt pháo cao nhất event Pháo hoa.",
+      valueLabel: "Điểm Đốt pháo",
+      empty: "Bảng Top Đốt Pháo sẽ hiển thị khi có điểm Đốt pháo đầu tiên.",
+    },
+    "top-boss-hunt": {
+      title: "Top Săn Boss",
+      description:
+        "Vinh danh những thuyền trưởng hạ gục nhiều boss Lân Sư Vũ nhất.",
+      valueLabel: "Điểm săn boss",
+      empty: "Bảng Top Săn Boss sẽ hiển thị khi có điểm hạ gục Lân Sư Vũ đầu tiên.",
+    },
+  } satisfies Record<
+    RankingType,
+    {
+      title: string;
+      description: string;
+      valueLabel: string;
+      empty: string;
     }
+  >;
+  const currentPresentation = presentation[activeTab];
+  const contextLabel =
+    rankingData?.category === "top-deposit"
+      ? rankingData.season?.name || "Theo mùa"
+      : activeTab === "top-fireworks" || activeTab === "top-boss-hunt"
+        ? "Event 12"
+        : catalogQuery.data?.displayName || viewedServer?.displayName || "Server";
+  const HeaderIcon =
+    activeTab === "top-boss-hunt"
+      ? Swords
+      : activeTab === "top-fireworks"
+        ? Flame
+        : Trophy;
+  const loading =
+    serversQuery.isPending ||
+    (Boolean(viewedServer) && catalogQuery.isPending) ||
+    (rankingAvailable && rankingQuery.isLoading);
+  const pageError =
+    serversQuery.error ?? catalogQuery.error ?? rankingQuery.error ?? null;
 
+  const changeTab = (nextTab: RankingType) => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("tab", nextTab);
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const changeServer = (nextServerId: ServerId) => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("server", nextServerId);
+    nextParams.delete("tab");
     setSearchParams(nextParams, { replace: true });
   };
 
@@ -403,33 +496,57 @@ function RankingPage() {
                 {contextLabel}
               </div>
               <h1 className="text-3xl font-800 tracking-tight text-gray-800 sm:text-4xl">
-                {pageTitle}
+                {currentPresentation.title}
               </h1>
               <p className="mt-3 max-w-xl text-sm leading-relaxed text-gray-500 sm:text-base">
-                {pageDescription}
+                {currentPresentation.description}
               </p>
             </div>
-            <div className="flex items-center gap-4 rounded-lg border border-amber-200 bg-white px-5 py-4 shadow-sm">
-              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
-                {showBossHunt ? (
-                  <Swords size={22} aria-hidden="true" />
-                ) : (
-                  <Flame size={22} aria-hidden="true" />
-                )}
-              </div>
-              <div>
-                <p className="font-mono text-xl font-bold text-gray-800">
-                  Top {rankingQuery.data?.limit ?? 10}
-                </p>
-                <p className="text-xs font-medium text-gray-500">
-                  Xếp hạng hiện hành
-                </p>
+            <div className="grid min-w-[16rem] gap-3">
+              <label className="rounded-lg border border-amber-200 bg-white px-4 py-3 shadow-sm">
+                <span className="mb-1.5 flex items-center gap-2 text-xs font-bold text-gray-500">
+                  <Server size={14} aria-hidden="true" />
+                  Server xếp hạng
+                </span>
+                <select
+                  value={viewedServerId}
+                  disabled={serversQuery.isPending || enabledServers.length === 0}
+                  onChange={(event) =>
+                    changeServer(event.target.value as ServerId)
+                  }
+                  className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                >
+                  {enabledServers.map((server) => (
+                    <option key={server.id} value={server.id}>
+                      {server.displayName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex items-center gap-4 rounded-lg border border-amber-200 bg-white px-5 py-4 shadow-sm">
+                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+                  <HeaderIcon size={22} aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="font-mono text-xl font-bold text-gray-800">
+                    Top {rankingData?.limit ?? 10}
+                  </p>
+                  <p className="text-xs font-medium text-gray-500">
+                    Xếp hạng hiện hành
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        <RankingTabs activeTab={activeTab} onChange={changeTab} />
+        {availableRankings.length > 0 && (
+          <RankingTabs
+            tabs={availableRankings}
+            activeTab={activeTab}
+            onChange={changeTab}
+          />
+        )}
 
         <section className="mx-auto max-w-screen-xl px-4 py-10 sm:px-6 lg:px-8">
           <div
@@ -443,7 +560,7 @@ function RankingPage() {
                   Xếp hạng hiện tại
                 </p>
                 <p className="mt-1 text-xs text-gray-400">
-                  Cập nhật lúc {formatUpdatedAt(rankingQuery.data?.updatedAt)}
+                  Cập nhật lúc {formatUpdatedAt(rankingData?.updatedAt)}
                 </p>
               </div>
               <button
@@ -463,9 +580,9 @@ function RankingPage() {
 
             {currentRewards && <RankingRewards rewards={currentRewards} />}
 
-            {rankingQuery.isLoading ? (
+            {loading ? (
               <RankingSkeleton />
-            ) : rankingQuery.isError ? (
+            ) : pageError ? (
               <div className="rounded-lg border border-red-200 bg-white px-6 py-14 text-center shadow-sm">
                 <ShieldAlert
                   size={36}
@@ -476,13 +593,17 @@ function RankingPage() {
                   Không thể tải bảng xếp hạng
                 </h2>
                 <p className="mx-auto mt-2 max-w-md text-sm text-gray-500">
-                  {rankingQuery.error instanceof Error
-                    ? rankingQuery.error.message
+                  {pageError instanceof Error
+                    ? pageError.message
                     : "Vui lòng kiểm tra kết nối và thử lại."}
                 </p>
                 <button
                   type="button"
-                  onClick={() => void rankingQuery.refetch()}
+                  onClick={() => {
+                    void serversQuery.refetch();
+                    void catalogQuery.refetch();
+                    void rankingQuery.refetch();
+                  }}
                   className="mt-5 inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-amber-600"
                 >
                   <RefreshCw size={15} aria-hidden="true" />
@@ -500,11 +621,7 @@ function RankingPage() {
                   Chưa có nhân vật trên bảng xếp hạng
                 </h2>
                 <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-gray-500">
-                  {showBossHunt
-                    ? "Bảng Top Săn Boss sẽ hiển thị khi có điểm hạ gục Lân Sư Vũ đầu tiên."
-                    : showDeposit
-                      ? "Bảng Top Donate sẽ hiển thị khi có giao dịch donate trong mùa hiện tại."
-                      : "Bảng Top Đốt Pháo sẽ hiển thị khi có điểm Đốt pháo đầu tiên."}
+                  {currentPresentation.empty}
                 </p>
               </div>
             ) : (
@@ -514,11 +631,14 @@ function RankingPage() {
                     <PodiumCard
                       key={entry.rank}
                       entry={entry}
-                      valueLabel={valueLabel}
+                      valueLabel={currentPresentation.valueLabel}
                     />
                   ))}
                 </div>
-                <RemainingRanking entries={remaining} />
+                <RemainingRanking
+                  entries={remaining}
+                  valueLabel={currentPresentation.valueLabel}
+                />
               </div>
             )}
           </div>

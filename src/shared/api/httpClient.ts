@@ -4,25 +4,100 @@ import {
   clearAuthSession,
   getStoredAccessToken,
   getStoredRefreshToken,
+  getStoredServerId,
   setAuthSession,
+  type AuthSession,
 } from "@/features/auth/model/tokenStorage";
 import { env } from "@/shared/config/env";
-import type { AuthUser } from "@/shared/types/auth";
 
-type RetriableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean };
-
-type RefreshResponse = {
-  user: AuthUser;
-  accessToken: string;
-  refreshToken: string;
+type AuthRequestContext = {
+  accessToken: string | null;
+  refreshToken: string | null;
+  serverId: AuthSession["serverId"] | null;
 };
+
+type RetriableRequestConfig = InternalAxiosRequestConfig & {
+  _authContext?: AuthRequestContext;
+  _authRetryAccessToken?: string;
+  _retry?: boolean;
+};
+
+type RefreshAttempt = {
+  context: AuthRequestContext;
+  refreshToken: string;
+  promise: Promise<AuthSession | null>;
+};
+
+type AuthSessionSynchronizer = (session: AuthSession | null) => void;
 
 export const httpClient = axios.create({
   baseURL: env.apiBaseUrl,
   timeout: 15000,
 });
 
-let refreshPromise: Promise<string | null> | null = null;
+let refreshAttempt: RefreshAttempt | null = null;
+let authSessionSynchronizer: AuthSessionSynchronizer | null = null;
+
+export function configureHttpAuthSessionSynchronizer(
+  synchronizer: AuthSessionSynchronizer,
+) {
+  authSessionSynchronizer = synchronizer;
+}
+
+function expireAuthSession() {
+  if (authSessionSynchronizer) {
+    authSessionSynchronizer(null);
+    return;
+  }
+
+  clearAuthSession();
+}
+
+function applyRefreshedAuthSession(session: AuthSession) {
+  if (authSessionSynchronizer) {
+    authSessionSynchronizer(session);
+    return;
+  }
+
+  setAuthSession(session);
+}
+
+function getCurrentAuthRequestContext(): AuthRequestContext {
+  return {
+    accessToken: getStoredAccessToken(),
+    refreshToken: getStoredRefreshToken(),
+    serverId: getStoredServerId(),
+  };
+}
+
+function hasSameAuthRequestContext(
+  left: AuthRequestContext,
+  right: AuthRequestContext,
+) {
+  return (
+    left.accessToken === right.accessToken &&
+    left.refreshToken === right.refreshToken &&
+    left.serverId === right.serverId
+  );
+}
+
+function isCurrentAuthRequestContext(context: AuthRequestContext) {
+  return hasSameAuthRequestContext(context, getCurrentAuthRequestContext());
+}
+
+function isCurrentAuthSession(session: AuthSession) {
+  return hasSameAuthRequestContext(getCurrentAuthRequestContext(), {
+    accessToken: session.accessToken,
+    refreshToken: session.refreshToken,
+    serverId: session.serverId,
+  });
+}
+
+function expireAuthSessionIfCurrent(context: AuthRequestContext) {
+  if (isCurrentAuthRequestContext(context)) {
+    expireAuthSession();
+  }
+}
 
 function shouldSkipRefresh(url?: string) {
   return Boolean(
@@ -32,29 +107,75 @@ function shouldSkipRefresh(url?: string) {
   );
 }
 
-async function refreshAccessToken() {
-  const refreshToken = getStoredRefreshToken();
+async function refreshAccessToken(context: AuthRequestContext) {
+  const { refreshToken } = context;
 
   if (!refreshToken) {
-    clearAuthSession();
+    expireAuthSessionIfCurrent(context);
     return null;
   }
 
-  const { data } = await axios.post<RefreshResponse>(
-    (env.apiBaseUrl.endsWith("/") ? env.apiBaseUrl.slice(0, -1) : env.apiBaseUrl) + "/auth/refresh",
-    { refreshToken },
-    { timeout: 15000 },
-  );
+  try {
+    const { data } = await axios.post<AuthSession>(
+      (env.apiBaseUrl.endsWith("/") ? env.apiBaseUrl.slice(0, -1) : env.apiBaseUrl) + "/auth/refresh",
+      { refreshToken },
+      { timeout: 15000 },
+    );
 
-  setAuthSession(data);
-  return data.accessToken;
+    if (!isCurrentAuthRequestContext(context)) {
+      return null;
+    }
+
+    if (data.serverId !== context.serverId) {
+      expireAuthSessionIfCurrent(context);
+      return null;
+    }
+
+    applyRefreshedAuthSession(data);
+    return data;
+  } catch {
+    expireAuthSessionIfCurrent(context);
+    return null;
+  }
+}
+
+function getRefreshAttempt(
+  context: AuthRequestContext,
+  refreshToken: string,
+) {
+  if (
+    refreshAttempt?.refreshToken === refreshToken &&
+    hasSameAuthRequestContext(refreshAttempt.context, context)
+  ) {
+    return refreshAttempt;
+  }
+
+  let attempt: RefreshAttempt;
+  const promise = refreshAccessToken(context).finally(() => {
+    if (refreshAttempt === attempt) {
+      refreshAttempt = null;
+    }
+  });
+
+  attempt = { context, refreshToken, promise };
+  refreshAttempt = attempt;
+
+  return attempt;
 }
 
 httpClient.interceptors.request.use((config) => {
-  const token = getStoredAccessToken();
+  const requestConfig = config as RetriableRequestConfig;
 
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (requestConfig._authRetryAccessToken !== undefined) {
+    config.headers.Authorization = `Bearer ${requestConfig._authRetryAccessToken}`;
+    return config;
+  }
+
+  const context = getCurrentAuthRequestContext();
+  requestConfig._authContext = context;
+
+  if (context.accessToken) {
+    config.headers.Authorization = `Bearer ${context.accessToken}`;
   }
 
   return config;
@@ -69,28 +190,41 @@ httpClient.interceptors.response.use(
       error.response?.status !== 401 ||
       !originalRequest ||
       originalRequest._retry ||
-      shouldSkipRefresh(originalRequest.url)
+      shouldSkipRefresh(originalRequest.url) ||
+      !originalRequest._authContext
     ) {
+      return Promise.reject(error);
+    }
+
+    const requestContext = originalRequest._authContext;
+
+    if (!isCurrentAuthRequestContext(requestContext)) {
+      return Promise.reject(error);
+    }
+
+    const { refreshToken } = requestContext;
+
+    if (!refreshToken) {
+      expireAuthSessionIfCurrent(requestContext);
       return Promise.reject(error);
     }
 
     originalRequest._retry = true;
 
-    refreshPromise ??= refreshAccessToken().finally(() => {
-      refreshPromise = null;
-    });
+    const attempt = getRefreshAttempt(requestContext, refreshToken);
+    const refreshedSession = await attempt.promise;
 
-    const nextAccessToken = await refreshPromise.catch(() => {
-      clearAuthSession();
-      return null;
-    });
-
-    if (!nextAccessToken) {
-      clearAuthSession();
+    if (!refreshedSession || !isCurrentAuthSession(refreshedSession)) {
       return Promise.reject(error);
     }
 
-    originalRequest.headers.Authorization = `Bearer ${nextAccessToken}`;
+    originalRequest._authContext = {
+      accessToken: refreshedSession.accessToken,
+      refreshToken: refreshedSession.refreshToken,
+      serverId: refreshedSession.serverId,
+    };
+    originalRequest._authRetryAccessToken = refreshedSession.accessToken;
+    originalRequest.headers.Authorization = `Bearer ${refreshedSession.accessToken}`;
     return httpClient(originalRequest);
   },
 );

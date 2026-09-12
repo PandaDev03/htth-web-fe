@@ -2,10 +2,28 @@ import axios from "axios";
 
 import { httpClient } from "@/shared/api/httpClient";
 
-export type AdminDashboardStats = {
+export type AdminDashboardMetrics = {
   totalAccounts: number;
   activeAccounts: number;
+  totalPlayers: number;
+  onlineAccounts: number;
   revenue: number;
+  pendingRecharge: number;
+  pendingCoinConversions: number;
+  pendingGifts: number;
+};
+
+export type AdminDashboardServerStats = {
+  serverId: "server1" | "tan_binh";
+  displayName: string;
+  status: "ok" | "error";
+  metrics?: AdminDashboardMetrics;
+  error?: string;
+};
+
+export type AdminDashboardStats = AdminDashboardMetrics & {
+  partial: boolean;
+  servers: AdminDashboardServerStats[];
 };
 
 export type AdminAccountActionResult = {

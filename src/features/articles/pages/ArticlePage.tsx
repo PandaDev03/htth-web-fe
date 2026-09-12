@@ -34,7 +34,9 @@ function normalizeTextAreaBreaks(value: string) {
 
 function ArticlePage() {
   const { id } = useParams<{ id: string }>();
-  const accessToken = useAppSelector((state) => state.auth.accessToken);
+  const { accessToken, serverId, user } = useAppSelector(
+    (state) => state.auth,
+  );
   const articleQuery = useQuery({
     queryKey: ["article", id],
     queryFn: () => getArticle(id ?? ""),
@@ -47,9 +49,9 @@ function ArticlePage() {
 
   const article = articleQuery.data;
   const claimStatusQuery = useQuery({
-    queryKey: ["article-progress-claims", id],
+    queryKey: ["article-progress-claims", serverId, user?.id, id],
     queryFn: () => getArticleProgressClaims(id ?? ""),
-    enabled: Boolean(id && article?.progress && accessToken),
+    enabled: Boolean(id && article?.progress && accessToken && serverId && user),
     retry: false,
   });
 

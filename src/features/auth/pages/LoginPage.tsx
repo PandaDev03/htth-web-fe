@@ -20,6 +20,7 @@ function LoginPage() {
       setCredentials({
         accessToken: "dev-token",
         refreshToken: "dev-refresh-token",
+        serverId: "server1",
         user: {
           id: "1",
           username: "admin",

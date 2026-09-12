@@ -13,8 +13,11 @@ import {
 import {
   BadgeDollarSign,
   CircleDollarSign,
+  Gift,
   LockKeyhole,
+  Radio,
   RefreshCw,
+  Repeat2,
   ShieldCheck,
   UnlockKeyhole,
   UsersRound,
@@ -26,6 +29,8 @@ import {
   addAdminWalletCoin,
   getAdminDashboardStats,
   setAdminAccountLock,
+  type AdminDashboardMetrics,
+  type AdminDashboardServerStats,
 } from "@/features/dashboard/api/dashboardApi";
 
 type AddCoinFormValues = { username: string; amount: number };
@@ -36,6 +41,65 @@ const currencyFormatter = new Intl.NumberFormat("vi-VN", {
   currency: "VND",
   maximumFractionDigits: 0,
 });
+
+function ServerBreakdownCard({ server }: { server: AdminDashboardServerStats }) {
+  if (server.status === "error" || !server.metrics) {
+    return (
+      <Card className="border-red-200 shadow-sm">
+        <h3 className="font-bold text-slate-800">{server.displayName}</h3>
+        <Alert
+          className="mt-3"
+          type="error"
+          showIcon
+          message={server.error || "Không thể tải dữ liệu server."}
+        />
+      </Card>
+    );
+  }
+
+  const metrics: Array<{
+    key: keyof AdminDashboardMetrics;
+    label: string;
+    currency?: boolean;
+  }> = [
+    { key: "totalAccounts", label: "Tài khoản" },
+    { key: "activeAccounts", label: "Đã kích hoạt" },
+    { key: "totalPlayers", label: "Nhân vật" },
+    { key: "onlineAccounts", label: "Đang online" },
+    { key: "revenue", label: "Doanh thu", currency: true },
+    { key: "pendingRecharge", label: "Nạp đang chờ" },
+    { key: "pendingCoinConversions", label: "Đổi Coin đang chờ" },
+    { key: "pendingGifts", label: "Quà đang chờ" },
+  ];
+
+  return (
+    <Card className="border-slate-200 shadow-sm">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="font-bold text-slate-800">{server.displayName}</h3>
+          <p className="mt-1 font-mono text-xs text-slate-400">
+            {server.serverId}
+          </p>
+        </div>
+        <span className="rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+          Hoạt động
+        </span>
+      </div>
+      <dl className="grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-4">
+        {metrics.map((item) => (
+          <div key={item.key}>
+            <dt className="text-xs font-medium text-slate-400">{item.label}</dt>
+            <dd className="mt-1 font-mono text-sm font-bold text-slate-800">
+              {item.currency
+                ? currencyFormatter.format(server.metrics?.[item.key] ?? 0)
+                : numberFormatter.format(server.metrics?.[item.key] ?? 0)}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </Card>
+  );
+}
 
 function AdminDashboardPage() {
   const [coinForm] = Form.useForm<AddCoinFormValues>();
@@ -91,6 +155,24 @@ function AdminDashboardPage() {
       currency: false,
     },
     {
+      key: "players",
+      label: "Tổng nhân vật",
+      value: stats?.totalPlayers ?? 0,
+      icon: <UsersRound size={20} />,
+      color: "text-slate-900",
+      suffix: "nhân vật",
+      currency: false,
+    },
+    {
+      key: "online",
+      label: "Đang online",
+      value: stats?.onlineAccounts ?? 0,
+      icon: <Radio size={20} />,
+      color: "text-emerald-700",
+      suffix: "tài khoản",
+      currency: false,
+    },
+    {
       key: "revenue",
       label: "Doanh thu",
       value: stats?.revenue ?? 0,
@@ -98,6 +180,33 @@ function AdminDashboardPage() {
       color: "text-amber-700",
       suffix: "từ giao dịch nạp",
       currency: true,
+    },
+    {
+      key: "pending-recharge",
+      label: "Nạp đang chờ",
+      value: stats?.pendingRecharge ?? 0,
+      icon: <WalletCards size={20} />,
+      color: "text-amber-700",
+      suffix: "yêu cầu",
+      currency: false,
+    },
+    {
+      key: "pending-conversion",
+      label: "Đổi Coin đang chờ",
+      value: stats?.pendingCoinConversions ?? 0,
+      icon: <Repeat2 size={20} />,
+      color: "text-amber-700",
+      suffix: "yêu cầu",
+      currency: false,
+    },
+    {
+      key: "pending-gift",
+      label: "Quà đang chờ",
+      value: stats?.pendingGifts ?? 0,
+      icon: <Gift size={20} />,
+      color: "text-amber-700",
+      suffix: "phần quà",
+      currency: false,
     },
   ] as const;
 
@@ -120,6 +229,14 @@ function AdminDashboardPage() {
           }
         />
       )}
+      {stats?.partial && (
+        <Alert
+          type="warning"
+          showIcon
+          message="Thống kê chưa đầy đủ"
+          description="Một game server đang lỗi kết nối. Tổng số bên dưới chỉ gồm các server tải thành công."
+        />
+      )}
       <section aria-labelledby="stats-heading">
         <div className="mb-4 flex items-center justify-between">
           <h2 id="stats-heading" className="text-base font-bold text-slate-800">
@@ -134,9 +251,9 @@ function AdminDashboardPage() {
             Làm mới
           </Button>
         </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {statsQuery.isLoading
-            ? Array.from({ length: 3 }).map((_, index) => (
+            ? Array.from({ length: 8 }).map((_, index) => (
                 <Card key={index} className="border-slate-200 shadow-sm">
                   <Skeleton active paragraph={{ rows: 1 }} />
                 </Card>
@@ -175,13 +292,34 @@ function AdminDashboardPage() {
         </div>
       </section>
 
+      {stats && (
+        <section aria-labelledby="server-breakdown-heading">
+          <div className="mb-4">
+            <h2
+              id="server-breakdown-heading"
+              className="text-base font-bold text-slate-800"
+            >
+              Chi tiết từng server
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Số liệu được truy vấn độc lập từ database của mỗi server.
+            </p>
+          </div>
+          <div className="grid gap-4 xl:grid-cols-2">
+            {stats.servers.map((server) => (
+              <ServerBreakdownCard key={server.serverId} server={server} />
+            ))}
+          </div>
+        </section>
+      )}
+
       <section aria-labelledby="tools-heading">
         <div className="mb-4">
           <h2 id="tools-heading" className="text-base font-bold text-slate-800">
             Công cụ tài khoản
           </h2>
           <p className="mt-1 text-sm text-slate-500">
-            Các thao tác có hiệu lực ngay trên tài khoản được nhập.
+            Các thao tác hiện chỉ áp dụng cho tài khoản Server 1.
           </p>
         </div>
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
