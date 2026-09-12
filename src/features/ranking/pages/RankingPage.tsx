@@ -316,6 +316,13 @@ const rankingTypes: RankingType[] = [
   "top-fireworks",
   "top-boss-hunt",
 ];
+const visibleRankingTypesByServer: Record<
+  ServerId,
+  readonly RankingType[]
+> = {
+  server1: ["top-donates", "top-fireworks", "top-boss-hunt"],
+  tan_binh: ["top-donates", "top-levels"],
+};
 
 function parseRankingType(value: string | null): RankingType | null {
   if (value === "san-boss") return "top-boss-hunt";
@@ -390,7 +397,10 @@ function RankingPage() {
   const requestedRankingType = parseRankingType(searchParams.get("tab"));
   const defaultRankingType: RankingType =
     viewedServerId === "server1" ? "top-donates" : "top-levels";
-  const availableRankings = catalogQuery.data?.items ?? [];
+  const visibleRankingTypes = visibleRankingTypesByServer[viewedServerId];
+  const availableRankings = (catalogQuery.data?.items ?? []).filter((item) =>
+    visibleRankingTypes.includes(item.id),
+  );
   const activeTab =
     availableRankings.find((item) => item.id === requestedRankingType)?.id ??
     availableRankings.find((item) => item.id === defaultRankingType)?.id ??
