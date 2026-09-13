@@ -35,6 +35,7 @@ type DisplayRankingEntry = {
   name: string;
   subtitle?: string;
   value: number;
+  valueDetail?: string;
 };
 
 function formatPoints(value: number) {
@@ -203,6 +204,11 @@ function PodiumCard({
         {formatValue(entry.value)}
       </p>
       <p className="mt-1 text-xs font-medium text-gray-400">{valueLabel}</p>
+      {entry.valueDetail && (
+        <p className="mt-2 text-xs font-semibold text-gray-500">
+          {entry.valueDetail}
+        </p>
+      )}
     </article>
   );
 }
@@ -298,7 +304,12 @@ function RemainingRanking({
                   </div>
                 </td>
                 <td className="px-6 py-4 text-right font-mono text-sm font-bold text-amber-600">
-                  {formatValue(entry.value)}
+                  <span className="block">{formatValue(entry.value)}</span>
+                  {entry.valueDetail && (
+                    <span className="mt-1 block font-sans text-xs font-semibold text-gray-400">
+                      {entry.valueDetail}
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}
@@ -348,6 +359,10 @@ function getRankingEntries(data?: RankingData): DisplayRankingEntry[] {
       name: entry.playerName,
       subtitle: entry.accountUsername,
       value: entry.level,
+      valueDetail:
+        (entry.level >= 100 ? "Trùng sinh " + entry.rebirthLevel + " | " : "") +
+        formatPoints(entry.experience) +
+        " EXP",
     }));
   }
   if (data.category === "top-pvp") {
@@ -436,9 +451,10 @@ function RankingPage() {
     },
     "top-levels": {
       title: "Top Level",
-      description: "Vinh danh những thuyền trưởng đạt cấp độ cao nhất.",
+      description:
+        "Vinh danh những thuyền trưởng đạt cấp độ cao nhất trong mùa hiện tại.",
       valueLabel: "Level",
-      empty: "Bảng Top Level sẽ hiển thị khi server có nhân vật hợp lệ.",
+      empty: "Top Level sẽ hiển thị khi mùa đua của Tân binh bắt đầu.",
     },
     "top-pvp": {
       title: "Top PvP",
@@ -472,9 +488,11 @@ function RankingPage() {
   const currentPresentation = presentation[activeTab];
   const formatRankingValue =
     activeTab === "top-donates" ? formatVnd : formatPoints;
+  const rankingSeason =
+    rankingData && "season" in rankingData ? rankingData.season : undefined;
   const contextLabel =
-    rankingData?.category === "top-deposit"
-      ? rankingData.season?.name || "Theo mùa"
+    rankingSeason
+      ? rankingSeason.name
       : activeTab === "top-fireworks" || activeTab === "top-boss-hunt"
         ? "Event 12"
         : catalogQuery.data?.displayName || viewedServer?.displayName || "Server";
