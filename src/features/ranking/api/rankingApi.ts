@@ -52,14 +52,16 @@ type BaseRanking = {
   updatedAt: string;
 };
 
+export type RankingSeason = {
+  id: number;
+  name: string;
+  startAt: string;
+  endAt: string;
+};
+
 export type DepositRanking = BaseRanking & {
   category: "top-deposit";
-  season?: {
-    id: number;
-    name: string;
-    startAt: string;
-    endAt: string;
-  } | null;
+  season?: RankingSeason | null;
   rewards?: RankingRewardSet | null;
   items: RankingEntry[];
 };
@@ -72,7 +74,15 @@ export type AchievementRankingEntry = {
 
 export type LevelRanking = BaseRanking & {
   category: "top-level";
-  items: Array<AchievementRankingEntry & { level: number }>;
+  season: RankingSeason | null;
+  rewards: RankingRewardSet | null;
+  items: Array<
+    AchievementRankingEntry & {
+      level: number;
+      rebirthLevel: number;
+      experience: number;
+    }
+  >;
 };
 
 export type PvpRanking = BaseRanking & {
