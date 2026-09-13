@@ -6,6 +6,12 @@ const readEnv = (value: string | undefined, fallback = "") => {
 export const env = {
   apiBaseUrl: readEnv(import.meta.env.VITE_API_BASE_URL, "http://localhost:3000/api/v1"),
   legacyApiBaseUrl: readEnv(import.meta.env.VITE_LEGACY_API_BASE_URL),
+  community: {
+    zaloGroupLink: readEnv(import.meta.env.VITE_ZALO_GROUP_LINK),
+    zaloTanBinhGroupLink: readEnv(
+      import.meta.env.VITE_ZALO_TAN_BINH_GROUP_LINK,
+    ),
+  },
   downloads: {
     testflight: {
       version: readEnv(import.meta.env.VITE_DOWNLOAD_TESTFLIGHT_VERSION, "v1.4.2"),
