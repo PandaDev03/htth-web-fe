@@ -24,16 +24,16 @@ import { scrollToTop, formatDateTime } from "@/shared/utils/utils";
 import { UserOutlined } from "@ant-design/icons";
 
 const T = {
-  eyebrow: "ĐỔI COIN",
-  title: "Chuyển điểm donate sang game coin",
+  eyebrow: "ĐỔI ĐIỂM",
+  title: "Đổi Điểm sang Coin",
   intro:
-    "Điểm donate sẽ được chuyển vào nhân vật game. Server game sẽ xử lý và cập nhật realtime.",
-  wallet: "Số điểm donate khả dụng",
-  input: "Nhập số điểm muốn đổi",
-  submit: "Xác nhận đổi điểm",
+    "Dùng Điểm khả dụng để đổi sang Coin cho nhân vật game. Hệ thống cập nhật sau khi xử lý.",
+  wallet: "Điểm khả dụng",
+  input: "Nhập số Điểm muốn đổi",
+  submit: "Xác nhận đổi Điểm",
   success: "Yêu cầu đã gửi thành công!",
   note: "Server game sẽ xử lý yêu cầu trong ít giây.",
-  history: "Lịch sử đổi điểm",
+  history: "Lịch sử đổi Điểm",
   noHistory: "Chưa có giao dịch nào.",
 };
 const STATUS: Record<string, string> = {
@@ -103,7 +103,7 @@ function CoinExchangePage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
+    <div className="flex min-h-[100dvh] flex-col bg-gray-50">
       <Header />
       <main className="flex-1 px-4 pb-16 pt-24">
         <div className="mx-auto max-w-2xl">
@@ -138,7 +138,7 @@ function CoinExchangePage() {
                     <div className="mb-1 flex items-center gap-2 opacity-80">
                       <Wallet size={14} />
                       <span className="text-xs font-medium">
-                        {"Số điểm donate khả dụng"}
+                        {T.wallet}
                       </span>
                     </div>
                     <div className="text-3xl font-bold tracking-tight">

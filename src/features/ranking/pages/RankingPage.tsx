@@ -42,8 +42,15 @@ function formatPoints(value: number) {
   return value.toLocaleString("vi-VN");
 }
 
-function formatVnd(value: number) {
-  return `${formatPoints(value)} đ`;
+const POINTS_RANKING_QUERY_TAB = "top-points";
+
+function toPointsRankingCopy(value: string) {
+  return value
+    .replace(/Top Nạp/gi, "Top Điểm tích lũy")
+    .replace(/Tổng VND đã nạp/gi, "Điểm tích lũy")
+    .replace(/Web Coin/gi, "Điểm")
+    .replace(/Donate/gi, "Điểm tích lũy")
+    .replace(/nạp/gi, "tích lũy Điểm");
 }
 
 function formatUpdatedAt(value?: string) {
@@ -337,7 +344,12 @@ const visibleRankingTypesByServer: Record<
 
 function parseRankingType(value: string | null): RankingType | null {
   if (value === "san-boss") return "top-boss-hunt";
-  if (value === "top-donate") return "top-donates";
+  if (
+    value === POINTS_RANKING_QUERY_TAB ||
+    value === "top-donate" ||
+    value === "top-donates"
+  )
+    return "top-donates";
   return rankingTypes.includes(value as RankingType)
     ? (value as RankingType)
     : null;
@@ -409,13 +421,22 @@ function RankingPage() {
     staleTime: 5 * 60 * 1000,
     enabled: Boolean(viewedServer),
   });
-  const requestedRankingType = parseRankingType(searchParams.get("tab"));
+  const requestedTabParam = searchParams.get("tab");
+  const requestedRankingType = parseRankingType(requestedTabParam);
   const defaultRankingType: RankingType =
     viewedServerId === "server1" ? "top-donates" : "top-levels";
   const visibleRankingTypes = visibleRankingTypesByServer[viewedServerId];
-  const availableRankings = (catalogQuery.data?.items ?? []).filter((item) =>
-    visibleRankingTypes.includes(item.id),
-  );
+  const availableRankings = (catalogQuery.data?.items ?? [])
+    .filter((item) => visibleRankingTypes.includes(item.id))
+    .map((item) =>
+      item.id === "top-donates"
+        ? {
+            ...item,
+            label: "Top Điểm tích lũy",
+            status: toPointsRankingCopy(item.status),
+          }
+        : item,
+    );
   const activeTab =
     availableRankings.find((item) => item.id === requestedRankingType)?.id ??
     availableRankings.find((item) => item.id === defaultRankingType)?.id ??
@@ -435,19 +456,56 @@ function RankingPage() {
     scrollToTop({ behavior: "smooth" });
   }, []);
 
+  useEffect(() => {
+    if (
+      requestedRankingType !== "top-donates" ||
+      requestedTabParam === POINTS_RANKING_QUERY_TAB
+    )
+      return;
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("tab", POINTS_RANKING_QUERY_TAB);
+    setSearchParams(nextParams, { replace: true });
+  }, [
+    requestedRankingType,
+    requestedTabParam,
+    searchParams,
+    setSearchParams,
+  ]);
+
   const rankingData = rankingQuery.data;
   const entries = getRankingEntries(rankingData);
   const topThree = entries.slice(0, 3);
   const remaining = entries.slice(3);
-  const currentRewards =
+  const rankingRewards =
     rankingData && "rewards" in rankingData ? rankingData.rewards : undefined;
+  const currentRewards =
+    rankingRewards && activeTab === "top-donates"
+      ? {
+          ...rankingRewards,
+          title: toPointsRankingCopy(rankingRewards.title),
+          description: toPointsRankingCopy(rankingRewards.description),
+          tiers: rankingRewards.tiers.map((tier) => ({
+            ...tier,
+            rankLabel: toPointsRankingCopy(tier.rankLabel),
+            items: tier.items.map((item) => ({
+              ...item,
+              name: toPointsRankingCopy(item.name),
+              description: item.description
+                ? toPointsRankingCopy(item.description)
+                : item.description,
+            })),
+          })),
+        }
+      : rankingRewards;
   const presentation = {
     "top-donates": {
-      title: "Top Nạp",
+      title: "Top Điểm tích lũy",
       description:
-        "Vinh danh những thuyền trưởng nạp nhiều nhất trong mùa hiện tại.",
-      valueLabel: "Tổng VND đã nạp",
-      empty: "Bảng Top Nạp sẽ hiển thị khi có giao dịch trong mùa hiện tại.",
+        "Vinh danh những thuyền trưởng có Điểm tích lũy cao nhất trong mùa hiện tại.",
+      valueLabel: "Điểm tích lũy",
+      empty:
+        "Bảng Top Điểm tích lũy sẽ hiển thị khi có giao dịch trong mùa hiện tại.",
     },
     "top-levels": {
       title: "Top Level",
@@ -486,13 +544,14 @@ function RankingPage() {
     }
   >;
   const currentPresentation = presentation[activeTab];
-  const formatRankingValue =
-    activeTab === "top-donates" ? formatVnd : formatPoints;
+  const formatRankingValue = formatPoints;
   const rankingSeason =
     rankingData && "season" in rankingData ? rankingData.season : undefined;
   const contextLabel =
     rankingSeason
-      ? rankingSeason.name
+      ? activeTab === "top-donates"
+        ? toPointsRankingCopy(rankingSeason.name)
+        : rankingSeason.name
       : activeTab === "top-fireworks" || activeTab === "top-boss-hunt"
         ? "Event 12"
         : catalogQuery.data?.displayName || viewedServer?.displayName || "Server";
@@ -511,7 +570,10 @@ function RankingPage() {
 
   const changeTab = (nextTab: RankingType) => {
     const nextParams = new URLSearchParams(searchParams);
-    nextParams.set("tab", nextTab);
+    nextParams.set(
+      "tab",
+      nextTab === "top-donates" ? POINTS_RANKING_QUERY_TAB : nextTab,
+    );
     setSearchParams(nextParams, { replace: true });
   };
 
@@ -642,7 +704,7 @@ function RankingPage() {
                     void catalogQuery.refetch();
                     void rankingQuery.refetch();
                   }}
-                  className="mt-5 inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-amber-600"
+                  className="mt-5 inline-flex items-center gap-2 rounded-lg bg-amber-700 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-amber-800"
                 >
                   <RefreshCw size={15} aria-hidden="true" />
                   Thử lại
