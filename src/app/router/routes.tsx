@@ -63,6 +63,11 @@ export const appRoutes: AppRoute[] = [
     allowedRoles: ["user", "moderator", "admin"],
   },
   {
+    path: PATH.LEGACY_WALLET_DEPOSIT,
+    element: <Navigate to={PATH.WALLET_DEPOSIT} replace />,
+    allowedRoles: ["user", "moderator", "admin"],
+  },
+  {
     path: PATH.ADMIN_ROOT,
     element: <AppShell />,
     allowedRoles: ["admin"],

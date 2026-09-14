@@ -45,7 +45,7 @@ export function RankingTabs({
                 onClick={() => onChange(tab.id)}
                 className={`flex min-w-[11rem] items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors active:scale-[0.98] ${
                   isActive
-                    ? "bg-amber-500 text-white shadow-sm"
+                    ? "bg-amber-700 text-white shadow-sm"
                     : "text-gray-600 hover:bg-amber-50 hover:text-amber-700"
                 }`}
               >

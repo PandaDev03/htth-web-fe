@@ -72,16 +72,27 @@ function formatAmountInput(value: string) {
 
 const DepositPageHeader = () => {
   return (
-    <header className="mb-6">
-      <div className="mb-1 flex items-center gap-2">
-        <CreditCard size={20} className="text-amber-500" />
-        <span className="text-xs font-semibold uppercase tracking-widest text-amber-600">
-          Donate
+    <header className="relative mb-6 overflow-hidden rounded-2xl border border-amber-200 bg-white px-5 py-6 shadow-sm sm:px-7">
+      <div
+        className="absolute inset-y-0 right-0 w-1/3 bg-gradient-to-l from-amber-100/70 to-transparent"
+        aria-hidden="true"
+      />
+      <div className="relative flex items-center gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+          <CreditCard size={21} />
         </span>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-amber-700">
+            Điểm tích lũy
+          </p>
+          <h1 className="mt-0.5 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
+            Tích lũy Điểm qua ATM
+          </h1>
+        </div>
       </div>
-      <h1 className="text-2xl font-bold text-gray-800">Donate Web Coin PayOS</h1>
-      <p className="mt-1 text-sm text-gray-500">
-        Chọn số tiền donate để nhận Web Coin theo tỷ lệ của server hiện tại.
+      <p className="relative mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+        Chọn gói Điểm, thanh toán bằng ATM hoặc QR ngân hàng và nhận Điểm tự
+        động vào tài khoản.
       </p>
     </header>
   );
@@ -215,16 +226,16 @@ function WalletDepositPage() {
           bankSuccessOrderCodeRef.current = orderCode;
           showPaymentReceivedModal(
             result.message ||
-              "PayOS đã xác nhận thanh toán thành công. Hệ thống đang cập nhật Web Coin.",
+              "Đã xác nhận thanh toán. Hệ thống đang cập nhật Điểm tích lũy.",
             variables,
           );
           clearPaymentAfterBankSuccess();
         }
 
-        setPaymentState("Đang cộng Web Coin");
+        setPaymentState("Đang cộng Điểm");
         setStatusText(
           result.message ||
-            "Đã thanh toán, server game đang cộng Web Coin vào ví.",
+            "Đã thanh toán, hệ thống đang cộng Điểm vào tài khoản.",
         );
         schedulePaymentStatusCheck(PAYMENT_STATUS_DELAY_MS, variables);
         return;
@@ -239,8 +250,8 @@ function WalletDepositPage() {
         setStatusText("");
         const message =
           result.message ||
-          "Giao dịch đã thanh toán nhưng chưa thể cộng Web Coin. Vui lòng liên hệ hỗ trợ.";
-        setError(`${message} Mã đơn PayOS: ${orderCode}.`);
+          "Giao dịch đã thanh toán nhưng chưa thể cộng Điểm. Vui lòng liên hệ hỗ trợ.";
+        setError(`${message} Mã giao dịch: ${orderCode}.`);
         showPaymentDeliveryFailedModal(message, orderCode, variables);
         return;
       }
@@ -250,7 +261,8 @@ function WalletDepositPage() {
         handledOrderCodeRef.current = orderCode;
         bankSuccessOrderCodeRef.current = orderCode;
         showPaymentCompletedModal(
-          result.message || "Giao dịch thành công. Web Coin đã được cộng vào ví.",
+          result.message ||
+            "Giao dịch thành công. Điểm đã được cộng vào tài khoản.",
           variables,
         );
 
@@ -494,7 +506,7 @@ function WalletDepositPage() {
     let handle: PaymentModalHandle | null = null;
     handle = modal.success({
       centered: true,
-      title: "Donate thành công",
+      title: "Tích lũy Điểm thành công",
       content: message,
       okText: "OK",
       afterClose: () => {
@@ -515,7 +527,7 @@ function WalletDepositPage() {
     handle = modal.error({
       centered: true,
       title: "Giao dịch cần hỗ trợ",
-      content: `${message} Mã đơn PayOS: ${orderCode}.`,
+      content: `${message} Mã giao dịch: ${orderCode}.`,
       okText: "Đã hiểu",
       afterClose: () => {
         if (paymentModalRef.current === handle) paymentModalRef.current = null;
@@ -544,18 +556,18 @@ function WalletDepositPage() {
       setError(
         configQuery.error instanceof Error
           ? configQuery.error.message
-          : "Chưa tải được cấu hình Donate PayOS.",
+          : "Chưa tải được cấu hình Điểm tích lũy.",
       );
       return;
     }
     if (!depositConfig.enabled) {
-      setError("Kênh Donate PayOS hiện đang tạm đóng. Vui lòng quay lại sau.");
+      setError("Kênh tích lũy Điểm hiện đang tạm đóng. Vui lòng quay lại sau.");
       return;
     }
     if (nextAmount < depositConfig.minAmount) {
       setError(
         nextAmount > 0
-          ? `Số tiền donate tối thiểu là ${formatVnd(depositConfig.minAmount)}.`
+          ? `Số tiền thanh toán tối thiểu là ${formatVnd(depositConfig.minAmount)}.`
           : "",
       );
       return;
@@ -563,7 +575,7 @@ function WalletDepositPage() {
 
     if (nextAmount > maximumDepositAmount) {
       setError(
-        `Số tiền donate tối đa theo tỷ lệ hiện tại là ${formatVnd(maximumDepositAmount)}.`,
+        `Số tiền thanh toán tối đa theo tỷ lệ hiện tại là ${formatVnd(maximumDepositAmount)}.`,
       );
       return;
     }
@@ -645,7 +657,7 @@ function WalletDepositPage() {
       )
         return;
       dispatch(setCredentials(session));
-      toast.success("Ví đã được cộng Web Coin thành công.");
+      toast.success("Tài khoản đã được cộng Điểm thành công.");
     } catch {
       if (!mountedRef.current || activeDepositSession() !== expectedSession)
         return;
@@ -678,20 +690,20 @@ function WalletDepositPage() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-gray-50">
+    <div className="flex min-h-[100dvh] flex-col bg-slate-50">
       <Header />
-      <main className="flex-1 px-4 pb-16 pt-24">
+      <main className="flex-1 px-4 pb-20 pt-20 sm:pt-24">
         <div className="mx-auto max-w-6xl">
           <DepositPageHeader />
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)]">
-            <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="flex items-center gap-2 text-sm font-bold text-gray-700">
                   <Banknote size={16} className="text-amber-500" />
-                  Chọn hoặc nhập số tiền donate
+                  Chọn gói Điểm
                 </h2>
-                <span className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-bold text-teal-700">
-                  PayOS QR
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+                  ATM / QR ngân hàng
                 </span>
               </div>
 
@@ -701,32 +713,36 @@ function WalletDepositPage() {
                     <Wallet size={24} />
                   </div>
                   <div>
-                    <p className="font-bold text-gray-800">Gói Donate</p>
+                    <p className="font-bold text-gray-800">Gói Điểm tích lũy</p>
                     <p className="text-xs text-gray-500">
                       {configQuery.isPending
-                        ? "Đang tải tỷ lệ Web Coin của server..."
+                        ? "Đang tải tỷ lệ Điểm của server..."
                         : depositConfig?.enabled
-                          ? `Tỷ lệ hiện tại: x${formatMultiplier(depositConfig.multiplier)} Web Coin.`
-                          : "Kênh Donate PayOS hiện đang tạm đóng."}
+                          ? `Tỷ lệ hiện tại: x${formatMultiplier(depositConfig.multiplier)} Điểm.`
+                          : "Kênh tích lũy Điểm hiện đang tạm đóng."}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <label className="mb-1.5 mt-5 block text-xs font-semibold text-gray-600">
-                Số tiền donate
+              <label
+                htmlFor="points-payment-amount"
+                className="mb-1.5 mt-5 block text-xs font-semibold text-gray-600"
+              >
+                Số tiền thanh toán
               </label>
               <div className="relative">
                 <input
+                  id="points-payment-amount"
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9.,]*"
                   value={amountInput}
                   onChange={changeAmount}
                   disabled={!depositConfig?.enabled}
-                  placeholder="Nhập số tiền..."
+                  placeholder="Nhập số tiền thanh toán..."
                   autoComplete="off"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-14 text-sm font-semibold text-gray-800 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-14 text-sm font-semibold text-gray-800 placeholder:text-gray-500 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">
                   VND
@@ -736,8 +752,8 @@ function WalletDepositPage() {
                 {depositConfig?.enabled
                   ? `Từ ${formatVnd(depositConfig.minAmount)} đến ${formatVnd(maximumDepositAmount)}. QR sẽ tự tạo khi số tiền hợp lệ.`
                   : configQuery.isPending
-                    ? "Đang tải hạn mức Donate..."
-                    : "Chưa thể tạo giao dịch Donate lúc này."}
+                    ? "Đang tải hạn mức tích lũy Điểm..."
+                    : "Chưa thể tạo giao dịch tích lũy Điểm lúc này."}
               </p>
 
               <div className="mt-5">
@@ -771,7 +787,7 @@ function WalletDepositPage() {
                         </span>
                         <span className="mt-1 block text-xs font-semibold text-gray-400">
                           {presetWebCoin > 0
-                            ? `${formatNumber(presetWebCoin)} Web Coin`
+                            ? `${formatNumber(presetWebCoin)} Điểm`
                             : "Đang tải tỷ lệ"}
                         </span>
                       </button>
@@ -783,7 +799,7 @@ function WalletDepositPage() {
               <div className="mt-5 rounded-xl bg-gray-50 p-4">
                 <div className="flex items-center justify-between border-b border-gray-100 pb-3 text-sm">
                   <span className="font-semibold text-gray-500">
-                    Gói Donate
+                    Giá trị gói
                   </span>
                   <span className="font-bold text-gray-800">
                     {amount > 0 ? formatVnd(amount) : "Chưa chọn"}
@@ -791,11 +807,11 @@ function WalletDepositPage() {
                 </div>
                 <div className="flex items-center justify-between border-b border-gray-100 py-3 text-sm">
                   <span className="font-semibold text-gray-500">
-                    Web Coin nhận được
+                    Điểm nhận được
                   </span>
                   <span className="font-bold text-amber-600">
                     {payment?.webCoinAmount || expectedWebCoinAmount
-                      ? `${formatNumber(payment?.webCoinAmount ?? expectedWebCoinAmount)} Coin`
+                      ? `${formatNumber(payment?.webCoinAmount ?? expectedWebCoinAmount)} Điểm`
                       : "Chưa xác định"}
                   </span>
                 </div>
@@ -803,7 +819,9 @@ function WalletDepositPage() {
                   <span className="font-semibold text-gray-500">
                     Phương thức
                   </span>
-                  <span className="font-bold text-gray-800">PayOS QR</span>
+                  <span className="font-bold text-gray-800">
+                    ATM / QR ngân hàng
+                  </span>
                 </div>
                 <div className="flex items-center justify-between py-3 text-sm">
                   <span className="font-semibold text-gray-500">
@@ -827,7 +845,7 @@ function WalletDepositPage() {
                 <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
                   {configQuery.error instanceof Error
                     ? configQuery.error.message
-                    : "Không thể tải cấu hình Donate PayOS."}
+                    : "Không thể tải cấu hình Điểm tích lũy."}
                 </div>
               )}
 
@@ -838,8 +856,11 @@ function WalletDepositPage() {
               )}
 
               {statusText && !error && (
-                <div className="mt-4 flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                  <Clock size={16} className="mt-0.5 shrink-0" />
+                <div className="mt-4 flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                  <Clock
+                    size={16}
+                    className="mt-0.5 shrink-0 text-amber-700"
+                  />
                   <span>{statusText}</span>
                 </div>
               )}
@@ -848,7 +869,7 @@ function WalletDepositPage() {
                 type="button"
                 onClick={() => generatePayosQr(amount, true)}
                 disabled={!canCreateQr || createPaymentMutation.isPending}
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-3.5 font-bold text-white transition-all hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 active:translate-y-px"
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-700 py-3.5 font-bold text-white transition-all hover:bg-amber-800 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 active:translate-y-px"
               >
                 {createPaymentMutation.isPending ? (
                   <>
@@ -871,19 +892,19 @@ function WalletDepositPage() {
 
             <section
               ref={qrContainerRef}
-              className="scroll-mt-24 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm"
+              className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
             >
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <h2 className="flex items-center gap-2 text-sm font-bold text-gray-700">
                   <QrCode size={16} className="text-amber-500" />
-                  QR thanh toán
+                  Thanh toán ATM / QR
                 </h2>
                 <span
                   className={
                     "rounded-full border px-3 py-1 text-xs font-bold " +
                     (payment
                       ? "border-amber-200 bg-amber-50 text-amber-700"
-                      : "border-teal-200 bg-teal-50 text-teal-700")
+                      : "border-slate-200 bg-slate-50 text-slate-600")
                   }
                 >
                   {payment ? paymentState : "Sẵn sàng"}
@@ -899,7 +920,7 @@ function WalletDepositPage() {
                     Mã thanh toán sẽ hiển thị tại đây
                   </h3>
                   <p className="max-w-xs text-sm leading-relaxed text-gray-500">
-                    Chọn mệnh giá hoặc nhập số tiền để hệ thống tự tạo QR PayOS
+                    Chọn gói hoặc nhập số tiền để hệ thống tạo mã QR thanh toán
                     cho tài khoản của bạn.
                   </p>
                 </div>
@@ -909,7 +930,7 @@ function WalletDepositPage() {
                     {payment.qr_image_url ? (
                       <img
                         src={payment.qr_image_url}
-                        alt="QR PayOS Donate Coin"
+                        alt="Mã QR thanh toán Điểm tích lũy"
                         className="w-full max-w-[280px] rounded-xl"
                       />
                     ) : (
@@ -927,11 +948,15 @@ function WalletDepositPage() {
                         "amount",
                       ],
                       [
-                        "Web Coin",
-                        `${formatNumber(payment.webCoinAmount)} Coin (x${formatMultiplier(payment.multiplier)})`,
+                        "Điểm tích lũy",
+                        `${formatNumber(payment.webCoinAmount)} Điểm (x${formatMultiplier(payment.multiplier)})`,
                         "web-coin",
                       ],
-                      ["Nội dung", payment.description, "description"],
+                      [
+                        "Nội dung chuyển khoản",
+                        payment.description,
+                        "description",
+                      ],
                       ["Mã đơn", payment.order_code, "order"],
                     ].map(([label, value, key]) => (
                       <div
@@ -960,7 +985,7 @@ function WalletDepositPage() {
                       href={payment.checkout_url || "#"}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 py-3 text-sm font-bold text-white transition-all hover:bg-amber-600 active:translate-y-px"
+                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-700 py-3 text-sm font-bold text-white transition-all hover:bg-amber-800 active:translate-y-px"
                     >
                       Mở cổng thanh toán
                       <ExternalLink size={16} />
@@ -1001,7 +1026,7 @@ function WalletDepositPage() {
                   <p className="mt-0.5 text-xs leading-relaxed text-amber-700">
                     Vui lòng giữ nguyên nội dung chuyển khoản do PayOS tạo. Sau
                     khi giao dịch thành công, hệ thống sẽ tự xác nhận và cộng
-                    Web Coin.
+                    Điểm vào tài khoản.
                   </p>
                 </div>
               </div>
@@ -1012,7 +1037,7 @@ function WalletDepositPage() {
                   onClick={() => resetDeposit()}
                   className="mt-4 w-full rounded-xl border border-gray-200 py-3 text-sm font-bold text-gray-600 transition-all hover:bg-gray-50 active:translate-y-px"
                 >
-                  Tạo giao dịch Donate khác
+                  Tạo giao dịch tích lũy Điểm khác
                 </button>
               )}
             </section>

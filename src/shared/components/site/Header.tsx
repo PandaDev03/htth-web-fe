@@ -18,7 +18,7 @@ export function Header() {
     { label: "Bài viết", href: PATH.ARTICLES },
     { label: "Tải Game", href: PATH.DOWNLOAD },
     { label: "Đua Top", href: PATH.RANKING },
-    { label: "Ủng hộ", href: PATH.WALLET_DEPOSIT },
+    { label: "Tích Điểm", href: PATH.WALLET_DEPOSIT },
     { label: "Đổi Coin", href: PATH.COIN_EXCHANGE },
   ];
 
