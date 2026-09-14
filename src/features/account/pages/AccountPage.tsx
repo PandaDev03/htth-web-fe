@@ -179,7 +179,7 @@ function PlayerAccountPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
+    <div className="flex min-h-[100dvh] flex-col bg-gray-50">
       <Header />
       <main className="flex-1 px-4 pb-16 pt-24">
         <div className="mx-auto max-w-[44rem]">
@@ -247,13 +247,13 @@ function PlayerAccountPage() {
           </div>
           <div className="mb-4 grid grid-cols-2 gap-4">
             {[
-              [<Wallet size={16} />, "Số Điểm Donate", account.coin, "Coin", "amber"],
+              [<Wallet size={16} />, "Điểm khả dụng", account.coin, "Điểm", "amber"],
               [
                 <Star size={16} />,
-                "Điểm Donate",
+                "Điểm tích lũy",
                 account.tongnap,
                 "Điểm",
-                "purple",
+                "slate",
               ],
             ].map(([icon, label, value, unit, color]) => (
               <div
@@ -262,7 +262,7 @@ function PlayerAccountPage() {
               >
                 <div className="mb-2 flex items-center gap-2">
                   <div
-                    className={`flex h-8 w-8 items-center justify-center rounded-lg ${color === "amber" ? "bg-amber-50 text-amber-500" : "bg-purple-50 text-purple-500"}`}
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg ${color === "amber" ? "bg-amber-50 text-amber-600" : "bg-slate-100 text-slate-600"}`}
                   >
                     {icon as ReactNode}
                   </div>
@@ -271,7 +271,7 @@ function PlayerAccountPage() {
                   </span>
                 </div>
                 <p
-                  className={`text-2xl font-bold ${color === "amber" ? "text-amber-600" : "text-purple-600"}`}
+                  className={`text-2xl font-bold ${color === "amber" ? "text-amber-700" : "text-slate-700"}`}
                 >
                   {(value as number).toLocaleString("vi-VN")}
                 </p>

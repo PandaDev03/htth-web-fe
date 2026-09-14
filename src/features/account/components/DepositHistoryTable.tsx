@@ -15,8 +15,8 @@ import {
 
 const formatVnd = (amount: number) =>
   Number(amount || 0).toLocaleString("vi-VN") + " đ";
-const formatWebCoin = (amount: number) =>
-  Number(amount || 0).toLocaleString("vi-VN") + " Coin";
+const formatPoints = (amount: number) =>
+  Number(amount || 0).toLocaleString("vi-VN") + " Điểm";
 
 function formatPaidAt(value: string) {
   if (!value) return "Chưa rõ";
@@ -42,6 +42,12 @@ function statusClass(status: string) {
     : "border-amber-200 bg-amber-50 text-amber-700";
 }
 
+function formatPaymentStatus(status: string) {
+  return status
+    .replace(/Web Coin/gi, "Điểm")
+    .replace(/Donate/gi, "tích lũy Điểm");
+}
+
 function PaymentStatus({ status }: { status: string }) {
   return (
     <span
@@ -50,7 +56,7 @@ function PaymentStatus({ status }: { status: string }) {
         statusClass(status)
       }
     >
-      {status || "Đang xử lý"}
+      {status ? formatPaymentStatus(status) : "Đang xử lý"}
     </span>
   );
 }
@@ -67,7 +73,7 @@ function MobileHistoryCard({ item }: { item: DepositHistoryItem }) {
             {formatVnd(item.amount)}
           </p>
           <p className="mt-1 text-xs font-bold text-gray-500">
-            Nhận {formatWebCoin(item.webCoinAmount)}
+            Nhận {formatPoints(item.webCoinAmount)}
           </p>
         </div>
         <PaymentStatus status={item.status} />
@@ -104,7 +110,7 @@ export function DepositHistoryTable() {
         <div>
           <h2 className="flex items-center gap-2 text-sm font-bold text-gray-700">
             <ReceiptText size={16} className="text-amber-500" />
-            Lịch Sử Donate
+            Lịch sử tích lũy Điểm
           </h2>
           <p className="mt-1 text-xs text-gray-400">
             50 giao dịch gần nhất của tài khoản
@@ -127,7 +133,7 @@ export function DepositHistoryTable() {
         <div className="flex flex-col items-center px-5 py-12 text-center">
           <Clock3 size={26} className="text-gray-300" />
           <p className="mt-3 text-sm font-semibold text-gray-600">
-            Chưa có giao dịch Donate
+            Chưa có giao dịch tích lũy Điểm
           </p>
           <p className="mt-1 text-xs text-gray-400">
             Giao dịch thành công sẽ xuất hiện tại đây.
@@ -145,8 +151,10 @@ export function DepositHistoryTable() {
               <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-400">
                 <tr>
                   <th className="px-5 py-3 font-semibold">Mã giao dịch</th>
-                  <th className="px-4 py-3 font-semibold">VND đã nạp</th>
-                  <th className="px-4 py-3 font-semibold">Web Coin nhận</th>
+                  <th className="px-4 py-3 font-semibold">
+                    Số tiền thanh toán
+                  </th>
+                  <th className="px-4 py-3 font-semibold">Điểm nhận</th>
                   <th className="px-4 py-3 font-semibold">Ngân hàng</th>
                   <th className="px-4 py-3 font-semibold">Thời gian</th>
                   <th className="px-5 py-3 text-right font-semibold">
@@ -164,7 +172,7 @@ export function DepositHistoryTable() {
                       {formatVnd(item.amount)}
                     </td>
                     <td className="whitespace-nowrap px-4 py-4 font-bold text-gray-700">
-                      {formatWebCoin(item.webCoinAmount)}
+                      {formatPoints(item.webCoinAmount)}
                     </td>
                     <td className="whitespace-nowrap px-4 py-4 font-medium">
                       {item.bank || "PayOS"}

@@ -61,7 +61,7 @@ export function UserMenu({
     {
       key: "deposit",
       icon: <WalletMinimal size={16} />,
-      label: "Donate",
+      label: "Tích điểm",
     },
     { type: "divider" },
     {
