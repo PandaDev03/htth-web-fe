@@ -230,6 +230,27 @@ export async function uploadArticleThumbnail(file: File) {
   }
 }
 
+export async function uploadArticleContentImage(
+  file: File,
+  onProgress?: (percent: number) => void,
+) {
+  const formData = new FormData();
+  formData.append("image", file);
+  try {
+    const { data } = await httpClient.post<
+      ApiEnvelope<{ url: string; publicId: string }>
+    >("/admin/articles/image", formData, {
+      onUploadProgress: (event) => {
+        if (!event.total) return;
+        onProgress?.(Math.round((event.loaded * 100) / event.total));
+      },
+    });
+    return data.data;
+  } catch (error) {
+    throw new Error(errorMessage(error, "Không thể upload ảnh nội dung."));
+  }
+}
+
 export async function deleteAdminArticle(id: number) {
   try {
     const { data } = await httpClient.delete<{ message: string }>(
