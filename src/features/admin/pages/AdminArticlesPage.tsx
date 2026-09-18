@@ -29,12 +29,14 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import type { Editor as TinyMCEEditor } from "tinymce";
 
 import {
   createAdminArticle,
   deleteAdminArticle,
   getAdminArticles,
   updateAdminArticle,
+  uploadArticleContentImage,
   uploadArticleThumbnail,
   type Article,
   type CreateArticlePayload,
@@ -50,11 +52,6 @@ type AdminArticleFormValues = Omit<CreateArticlePayload, "progress"> & {
   > & {
     milestonesJson?: string;
   };
-};
-
-type TinyEditorRef = {
-  getContent: () => string;
-  setContent: (content: string) => void;
 };
 
 const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
@@ -152,9 +149,11 @@ function AdminArticlesPage() {
   const [form] = Form.useForm<AdminArticleFormValues>();
   const progressEnabled = Form.useWatch("progressEnabled", form);
   const queryClient = useQueryClient();
-  const editorRef = useRef<TinyEditorRef | null>(null);
+  const editorRef = useRef<TinyMCEEditor | null>(null);
   const localPreviewRef = useRef<string | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const [isUploadingContentImages, setIsUploadingContentImages] =
+    useState(false);
   const [editingArticleId, setEditingArticleId] = useState<number | null>(null);
   const [editingArticleTitle, setEditingArticleTitle] = useState<string | null>(
     null,
@@ -408,17 +407,30 @@ function AdminArticlesPage() {
     });
   };
 
-  const submitArticle = (values: AdminArticleFormValues) => {
-    const payload: CreateArticlePayload = {
-      title: values.title,
-      description: values.description?.trim() || undefined,
-      category: values.category,
-      content: values.content,
-      thumbnailUrl: values.thumbnailUrl,
-    };
+  const submitArticle = async (values: AdminArticleFormValues) => {
+    setIsUploadingContentImages(true);
+    try {
+      const uploadResults = (await editorRef.current?.uploadImages()) ?? [];
+      if (uploadResults.some((result) => !result.status)) {
+        throw new Error(
+          "Có ảnh trong nội dung chưa upload thành công. Vui lòng thử lại.",
+        );
+      }
 
-    if (values.progressEnabled && values.progress) {
-      try {
+      const content = editorRef.current?.getContent() ?? values.content;
+      if (content.length > 50_000) {
+        throw new Error("Nội dung bài viết quá dài.");
+      }
+      form.setFieldValue("content", content);
+      const payload: CreateArticlePayload = {
+        title: values.title,
+        description: values.description?.trim() || undefined,
+        category: values.category,
+        content,
+        thumbnailUrl: values.thumbnailUrl,
+      };
+
+      if (values.progressEnabled && values.progress) {
         payload.progress = {
           key: values.progress.key?.trim() || undefined,
           title: values.progress.title?.trim() || undefined,
@@ -429,23 +441,27 @@ function AdminArticlesPage() {
           scoreIndex: Number(values.progress.scoreIndex),
           milestones: parseMilestonesJson(values.progress.milestonesJson),
         };
-      } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Cấu hình quà mốc không hợp lệ.",
-        );
+      }
+      if (editingArticleId) {
+        updateMutation.mutate({ id: editingArticleId, payload });
         return;
       }
+      createMutation.mutate(payload);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Không thể chuẩn bị nội dung bài viết.",
+      );
+    } finally {
+      setIsUploadingContentImages(false);
     }
-    if (editingArticleId) {
-      updateMutation.mutate({ id: editingArticleId, payload });
-      return;
-    }
-    createMutation.mutate(payload);
   };
 
-  const isSubmitting = createMutation.isPending || updateMutation.isPending;
+  const isSubmitting =
+    createMutation.isPending ||
+    updateMutation.isPending ||
+    isUploadingContentImages;
 
   return (
     <div className="space-y-8">
@@ -673,7 +689,6 @@ function AdminArticlesPage() {
               hidden
               rules={[
                 { required: true, message: "Vui lòng nhập nội dung." },
-                { max: 50_000, message: "Nội dung quá dài." },
               ]}
             >
               <Input />
@@ -692,9 +707,25 @@ function AdminArticlesPage() {
                   menubar: false,
                   branding: false,
                   plugins:
-                    "advlist autolink lists link charmap table code wordcount",
+                    "advlist autolink lists link image charmap table code wordcount",
                   toolbar:
-                    "undo redo | blocks | bold italic underline forecolor | alignleft aligncenter alignright | bullist numlist | link table | removeformat code",
+                    "undo redo | blocks | bold italic underline forecolor | alignleft aligncenter alignright | bullist numlist | link image table | removeformat code",
+                  paste_data_images: true,
+                  automatic_uploads: true,
+                  images_file_types: "jpg,jpeg,png,webp,gif",
+                  images_upload_handler: async (blobInfo, progress) => {
+                    const blob = blobInfo.blob();
+                    const filename =
+                      blobInfo.filename() || `article-image-${Date.now()}`;
+                    const file = new File([blob], filename, {
+                      type: blob.type || "image/png",
+                    });
+                    const uploaded = await uploadArticleContentImage(
+                      file,
+                      progress,
+                    );
+                    return uploaded.url;
+                  },
                   content_style:
                     "body { font-family: Plus Jakarta Sans, sans-serif; font-size: 14px; color: #334155; padding: 12px; }",
                 }}
@@ -706,7 +737,9 @@ function AdminArticlesPage() {
                 htmlType="submit"
                 icon={<Send size={16} />}
                 loading={isSubmitting}
-                disabled={uploadMutation.isPending}
+                disabled={
+                  uploadMutation.isPending || isUploadingContentImages
+                }
                 className="w-full"
                 onClick={syncEditorContent}
               >
