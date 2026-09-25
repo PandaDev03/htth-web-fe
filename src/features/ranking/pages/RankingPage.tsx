@@ -338,7 +338,7 @@ const visibleRankingTypesByServer: Record<
   ServerId,
   readonly RankingType[]
 > = {
-  server1: ["top-donates", "top-fireworks", "top-boss-hunt"],
+  server1: ["top-donates"],
   tan_binh: ["top-donates", "top-levels"],
 };
 
