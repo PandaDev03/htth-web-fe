@@ -178,7 +178,7 @@ function AdminDashboardPage() {
       value: stats?.revenue ?? 0,
       icon: <BadgeDollarSign size={20} />,
       color: "text-amber-700",
-      suffix: "từ giao dịch nạp",
+      suffix: "tổng Server 1 và Tân binh",
       currency: true,
     },
     {
@@ -234,7 +234,7 @@ function AdminDashboardPage() {
           type="warning"
           showIcon
           message="Thống kê chưa đầy đủ"
-          description="Một game server đang lỗi kết nối. Tổng số bên dưới chỉ gồm các server tải thành công."
+          description="Một nguồn dữ liệu đang lỗi kết nối. Một số tổng có thể chưa đầy đủ."
         />
       )}
       <section aria-labelledby="stats-heading">
@@ -302,7 +302,7 @@ function AdminDashboardPage() {
               Chi tiết từng server
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Số liệu được truy vấn độc lập từ database của mỗi server.
+              Chỉ hiển thị số liệu của các server đang mở.
             </p>
           </div>
           <div className="grid gap-4 xl:grid-cols-2">
