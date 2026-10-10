@@ -4,17 +4,24 @@ import { httpClient } from "@/shared/api/httpClient";
 import type { RewardIconItem } from "@/shared/types/reward";
 import type { ServerId } from "@/shared/types/server";
 
-export type RankingType =
-  | "top-donates"
-  | "top-levels"
-  | "top-pvp"
-  | "top-fireworks"
-  | "top-boss-hunt";
+export type BuiltinRankingType =
+  "top-donates" | "top-levels" | "top-pvp" | "top-fireworks" | "top-boss-hunt";
+
+export type ConfiguredEventRankingType = `event:${string}`;
+export type RankingType = BuiltinRankingType | ConfiguredEventRankingType;
+
+export function isEventRankingType(
+  value: string,
+): value is ConfiguredEventRankingType {
+  return value.length <= 70 && /^event:[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
+}
 
 export type RankingCatalogItem = {
   id: RankingType;
   label: string;
   status: string;
+  eventId?: number;
+  scoreIndex?: number;
 };
 
 export type RankingCatalog = {
@@ -91,18 +98,17 @@ export type PvpRanking = BaseRanking & {
 };
 
 export type EventRanking = BaseRanking & {
-  category: "top-fireworks" | "top-boss-hunt";
-  eventId: 12;
-  scoreIndex: 0 | 1;
-  rewards?: RankingRewardSet;
+  category: "top-fireworks" | "top-boss-hunt" | "top-event";
+  eventId: number;
+  scoreIndex: number;
+  rankingCode?: string;
+  season?: RankingSeason | null;
+  rewards?: RankingRewardSet | null;
   items: Array<AchievementRankingEntry & { points: number }>;
 };
 
 export type RankingData =
-  | DepositRanking
-  | LevelRanking
-  | PvpRanking
-  | EventRanking;
+  DepositRanking | LevelRanking | PvpRanking | EventRanking;
 
 type ApiEnvelope<T> = { data: T };
 
@@ -129,13 +135,12 @@ export async function getRankingCatalog(serverId: ServerId) {
   }
 }
 
-export async function getRanking(
-  serverId: ServerId,
-  rankingType: RankingType,
-) {
+export async function getRanking(serverId: ServerId, rankingType: RankingType) {
   try {
     const response = await httpClient.get<ApiEnvelope<RankingData>>(
-      `/rankings/${rankingType}`,
+      isEventRankingType(rankingType)
+        ? `/rankings/events/${encodeURIComponent(rankingType.slice(6))}`
+        : `/rankings/${rankingType}`,
       { params: { serverId } },
     );
     return response.data.data;

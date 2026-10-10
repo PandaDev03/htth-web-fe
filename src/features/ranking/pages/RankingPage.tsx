@@ -18,6 +18,8 @@ import { getGameServers } from "@/features/auth/api/serverApi";
 import {
   getRanking,
   getRankingCatalog,
+  isEventRankingType,
+  type BuiltinRankingType,
   type RankingData,
   type RankingRewardSet,
   type RankingRewardTier,
@@ -70,18 +72,24 @@ function getInitial(username: string) {
   return username.trim().charAt(0).toUpperCase() || "P";
 }
 
-function getRewardTierTitle(tier: RankingRewardTier) {
-  return tier.rankLabel.trim().toLowerCase() === "top 4"
+function getRewardTierTitle(tier: RankingRewardTier, exactRanks: boolean) {
+  return !exactRanks && tier.rankLabel.trim().toLowerCase() === "top 4"
     ? "Top 4 - 10"
     : tier.rankLabel;
 }
 
-function RewardTierCard({ tier }: { tier: RankingRewardTier }) {
+function RewardTierCard({
+  tier,
+  exactRanks,
+}: {
+  tier: RankingRewardTier;
+  exactRanks: boolean;
+}) {
   return (
     <article className="rounded-lg border p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <h3 className="text-base font-800 text-gray-800">
-          {getRewardTierTitle(tier)}
+          {getRewardTierTitle(tier, exactRanks)}
         </h3>
         <span className="rounded-lg bg-white px-2.5 py-1 font-mono text-xs font-bold text-amber-600 shadow-sm">
           {tier.items.length} món
@@ -115,7 +123,13 @@ function RewardTierCard({ tier }: { tier: RankingRewardTier }) {
   );
 }
 
-function RankingRewards({ rewards }: { rewards: RankingRewardSet }) {
+function RankingRewards({
+  rewards,
+  exactRanks,
+}: {
+  rewards: RankingRewardSet;
+  exactRanks: boolean;
+}) {
   return (
     <section className="mb-8 overflow-hidden rounded-lg border border-amber-200 bg-white shadow-sm">
       <div className="flex items-start gap-3 border-b border-amber-100 bg-amber-50 px-5 py-5 sm:px-6">
@@ -131,7 +145,11 @@ function RankingRewards({ rewards }: { rewards: RankingRewardSet }) {
       </div>
       <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-2">
         {rewards.tiers.map((tier) => (
-          <RewardTierCard key={tier.rankLabel} tier={tier} />
+          <RewardTierCard
+            key={tier.rankLabel}
+            tier={tier}
+            exactRanks={exactRanks}
+          />
         ))}
       </div>
     </section>
@@ -327,22 +345,20 @@ function RemainingRanking({
   );
 }
 
-const rankingTypes: RankingType[] = [
+const rankingTypes: BuiltinRankingType[] = [
   "top-donates",
   "top-levels",
   "top-pvp",
   "top-fireworks",
   "top-boss-hunt",
 ];
-const visibleRankingTypesByServer: Record<
-  ServerId,
-  readonly RankingType[]
-> = {
+const visibleRankingTypesByServer: Record<ServerId, readonly RankingType[]> = {
   server1: ["top-donates"],
   tan_binh: ["top-donates", "top-levels"],
 };
 
 function parseRankingType(value: string | null): RankingType | null {
+  if (value && isEventRankingType(value)) return value;
   if (value === "san-boss") return "top-boss-hunt";
   if (
     value === POINTS_RANKING_QUERY_TAB ||
@@ -350,7 +366,7 @@ function parseRankingType(value: string | null): RankingType | null {
     value === "top-donates"
   )
     return "top-donates";
-  return rankingTypes.includes(value as RankingType)
+  return rankingTypes.includes(value as BuiltinRankingType)
     ? (value as RankingType)
     : null;
 }
@@ -399,7 +415,7 @@ function RankingPage() {
   const requestedServer = searchParams.get("server");
   const preferredServerId: ServerId = isServerId(requestedServer)
     ? requestedServer
-    : authServerId ?? "server1";
+    : (authServerId ?? "server1");
   const serversQuery = useQuery({
     queryKey: ["game-servers"],
     queryFn: getGameServers,
@@ -418,7 +434,8 @@ function RankingPage() {
   const catalogQuery = useQuery({
     queryKey: ["rankings", "catalog", viewedServerId],
     queryFn: () => getRankingCatalog(viewedServerId),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
     enabled: Boolean(viewedServer),
   });
   const requestedTabParam = searchParams.get("tab");
@@ -427,7 +444,10 @@ function RankingPage() {
     viewedServerId === "server1" ? "top-donates" : "top-levels";
   const visibleRankingTypes = visibleRankingTypesByServer[viewedServerId];
   const availableRankings = (catalogQuery.data?.items ?? [])
-    .filter((item) => visibleRankingTypes.includes(item.id))
+    .filter(
+      (item) =>
+        isEventRankingType(item.id) || visibleRankingTypes.includes(item.id),
+    )
     .map((item) =>
       item.id === "top-donates"
         ? {
@@ -466,12 +486,7 @@ function RankingPage() {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set("tab", POINTS_RANKING_QUERY_TAB);
     setSearchParams(nextParams, { replace: true });
-  }, [
-    requestedRankingType,
-    requestedTabParam,
-    searchParams,
-    setSearchParams,
-  ]);
+  }, [requestedRankingType, requestedTabParam, searchParams, setSearchParams]);
 
   const rankingData = rankingQuery.data;
   const entries = getRankingEntries(rankingData);
@@ -532,10 +547,11 @@ function RankingPage() {
       description:
         "Vinh danh những thuyền trưởng hạ gục nhiều boss Lân Sư Vũ nhất.",
       valueLabel: "Điểm săn boss",
-      empty: "Bảng Top Săn Boss sẽ hiển thị khi có điểm hạ gục Lân Sư Vũ đầu tiên.",
+      empty:
+        "Bảng Top Săn Boss sẽ hiển thị khi có điểm hạ gục Lân Sư Vũ đầu tiên.",
     },
   } satisfies Record<
-    RankingType,
+    BuiltinRankingType,
     {
       title: string;
       description: string;
@@ -543,20 +559,48 @@ function RankingPage() {
       empty: string;
     }
   >;
-  const currentPresentation = presentation[activeTab];
+  const selectedRanking = availableRankings.find(
+    (item) => item.id === activeTab,
+  );
+  const halloweenRanking = selectedRanking?.eventId === 12345;
+  const boxRanking = halloweenRanking && selectedRanking?.scoreIndex === 1;
+  const currentPresentation = isEventRankingType(activeTab)
+    ? {
+        title: selectedRanking?.label ?? "Đua Top sự kiện",
+        description: halloweenRanking
+          ? boxRanking
+            ? "Xếp hạng theo số Hộp Quà Ma Quái đã mở trong sự kiện Halloween."
+            : "Xếp hạng theo số boss đã hạ trong sự kiện Halloween."
+          : "Xếp hạng theo điểm tích lũy trong mùa sự kiện hiện tại.",
+        valueLabel: halloweenRanking
+          ? boxRanking
+            ? "Hộp đã mở"
+            : "Boss đã hạ"
+          : "Điểm sự kiện",
+        empty: "Bảng xếp hạng sẽ hiển thị khi có điểm sự kiện đầu tiên.",
+      }
+    : presentation[activeTab];
   const formatRankingValue = formatPoints;
   const rankingSeason =
     rankingData && "season" in rankingData ? rankingData.season : undefined;
-  const contextLabel =
-    rankingSeason
+  const contextLabel = isEventRankingType(activeTab)
+    ? (selectedRanking?.status ?? "Đua Top sự kiện")
+    : rankingSeason
       ? activeTab === "top-donates"
         ? toPointsRankingCopy(rankingSeason.name)
         : rankingSeason.name
       : activeTab === "top-fireworks" || activeTab === "top-boss-hunt"
         ? "Event 12"
-        : catalogQuery.data?.displayName || viewedServer?.displayName || "Server";
-  const HeaderIcon =
-    activeTab === "top-boss-hunt"
+        : catalogQuery.data?.displayName ||
+          viewedServer?.displayName ||
+          "Server";
+  const HeaderIcon = isEventRankingType(activeTab)
+    ? halloweenRanking
+      ? boxRanking
+        ? Gift
+        : Swords
+      : Trophy
+    : activeTab === "top-boss-hunt"
       ? Swords
       : activeTab === "top-fireworks"
         ? Flame
@@ -610,7 +654,9 @@ function RankingPage() {
                 </span>
                 <select
                   value={viewedServerId}
-                  disabled={serversQuery.isPending || enabledServers.length === 0}
+                  disabled={
+                    serversQuery.isPending || enabledServers.length === 0
+                  }
                   onChange={(event) =>
                     changeServer(event.target.value as ServerId)
                   }
@@ -665,7 +711,10 @@ function RankingPage() {
               </div>
               <button
                 type="button"
-                onClick={() => void rankingQuery.refetch()}
+                onClick={() => {
+                  void catalogQuery.refetch();
+                  void rankingQuery.refetch();
+                }}
                 disabled={rankingQuery.isFetching}
                 className="inline-flex w-fit items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 shadow-sm transition-colors hover:border-amber-300 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -678,7 +727,12 @@ function RankingPage() {
               </button>
             </div>
 
-            {currentRewards && <RankingRewards rewards={currentRewards} />}
+            {currentRewards && (
+              <RankingRewards
+                rewards={currentRewards}
+                exactRanks={rankingData?.category === "top-event"}
+              />
+            )}
 
             {loading ? (
               <RankingSkeleton />
