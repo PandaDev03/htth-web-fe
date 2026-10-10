@@ -1,8 +1,10 @@
-import { Flame, Shield, Swords, TrendingUp, Trophy } from "lucide-react";
+import { Flame, Gift, Shield, Swords, TrendingUp, Trophy } from "lucide-react";
 
-import type {
-  RankingCatalogItem,
-  RankingType,
+import {
+  isEventRankingType,
+  type BuiltinRankingType,
+  type RankingCatalogItem,
+  type RankingType,
 } from "@/features/ranking/api/rankingApi";
 
 const iconByRankingType = {
@@ -11,7 +13,7 @@ const iconByRankingType = {
   "top-pvp": Shield,
   "top-fireworks": Flame,
   "top-boss-hunt": Swords,
-} satisfies Record<RankingType, typeof Trophy>;
+} satisfies Record<BuiltinRankingType, typeof Trophy>;
 
 export function RankingTabs({
   tabs,
@@ -31,7 +33,13 @@ export function RankingTabs({
           className="flex min-w-max gap-1.5"
         >
           {tabs.map((tab) => {
-            const Icon = iconByRankingType[tab.id];
+            const Icon = isEventRankingType(tab.id)
+              ? tab.eventId === 12345
+                ? tab.scoreIndex === 1
+                  ? Gift
+                  : Swords
+                : Trophy
+              : iconByRankingType[tab.id];
             const isActive = activeTab === tab.id;
 
             return (
