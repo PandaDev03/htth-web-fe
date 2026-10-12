@@ -14,6 +14,7 @@
   ADMIN_DASHBOARD: "/admin/dashboard",
   ADMIN_ARTICLES: "/admin/articles",
   ADMIN_FASHION_COMPOSER: "/admin/fashion-composer",
+  ADMIN_UI_COMPOSER: "/admin/ui-composer",
 };
 
 export const getArticlePath = (idOrSlug: number | string) =>

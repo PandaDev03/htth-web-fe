@@ -35,6 +35,10 @@ const AdminFashionComposerPage = lazy(
   () => import("@/features/admin/pages/AdminFashionComposerPage"),
 );
 
+const AdminUiComposerPage = lazy(
+  () => import("@/features/admin/pages/AdminUiComposerPage"),
+);
+
 export const appRoutes: AppRoute[] = [
   { path: PATH.HOME, element: <PirateLandingPage />, isPublic: true },
   { path: PATH.DOWNLOAD, element: <GameDownloadPage />, isPublic: true },
@@ -91,6 +95,13 @@ export const appRoutes: AppRoute[] = [
         path: "fashion-composer",
         title: "Ghép fashion",
         element: <AdminFashionComposerPage />,
+        allowedRoles: ["admin"],
+        showInMenu: true,
+      },
+      {
+        path: "ui-composer",
+        title: "Ghép UI",
+        element: <AdminUiComposerPage />,
         allowedRoles: ["admin"],
         showInMenu: true,
       },

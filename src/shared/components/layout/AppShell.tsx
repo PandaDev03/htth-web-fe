@@ -6,6 +6,8 @@ import {
   LayoutDashboard,
   Menu as MenuIcon,
   Shirt,
+  PanelsTopLeft,
+  Wrench,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -16,21 +18,31 @@ import { PATH } from "@/shared/config/path";
 
 const { Header, Content, Sider } = Layout;
 
+const TOOL_MENU = [
+  {
+    key: PATH.ADMIN_FASHION_COMPOSER,
+    label: "Ghép fashion",
+    icon: <Shirt size={18} />,
+  },
+  {
+    key: PATH.ADMIN_UI_COMPOSER,
+    label: "Ghép UI",
+    icon: <PanelsTopLeft size={18} />,
+  },
+];
+
 const ADMIN_MENU = [
   {
     key: PATH.ADMIN_DASHBOARD,
     label: "Dashboard",
     icon: <LayoutDashboard size={18} />,
   },
+  { key: PATH.ADMIN_ARTICLES, label: "Bài viết", icon: <BookText size={18} /> },
   {
-    key: PATH.ADMIN_ARTICLES,
-    label: "Bài viết",
-    icon: <BookText size={18} />,
-  },
-  {
-    key: PATH.ADMIN_FASHION_COMPOSER,
-    label: "Ghép fashion",
-    icon: <Shirt size={18} />,
+    key: "tools",
+    label: "Tools",
+    icon: <Wrench size={18} />,
+    children: TOOL_MENU,
   },
 ];
 
@@ -64,6 +76,7 @@ function SidebarContent({
         theme="light"
         mode="inline"
         selectedKeys={[pathname]}
+        defaultOpenKeys={["tools"]}
         items={ADMIN_MENU}
         inlineCollapsed={collapsed}
         onClick={({ key }) => {
@@ -85,8 +98,9 @@ export function AppShell() {
 
   const currentPage = useMemo(
     () =>
-      ADMIN_MENU.find((item) => item.key === location.pathname)?.label ??
-      "Dashboard",
+      [...ADMIN_MENU, ...TOOL_MENU].find(
+        (item) => item.key === location.pathname,
+      )?.label ?? "Dashboard",
     [location.pathname],
   );
 
@@ -150,7 +164,13 @@ export function AppShell() {
           <div className="mx-auto w-full max-w-[1440px]">
             <div className="mb-8 border-b border-slate-200 pb-6">
               <Breadcrumb
-                items={[{ title: "Quản trị" }, { title: currentPage }]}
+                items={[
+                  { title: "Quản trị" },
+                  ...(TOOL_MENU.some((item) => item.key === location.pathname)
+                    ? [{ title: "Tools" }]
+                    : []),
+                  { title: currentPage },
+                ]}
                 className="mb-4 text-xs"
               />
               <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
