@@ -3,7 +3,6 @@ import { Plus, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import {
   ELEMENTS,
-  SCREENS,
   newId,
   type Rect,
   type UiDocument,
@@ -84,14 +83,19 @@ export function NodeInspector({
   doc,
   node,
   onPatch,
+  onAddScreen,
 }: {
   doc: UiDocument;
   node: UiNode;
   onPatch: (patch: Partial<UiNode>) => void;
+  onAddScreen: () => void;
 }) {
   const options = [
     { value: "", label: "Chưa gán res" },
-    ...doc.assets.map((a) => ({ value: a.id, label: a.name })),
+    ...doc.assets.map((asset) => ({
+      value: asset.id,
+      label: asset.name + (asset.dataUrl ? "" : " (chưa upload)"),
+    })),
   ];
   const asset = doc.assets.find((a) => a.id === node.assetId);
   const assetSelect = (
@@ -137,9 +141,21 @@ export function NodeInspector({
           aria-label="Hiện ở màn hình"
           className="w-full"
           value={node.screen}
-          options={[{ value: "all", label: "Tất cả màn hình" }, ...SCREENS]}
+          options={[
+            { value: "all", label: "Tất cả màn hình" },
+            ...doc.screens.map((screen) => ({ value: screen.id, label: screen.name })),
+          ]}
           onChange={(screen) => onPatch({ screen })}
         />
+        <Button
+          size="small"
+          type="text"
+          className="mt-1"
+          icon={<Plus size={12} />}
+          onClick={onAddScreen}
+        >
+          Thêm màn hình
+        </Button>
       </Field>
       <div className="grid grid-cols-2 gap-x-3">
         <NumberField
@@ -341,15 +357,18 @@ export function NodeInspector({
               value={node.action}
               options={[
                 { value: "none", label: "Chỉ minh họa" },
-                { value: "screen", label: "Chuyển màn hình" },
+                { value: "screen", label: "Chuyển màn hình", disabled: !doc.screens.length },
                 { value: "element", label: "Lọc theo hệ" },
               ]}
               onChange={(action) =>
                 onPatch({
                   action,
+                  screenTargets: action === "screen"
+                    ? doc.screens.slice(0, 12).map((screen) => screen.id)
+                    : [],
                   labels:
                     action === "screen"
-                      ? SCREENS.map((s) => s.label)
+                      ? doc.screens.slice(0, 12).map((s) => s.name)
                       : action === "element"
                         ? [...ELEMENTS]
                         : node.labels,
@@ -372,16 +391,38 @@ export function NodeInspector({
               onChange={(e) => {
                 const labels = e.target.value
                   .split("\n")
-                  .slice(0, node.action === "none" ? 12 : 4)
+                  .slice(0, node.action === "element" ? ELEMENTS.length : 12)
                   .map((s) => s.slice(0, 100));
-                if (node.action !== "none")
-                  while (labels.length < 4) labels.push("");
-                onPatch({ labels });
+                if (node.action === "element")
+                  while (labels.length < ELEMENTS.length) labels.push("");
+                onPatch({
+                  labels,
+                  iconIds: node.iconIds.slice(0, labels.length),
+                  screenTargets: node.action === "screen"
+                    ? labels.map((_, index) => node.screenTargets[index] ?? null)
+                    : [],
+                });
               }}
             />
           </Field>
           {node.labels.map((label, i) => (
-            <Field key={i} label={"tabIcon " + (i + 1) + ": " + label}>
+            <Field key={i} label={"Tab " + (i + 1) + ": " + label}>
+              {node.action === "screen" && (
+                <Select
+                  aria-label={"Màn hình của tab " + (i + 1)}
+                  className="mb-2 w-full"
+                  value={node.screenTargets[i] ?? ""}
+                  options={[
+                    { value: "", label: "Không chuyển màn hình" },
+                    ...doc.screens.map((screen) => ({ value: screen.id, label: screen.name })),
+                  ]}
+                  onChange={(id) => onPatch({
+                    screenTargets: node.labels.map((_, index) =>
+                      index === i ? (id || null) : (node.screenTargets[index] ?? null),
+                    ),
+                  })}
+                />
+              )}
               {assetSelect(
                 node.iconIds[i] ?? null,
                 (id) => {
@@ -415,7 +456,7 @@ export function NodeInspector({
             />
           </div>
           <p className="mb-3 text-xs text-slate-500">
-            Cuộn trong preview. Hệ chỉ lọc danh sách thuộc Nơi lưu thẻ.
+            Cuộn trong preview. Dùng tab lọc hệ để lọc danh sách item.
           </p>
           <Button
             block
@@ -427,7 +468,7 @@ export function NodeInspector({
                   ...node.items,
                   {
                     id: newId(),
-                    name: "Thẻ mới",
+                    name: "Item mới",
                     element: "Zoan",
                     assetId: null,
                     level: 1,

@@ -1,11 +1,13 @@
-export const SCREENS = [
-  { value: "storage", label: "Nơi lưu thẻ" },
-  { value: "craft", label: "Chế tạo thẻ" },
-  { value: "skills", label: "Kỹ năng thẻ" },
-  { value: "upgrade", label: "Cường hóa thẻ" },
-] as const;
+const LEGACY_SCREENS = [
+  { id: "storage", name: "Nơi lưu thẻ" },
+  { id: "craft", name: "Chế tạo thẻ" },
+  { id: "skills", name: "Kỹ năng thẻ" },
+  { id: "upgrade", name: "Cường hóa thẻ" },
+];
 export const ELEMENTS = ["Tất cả", "Zoan", "Logia", "Paramecia"] as const;
-export type Screen = (typeof SCREENS)[number]["value"];
+export const MAX_SCREENS = 32;
+export type Screen = string;
+export type UiScreen = { id: string; name: string };
 export type NodeKind =
   "panel" | "image" | "text" | "button" | "tabs" | "itemList";
 export type RenderMode = "stretch" | "contain" | "tile" | "nineSlice";
@@ -19,7 +21,7 @@ export type Insets = {
 export type UiAsset = {
   id: string;
   name: string;
-  dataUrl: string;
+  dataUrl: string | null;
   width: number;
   height: number;
   resourceScale: number;
@@ -35,7 +37,7 @@ export type UiNode = Rect & {
   id: string;
   name: string;
   kind: NodeKind;
-  screen: Screen | "all";
+  screen: Screen;
   hidden: boolean;
   locked: boolean;
   text: string;
@@ -51,13 +53,16 @@ export type UiNode = Rect & {
   action: "none" | "screen" | "element";
   labels: string[];
   iconIds: Array<string | null>;
+  screenTargets: Array<string | null>;
   columns: number;
   gap: number;
   items: UiItem[];
 };
 export type UiDocument = {
   schema: "htth-ui-composer";
-  version: 1;
+  version: 2;
+  id: string;
+  screens: UiScreen[];
   name: string;
   width: number;
   height: number;
@@ -82,7 +87,7 @@ export const newId = () => crypto.randomUUID();
 export const MAX_RESOURCE_BYTES = 24 * 1024 * 1024;
 export function createNode(
   kind: NodeKind,
-  screen: Screen | "all" = "all",
+  screen: Screen = "all",
 ): UiNode {
   return {
     id: newId(),
@@ -108,6 +113,7 @@ export function createNode(
     action: "none",
     labels: ["Tab 1", "Tab 2"],
     iconIds: [],
+    screenTargets: [],
     columns: 5,
     gap: 10,
     items: [],
@@ -115,287 +121,86 @@ export function createNode(
 }
 
 // Logical pixels, top-left origin; source crop/slice use physical resource pixels.
-export function createDevilCardPreset(): UiDocument {
-  const nodes: UiNode[] = [];
-  const add = (kind: NodeKind, patch: Partial<UiNode>) => {
-    const node = { ...createNode(kind), ...patch };
-    nodes.push(node);
-    return node;
-  };
-  add("panel", {
-    name: "Nền menu đậm",
-    x: 8,
-    y: 8,
-    width: 744,
-    height: 424,
-    background: "#3b271e",
-  });
-  add("panel", {
-    name: "Thanh tiêu đề",
-    x: 18,
-    y: 18,
-    width: 724,
-    height: 40,
-    background: "#513729",
-  });
-  add("text", {
-    name: "Tiêu đề",
-    text: "Thẻ Ác Quỷ",
-    x: 36,
-    y: 20,
-    width: 240,
-    height: 36,
-    fontSize: 23,
-    color: "#f9e2ad",
-  });
-  add("button", {
-    name: "Nút đóng",
-    text: "×",
-    x: 700,
-    y: 21,
-    width: 32,
-    height: 32,
-    background: "#ac3027",
-    color: "#ffffff",
-    fontSize: 26,
-  });
-  add("tabs", {
-    name: "Menu trái",
-    x: 22,
-    y: 72,
-    width: 166,
-    height: 244,
-    direction: "vertical",
-    action: "screen",
-    labels: SCREENS.map((s) => s.label),
-    gap: 8,
-  });
-  add("panel", {
-    name: "Nền nội dung",
-    x: 200,
-    y: 72,
-    width: 538,
-    height: 346,
-    background: "#f5e2ba",
-  });
-  add("tabs", {
-    name: "Filter hệ",
-    screen: "storage",
-    x: 218,
-    y: 88,
-    width: 502,
-    height: 32,
-    action: "element",
-    labels: [...ELEMENTS],
-    gap: 8,
-    fontSize: 14,
-  });
-  add("itemList", {
-    name: "Kho thẻ (cuộn)",
-    screen: "storage",
-    x: 218,
-    y: 134,
-    width: 502,
-    height: 246,
-    columns: 5,
-    gap: 12,
-    background: "#543726",
-  });
-  add("text", {
-    name: "Gợi ý kho thẻ",
-    screen: "storage",
-    x: 218,
-    y: 389,
-    width: 490,
-    height: 22,
-    text: "Thêm ảnh thẻ trong Thuộc tính · Cuộn để xem toàn bộ",
-    fontSize: 12,
-  });
-  add("text", {
-    name: "Tiêu đề chế tạo",
-    screen: "craft",
-    x: 218,
-    y: 84,
-    width: 310,
-    height: 30,
-    text: "Chế Tạo Thẻ Ác Quỷ",
-    fontSize: 19,
-  });
-  add("itemList", {
-    name: "Nguyên liệu chế tạo",
-    screen: "craft",
-    x: 218,
-    y: 126,
-    width: 328,
-    height: 106,
-    columns: 4,
-    gap: 8,
-    background: "#543726",
-  });
-  add("text", {
-    name: "Tỷ lệ chế tạo",
-    screen: "craft",
-    x: 218,
-    y: 244,
-    width: 328,
-    height: 28,
-    text: "Tỷ lệ thành công: 30%",
-    fontSize: 16,
-  });
-  add("button", {
-    name: "Chế tạo",
-    screen: "craft",
-    x: 296,
-    y: 282,
-    width: 166,
-    height: 40,
-    text: "Chế Tạo",
-    background: "#d35921",
-    color: "#ffffff",
-  });
-  add("text", {
-    name: "Hướng dẫn chế tạo",
-    screen: "craft",
-    x: 560,
-    y: 96,
-    width: 158,
-    height: 278,
-    text: "Hướng dẫn\n\nThu thập đủ nguyên liệu để chế tạo thẻ.\n\nHệ Zoan: 100%\nHệ Logia: 30%\nHệ Paramecia: 10%",
-    fontSize: 14,
-  });
-  add("text", {
-    name: "Tiêu đề kỹ năng",
-    screen: "skills",
-    x: 218,
-    y: 84,
-    width: 480,
-    height: 30,
-    text: "Kỹ Năng Thẻ",
-    fontSize: 19,
-  });
-  add("image", {
-    name: "Thẻ chọn kỹ năng",
-    screen: "skills",
-    x: 224,
-    y: 132,
-    width: 116,
-    height: 116,
-    background: "#543726",
-    renderMode: "contain",
-  });
-  add("text", {
-    name: "Thông tin kỹ năng",
-    screen: "skills",
-    x: 218,
-    y: 268,
-    width: 138,
-    height: 126,
-    text: "Trái Ác Quỷ\nHệ: Paramecia\n\nHiệu ứng hiện tại",
-    fontSize: 14,
-  });
-  for (let i = 0; i < 3; i++) {
-    add("panel", {
-      name: "Khung kỹ năng " + (i + 1),
-      screen: "skills",
-      x: 374,
-      y: 128 + i * 80,
-      width: 342,
-      height: 68,
-    });
-    add("text", {
-      name: "Kỹ năng " + (i + 1),
-      screen: "skills",
-      x: 386,
-      y: 139 + i * 80,
-      width: 230,
-      height: 44,
-      text: "Tên kỹ năng " + (i + 1) + "\nMô tả kỹ năng · Lv.1",
-      fontSize: 14,
-    });
-    add("button", {
-      name: "Chọn kỹ năng " + (i + 1),
-      screen: "skills",
-      x: 636,
-      y: 148 + i * 80,
-      width: 66,
-      height: 30,
-      text: "Chọn",
-      background: "#e2b941",
-      fontSize: 14,
-    });
-  }
-  add("text", {
-    name: "Tiêu đề cường hóa",
-    screen: "upgrade",
-    x: 218,
-    y: 84,
-    width: 480,
-    height: 30,
-    text: "Cường Hóa Thẻ Ác Quỷ",
-    fontSize: 19,
-  });
-  add("image", {
-    name: "Thẻ cường hóa",
-    screen: "upgrade",
-    x: 224,
-    y: 128,
-    width: 116,
-    height: 116,
-    background: "#543726",
-    renderMode: "contain",
-  });
-  add("itemList", {
-    name: "Nguyên liệu cường hóa",
-    screen: "upgrade",
-    x: 372,
-    y: 138,
-    width: 196,
-    height: 106,
-    columns: 2,
-    gap: 12,
-    background: "#543726",
-  });
-  add("text", {
-    name: "Tỷ lệ cường hóa",
-    screen: "upgrade",
-    x: 368,
-    y: 256,
-    width: 210,
-    height: 30,
-    text: "Tỷ lệ thành công: 60%",
-    fontSize: 14,
-  });
-  add("button", {
-    name: "Cường hóa",
-    screen: "upgrade",
-    x: 378,
-    y: 296,
-    width: 190,
-    height: 40,
-    text: "Cường Hóa",
-    background: "#d35921",
-    color: "#ffffff",
-  });
-  add("text", {
-    name: "Cấp tiếp theo",
-    screen: "upgrade",
-    x: 594,
-    y: 142,
-    width: 126,
-    height: 150,
-    text: "Cấp tiếp theo\n\nLv.4\nCông: +16%\nHP: +12%",
-    fontSize: 15,
-  });
+export function createEmptyDocument(): UiDocument {
   return {
     schema: "htth-ui-composer",
-    version: 1,
-    name: "Thẻ Ác Quỷ",
+    version: 2,
+    id: newId(),
+    name: "Menu mới",
     width: 760,
     height: 440,
     background: "#17252d",
+    screens: [],
     assets: [],
-    nodes,
+    nodes: [],
   };
+}
+function validateScreenName(doc: UiDocument, name: string, excludeId?: string) {
+  const trimmed = name.trim();
+  if (!trimmed || trimmed.length > 100)
+    throw new Error("Tên màn hình cần từ 1 đến 100 ký tự.");
+  if (doc.screens.some(
+    (screen) => screen.id !== excludeId &&
+      screen.name.toLocaleLowerCase() === trimmed.toLocaleLowerCase(),
+  )) throw new Error("Tên màn hình đã tồn tại.");
+  return trimmed;
+}
+export function addMenuScreen(doc: UiDocument, name: string): UiDocument {
+  if (doc.screens.length >= MAX_SCREENS) throw new Error("Tối đa " + MAX_SCREENS + " màn hình.");
+  return {
+    ...doc,
+    screens: [...doc.screens, { id: newId(), name: validateScreenName(doc, name) }],
+  };
+}
+export function renameMenuScreen(doc: UiDocument, id: string, name: string): UiDocument {
+  const trimmed = validateScreenName(doc, name, id);
+  return {
+    ...doc,
+    screens: doc.screens.map((screen) =>
+      screen.id === id ? { ...screen, name: trimmed } : screen,
+    ),
+  };
+}
+export function removeMenuScreen(doc: UiDocument, id: string): UiDocument {
+  return {
+    ...doc,
+    screens: doc.screens.filter((screen) => screen.id !== id),
+    nodes: doc.nodes.map((node) => ({
+      ...node,
+      screen: node.screen === id ? "all" : node.screen,
+      screenTargets: node.screenTargets.map((target) => target === id ? null : target),
+    })),
+  };
+}
+// Layout-only JSON keeps resource IDs/filenames so a later upload can reattach them.
+export function exportDocument(doc: UiDocument, includeResources = false): UiDocument {
+  return parseDocument({
+    ...doc,
+    assets: doc.assets.map((asset) => ({
+      ...asset,
+      dataUrl: includeResources ? asset.dataUrl : null,
+    })),
+  });
+}
+export function mergeUploadedAssets(existing: UiAsset[], incoming: UiAsset[]): UiAsset[] {
+  const result = [...existing];
+  for (const asset of incoming) {
+    const matches = result
+      .map((existingAsset, index) => existingAsset.name === asset.name ? index : -1)
+      .filter((index) => index >= 0);
+    // Keep every existing resource ID and scale, including repeated filename refs.
+    if (matches.length) {
+      for (const index of matches) {
+        result[index] = {
+          ...result[index],
+          dataUrl: asset.dataUrl,
+          width: asset.width,
+          height: asset.height,
+        };
+      }
+    } else result.push(asset);
+  }
+  return result;
 }
 
 export function visibleNodes(doc: UiDocument, screen: Screen) {
@@ -488,9 +293,9 @@ export function parseDocument(value: unknown): UiDocument {
   if (
     !record(value) ||
     value.schema !== "htth-ui-composer" ||
-    value.version !== 1
+    (value.version !== 1 && value.version !== 2)
   )
-    throw new Error("File không đúng schema htth-ui-composer v1.");
+    throw new Error("File không đúng schema htth-ui-composer v1/v2.");
   if (
     !Array.isArray(value.assets) ||
     !Array.isArray(value.nodes) ||
@@ -498,13 +303,36 @@ export function parseDocument(value: unknown): UiDocument {
     value.nodes.length > 300
   )
     throw new Error("Tối đa 200 res và 300 layer.");
+  const legacy = value.version === 1;
+  if (!legacy && (typeof value.id !== "string" || !value.id.trim())) throw new Error("Menu ID không hợp lệ.");
+  const legacyIds = new Set<string>();
+  if (legacy) {
+    for (const node of value.nodes) {
+      if (!record(node)) continue;
+      if (node.screen !== "all" && typeof node.screen === "string")
+        legacyIds.add(node.screen);
+      if (node.kind === "tabs" && node.action === "screen")
+        LEGACY_SCREENS.forEach((screen) => legacyIds.add(screen.id));
+    }
+  }
+  const rawScreens = legacy ? LEGACY_SCREENS.filter(s => legacyIds.has(s.id)) : value.screens;
+  if (!Array.isArray(rawScreens) || rawScreens.length > MAX_SCREENS) throw new Error("Danh sách màn hình không hợp lệ.");
+  const screens: UiScreen[] = rawScreens.map(s => {
+    if (!record(s)) throw new Error("Màn hình không hợp lệ.");
+    const id = string(s.id, 100, "Màn hình ID");
+    const name = string(s.name, 100, "Tên màn hình").trim();
+    if (!id.trim() || id === "all" || !name) throw new Error("ID/tên màn hình không hợp lệ.");
+    return { id, name };
+  });
+  const screenIds = new Set(screens.map(s => s.id));
+  if (screenIds.size !== screens.length) throw new Error("Màn hình ID trùng.");
   let bytes = 0;
   const assets: UiAsset[] = value.assets.map((a) => {
     if (!record(a)) throw new Error("Res không hợp lệ.");
-    const dataUrl = string(a.dataUrl, MAX_RESOURCE_BYTES * 1.4, "Ảnh");
-    if (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(dataUrl))
+    const dataUrl = a.dataUrl === null ? null : string(a.dataUrl, MAX_RESOURCE_BYTES * 1.4, "Ảnh");
+    if (dataUrl !== null && !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(dataUrl))
       throw new Error("Res chỉ hỗ trợ PNG, JPG, WEBP base64.");
-    bytes += dataUrl.length * 0.75;
+    bytes += (dataUrl?.length ?? 0) * 0.75;
     return {
       id: string(a.id, 100, "Res ID"),
       name: string(a.name, 200, "Tên res"),
@@ -535,7 +363,7 @@ export function parseDocument(value: unknown): UiDocument {
       !Object.prototype.hasOwnProperty.call(KIND_LABELS, n.kind)
     )
       throw new Error("Loại layer không hợp lệ.");
-    if (n.screen !== "all" && !SCREENS.some((s) => s.value === n.screen))
+    if (typeof n.screen !== "string" || (n.screen !== "all" && !screenIds.has(n.screen)))
       throw new Error("Tab màn hình không hợp lệ.");
     if (
       !["stretch", "contain", "tile", "nineSlice"].includes(
@@ -558,8 +386,22 @@ export function parseDocument(value: unknown): UiDocument {
       n.items.length > 500
     )
       throw new Error("Dữ liệu tab/list không hợp lệ.");
-    if (n.action !== "none" && n.labels.length !== 4)
-      throw new Error("Tab chuyển màn hình/lọc hệ cần đúng 4 nhãn.");
+    if (n.action === "element" && n.labels.length !== ELEMENTS.length)
+      throw new Error("Tab lọc hệ cần đúng " + ELEMENTS.length + " nhãn.");
+    const rawTargets = legacy && n.screenTargets === undefined
+      ? (n.kind === "tabs" && n.action === "screen"
+          ? LEGACY_SCREENS.map((screen) => screen.id)
+          : [])
+      : n.screenTargets;
+    if (
+      !Array.isArray(rawTargets) || rawTargets.length > 12 ||
+      (n.action === "screen" && rawTargets.length !== n.labels.length)
+    ) throw new Error("Đích chuyển màn hình không hợp lệ.");
+    const screenTargets = rawTargets.map(target => {
+      if (target === null) return null;
+      if (typeof target !== "string" || !screenIds.has(target)) throw new Error("Tab tham chiếu màn hình không tồn tại.");
+      return target;
+    });
     return {
       ...rectangle(n, -8192),
       id: string(n.id, 100, "Layer ID"),
@@ -586,6 +428,7 @@ export function parseDocument(value: unknown): UiDocument {
       action: n.action as UiNode["action"],
       labels: n.labels.map((l) => string(l, 100, "Tên tab")),
       iconIds: n.iconIds.map(reference),
+      screenTargets,
       columns: number(n.columns, 1, 12, "Cột"),
       gap: number(n.gap, 0, 64, "Khoảng cách"),
       items: n.items.map((item) => {
@@ -607,7 +450,9 @@ export function parseDocument(value: unknown): UiDocument {
     throw new Error("Layer ID trùng.");
   return {
     schema: "htth-ui-composer",
-    version: 1,
+    version: 2,
+    id: legacy ? newId() : string(value.id, 100, "Menu ID"),
+    screens,
     name: string(value.name, 200, "Tên menu"),
     width: number(value.width, 160, 4096, "Rộng canvas"),
     height: number(value.height, 120, 4096, "Cao canvas"),

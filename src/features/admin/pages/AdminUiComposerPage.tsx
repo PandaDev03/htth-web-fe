@@ -1,6 +1,8 @@
 import {
   Alert,
   Button,
+  Dropdown,
+  Modal,
   Empty,
   Input,
   Popconfirm,
@@ -17,6 +19,7 @@ import {
   Eye,
   EyeOff,
   FileUp,
+  Pencil,
   ImagePlus,
   Layers3,
   LockKeyhole,
@@ -46,8 +49,13 @@ import {
   ELEMENTS,
   KIND_LABELS,
   MAX_RESOURCE_BYTES,
-  SCREENS,
-  createDevilCardPreset,
+  MAX_SCREENS,
+  addMenuScreen,
+  renameMenuScreen,
+  removeMenuScreen,
+  createEmptyDocument,
+  exportDocument,
+  mergeUploadedAssets,
   createNode,
   hitTest,
   listMetrics,
@@ -71,6 +79,10 @@ import {
   downloadFile,
   loadDraft,
   saveDraft,
+  saveMenu,
+  loadMenu,
+  listSavedMenus,
+  type SavedMenu,
 } from "@/features/admin/ui-composer/uiStorage";
 
 import "@/features/admin/ui-composer/gameFonts.css";
@@ -91,7 +103,7 @@ type Drag = {
   changed: boolean;
 };
 const initialPreview: PreviewState = {
-  screen: "storage",
+  screen: "all",
   element: "Tất cả",
   scroll: {},
 };
@@ -105,11 +117,19 @@ const errorMessage = (error: unknown) =>
 
 export default function AdminUiComposerPage() {
   const [history, setHistory] = useState<History>(() => ({
-    present: createDevilCardPreset(),
+    present: createEmptyDocument(),
     past: [],
     future: [],
   }));
   const doc = history.present;
+  const docRef = useRef(doc);
+  docRef.current = doc;
+  const [savedMenus, setSavedMenus] = useState<SavedMenu[]>([]);
+  const [menuBusy, setMenuBusy] = useState(false);
+  const [screenEditor, setScreenEditor] = useState<{
+    id?: string;
+    name: string;
+  } | null>(null);
   const [ready, setReady] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mode, setMode] = useState<"design" | "preview">("design");
@@ -136,6 +156,11 @@ export default function AdminUiComposerPage() {
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
   const revision = useRef(0);
   const selected = doc.nodes.find((n) => n.id === selectedId);
+  const screenOptions = [
+    { value: "all", label: "Tất cả màn hình" },
+    ...doc.screens.map((screen) => ({ value: screen.id, label: screen.name })),
+  ];
+  const missingResources = doc.assets.filter(a => !a.dataUrl).length;
   const scale =
     zoom === "fit"
       ? Math.min(1, (previewWidth - 24) / doc.width)
@@ -170,8 +195,10 @@ export default function AdminUiComposerPage() {
     let active = true;
     void loadDraft()
       .then((draft) => {
-        if (active && draft)
+        if (active && draft) {
           setHistory({ present: draft, past: [], future: [] });
+          setPreview({ ...initialPreview, screen: draft.screens[0]?.id ?? "all" });
+        }
       })
       .catch((error) => {
         if (active)
@@ -180,10 +207,18 @@ export default function AdminUiComposerPage() {
       .finally(() => {
         if (active) setReady(true);
       });
+    void listSavedMenus()
+      .then((menus) => { if (active) setSavedMenus(menus); })
+      .catch((error) => { if (active) setStorageError(errorMessage(error)); });
     return () => {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (preview.screen !== "all" && !doc.screens.some((screen) => screen.id === preview.screen))
+      setPreview(initialPreview);
+  }, [doc.screens, preview.screen]);
 
   useEffect(() => {
     if (!ready) return;
@@ -280,7 +315,7 @@ export default function AdminUiComposerPage() {
       if (node?.kind !== "itemList") return;
       const { maxScroll } = listMetrics(
         node,
-        node.screen === "storage" ? preview.element : "Tất cả",
+        preview.element,
       );
       if (!maxScroll) return;
       event.preventDefault();
@@ -339,10 +374,11 @@ export default function AdminUiComposerPage() {
       if (node?.kind === "tabs") {
         const index = tabIndexAt(node, p.x, p.y);
         if (index < 0) return;
-        if (node.action === "screen" && SCREENS[index]) {
+        const target = node.screenTargets[index];
+        if (node.action === "screen" && target && doc.screens.some(s => s.id === target)) {
           setPreview((prev) => ({
             ...prev,
-            screen: SCREENS[index].value,
+            screen: target,
             scroll: {},
           }));
           return;
@@ -390,7 +426,7 @@ export default function AdminUiComposerPage() {
     if (drag.type === "scroll") {
       const { maxScroll } = listMetrics(
         drag.node,
-        drag.node.screen === "storage" ? preview.element : "Tất cả",
+        preview.element,
       );
       setPreview((prev) => ({
         ...prev,
@@ -534,37 +570,18 @@ export default function AdminUiComposerPage() {
   }
   async function uploadFiles(files: File[]) {
     if (!files.length || uploading) return;
-    if (files.length + doc.assets.length > 200) {
-      toast.error("Tối đa 200 res.");
-      return;
-    }
-    const existingBytes = doc.assets.reduce(
-      (sum, a) => sum + a.dataUrl.length * 0.75,
-      0,
-    );
-    if (
-      existingBytes + files.reduce((sum, f) => sum + f.size, 0) >
-      MAX_RESOURCE_BYTES
-    ) {
-      toast.error("Tổng res tối đa 24 MB.");
+    if (files.length > 200 || files.reduce((sum,f) => sum + f.size, 0) > MAX_RESOURCE_BYTES) {
+      toast.error("Mỗi lần upload tối đa 200 res và 24 MB.");
       return;
     }
     setUploading(true);
     try {
       const assets: UiAsset[] = [];
       for (const file of files) assets.push(await readAsset(file, uploadScale));
-      if (
-        [...doc.assets, ...assets].reduce(
-          (sum, a) => sum + a.width * a.height,
-          0,
-        ) > 67_108_864
-      )
-        throw new Error("Tổng res vượt 64 triệu pixel.");
-      commit((current) => ({
-        ...current,
-        assets: [...current.assets, ...assets],
-      }));
-      toast.success("Đã thêm " + assets.length + " res.");
+      const current = docRef.current;
+      const merged = parseDocument({ ...current, assets: mergeUploadedAssets(current.assets, assets) });
+      commit(previous => ({ ...previous, assets: merged.assets }));
+      toast.success("Đã upload " + assets.length + " res; liên kết cùng tên được giữ lại.");
     } catch (error) {
       toast.error(errorMessage(error));
     } finally {
@@ -582,19 +599,73 @@ export default function AdminUiComposerPage() {
       await loadAssets(next.assets);
       commit(() => next);
       setSelectedId(null);
-      setPreview(initialPreview);
-      toast.success("Đã nhập layout và res.");
+      setPreview({ ...initialPreview, screen: next.screens[0]?.id ?? "all" });
+      toast.success("Đã nhập Menu." + (next.assets.some(a=>!a.dataUrl) ? " Upload res cùng tên để khôi phục ảnh." : ""));
     } catch (error) {
       toast.error(errorMessage(error));
     } finally {
       setExporting(false);
     }
   }
-  function exportJson() {
-    downloadFile(
-      new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" }),
-      "ui-layout.json",
-    );
+  function exportJson(includeResources = false) {
+    try {
+      downloadFile(
+        new Blob([JSON.stringify(exportDocument(doc, includeResources), null, 2)], {
+          type: "application/json",
+        }),
+        "ui-" + (doc.name.trim() || "menu").replace(/[<>:"/\\|?*]/g, "-").slice(0, 150) + ".json",
+      );
+    } catch (error) {
+      toast.error(errorMessage(error));
+    }
+  }
+  async function persistMenu() {
+    setMenuBusy(true);
+    try {
+      await saveMenu(doc);
+      setSavedMenus(await listSavedMenus());
+      setStorageError("");
+      toast.success('Đã lưu Menu "' + doc.name + '" tại máy.');
+    } catch (error) {
+      toast.error(errorMessage(error));
+      setStorageError(errorMessage(error) + " Hãy xuất JSON để giữ thiết kế.");
+    } finally {
+      setMenuBusy(false);
+    }
+  }
+  async function openSavedMenu(id: string) {
+    setMenuBusy(true);
+    try {
+      const next = await loadMenu(id);
+      await loadAssets(next.assets);
+      commit(() => next);
+      setSelectedId(null);
+      setPreview({ ...initialPreview, screen: next.screens[0]?.id ?? "all" });
+      toast.success('Đã mở Menu "' + next.name + '".');
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      setMenuBusy(false);
+    }
+  }
+  function saveScreen() {
+    if (!screenEditor) return;
+    try {
+      const next = screenEditor.id
+        ? renameMenuScreen(doc, screenEditor.id, screenEditor.name)
+        : addMenuScreen(doc, screenEditor.name);
+      commit(() => next);
+      if (!screenEditor.id) {
+        setPreview((previous) => ({
+          ...previous,
+          screen: next.screens[next.screens.length - 1].id,
+          scroll: {},
+        }));
+      }
+      setScreenEditor(null);
+    } catch (error) {
+      toast.error(errorMessage(error));
+    }
   }
   async function exportPng() {
     setExporting(true);
@@ -671,39 +742,43 @@ export default function AdminUiComposerPage() {
               onClick={redo}
             />
           </Tooltip>
+          <Select<string | null>
+            aria-label="Menu đã lưu"
+            className="w-[200px]"
+            value={null}
+            placeholder="Mở Menu đã lưu"
+            disabled={menuBusy || uploading || exporting}
+            options={savedMenus.map((menu) => ({ value: menu.id, label: menu.name }))}
+            notFoundContent="Chưa có Menu đã lưu"
+            onChange={(id) => { if (id) void openSavedMenu(id); }}
+          />
           <Button
             icon={<Save size={15} />}
-            onClick={() => {
-              const currentRevision = revision.current;
-              saveQueue.current = saveQueue.current
-                .catch(() => undefined)
-                .then(() => saveDraft(doc));
-              void saveQueue.current
-                .then(() => {
-                  if (currentRevision === revision.current) {
-                    setSaveStatus("Đã lưu nháp tại máy");
-                    setStorageError("");
-                  }
-                  toast.success("Đã lưu nháp.");
-                })
-                .catch((e) => {
-                  setStorageError(errorMessage(e));
-                  toast.error(errorMessage(e));
-                });
-            }}
+            loading={menuBusy}
+            disabled={uploading || exporting}
+            onClick={() => void persistMenu()}
           >
-            Lưu nháp
+            Lưu Menu
           </Button>
           <Button
             icon={<FileUp size={15} />}
-            disabled={exporting || uploading}
+            disabled={exporting || uploading || menuBusy}
             onClick={() => importRef.current?.click()}
           >
             Nhập JSON
           </Button>
-          <Button icon={<Download size={15} />} onClick={exportJson}>
-            Xuất JSON
-          </Button>
+          <Dropdown
+            menu={{
+              items: [
+                { key: "layout", label: "Bố cục và thuộc tính" },
+                { key: "resources", label: "Bố cục, thuộc tính và ảnh res" },
+              ],
+              onClick: ({ key }) => exportJson(key === "resources"),
+            }}
+            trigger={["click"]}
+          >
+            <Button icon={<Download size={15} />}>Xuất JSON</Button>
+          </Dropdown>
           <Button
             type="primary"
             icon={<ImagePlus size={15} />}
@@ -715,6 +790,13 @@ export default function AdminUiComposerPage() {
         </div>
       </div>
       {storageError && <Alert type="warning" showIcon message={storageError} />}
+      {missingResources > 0 && (
+        <Alert
+          type="info"
+          showIcon
+          message={"Còn " + missingResources + " res chưa upload. Chọn ảnh cùng tên file để nối lại các layer."}
+        />
+      )}
       {(fontError || renderError) && (
         <Alert type="error" showIcon message={fontError || renderError} />
       )}
@@ -808,12 +890,16 @@ export default function AdminUiComposerPage() {
                       backgroundSize: "16px 16px",
                     }}
                   >
-                    <img
-                      src={asset.dataUrl}
-                      alt={asset.name}
-                      className="max-h-full max-w-full object-contain"
-                      style={{ imageRendering: "pixelated" }}
-                    />
+                    {asset.dataUrl ? (
+                      <img
+                        src={asset.dataUrl}
+                        alt={asset.name}
+                        className="max-h-full max-w-full object-contain"
+                        style={{ imageRendering: "pixelated" }}
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-500">Chưa upload</span>
+                    )}
                   </div>
                   <div
                     className="truncate text-xs font-semibold text-slate-700"
@@ -880,7 +966,7 @@ export default function AdminUiComposerPage() {
               aria-label="Màn hình preview"
               className="min-w-[150px] flex-1"
               value={preview.screen}
-              options={[...SCREENS]}
+              options={screenOptions}
               onChange={(screen) =>
                 setPreview((p) => ({ ...p, screen, scroll: {} }))
               }
@@ -918,7 +1004,7 @@ export default function AdminUiComposerPage() {
               }))}
               onChange={setSnap}
             />
-            {preview.screen === "storage" && (
+            {doc.nodes.some(n => n.kind === "itemList") && (
               <Select
                 size="small"
                 aria-label="Filter hệ"
@@ -968,7 +1054,7 @@ export default function AdminUiComposerPage() {
           </p>
           <div className="border-t border-slate-100 p-4">
             <h3 className="mb-3 text-sm font-semibold text-slate-700">
-              Canvas & mẫu
+              Menu & canvas
             </h3>
             <Input
               aria-label="Tên menu"
@@ -1008,38 +1094,76 @@ export default function AdminUiComposerPage() {
             />
             <div className="flex flex-wrap gap-2">
               <Popconfirm
-                title="Thay bố cục bằng mẫu Thẻ Ác Quỷ?"
-                description="Res đã upload được giữ lại. Có thể hoàn tác."
-                okText="Dùng mẫu"
-                cancelText="Hủy"
-                onConfirm={() => {
-                  commit((current) => ({
-                    ...createDevilCardPreset(),
-                    assets: current.assets,
-                  }));
-                  setSelectedId(null);
-                  setPreview(initialPreview);
-                }}
-              >
-                <Button size="small">Mẫu Thẻ Ác Quỷ</Button>
-              </Popconfirm>
-              <Popconfirm
                 title="Xóa bố cục để tạo menu mới?"
                 description="Res đã upload được giữ lại. Có thể hoàn tác."
                 okText="Tạo mới"
                 cancelText="Hủy"
                 onConfirm={() => {
                   commit((current) => ({
-                    ...current,
-                    name: "Menu mới",
-                    nodes: [],
+                    ...createEmptyDocument(),
+                    assets: current.assets,
                   }));
                   setSelectedId(null);
                   setPreview(initialPreview);
                 }}
               >
-                <Button size="small">Canvas trống</Button>
+                <Button size="small" disabled={menuBusy || uploading || exporting}>
+                  Menu mới
+                </Button>
               </Popconfirm>
+            </div>
+            <div className="mt-4 border-t border-slate-100 pt-4">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-slate-700">Màn hình</h3>
+                <Button
+                  size="small"
+                  icon={<Plus size={13} />}
+                  disabled={doc.screens.length >= MAX_SCREENS}
+                  onClick={() => setScreenEditor({ name: "" })}
+                >
+                  Thêm màn hình
+                </Button>
+              </div>
+              {!doc.screens.length && (
+                <p className="text-xs text-slate-500">
+                  Các layer đang dùng chung cho tất cả màn hình.
+                </p>
+              )}
+              {doc.screens.map((screen) => (
+                <div key={screen.id} className="flex items-center gap-2 py-1">
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 truncate text-left text-sm text-slate-700"
+                    onClick={() => setPreview((previous) => ({
+                      ...previous, screen: screen.id, scroll: {},
+                    }))}
+                  >
+                    {screen.name}
+                  </button>
+                  <Button
+                    size="small"
+                    type="text"
+                    aria-label={"Đổi tên màn hình " + screen.name}
+                    icon={<Pencil size={13} />}
+                    onClick={() => setScreenEditor(screen)}
+                  />
+                  <Popconfirm
+                    title={"Xóa màn hình " + screen.name + "?"}
+                    description="Layer sẽ chuyển về Tất cả màn hình; có thể hoàn tác."
+                    okText="Xóa"
+                    cancelText="Hủy"
+                    onConfirm={() => commit((current) => removeMenuScreen(current, screen.id))}
+                  >
+                    <Button
+                      size="small"
+                      type="text"
+                      danger
+                      aria-label={"Xóa màn hình " + screen.name}
+                      icon={<Trash2 size={13} />}
+                    />
+                  </Popconfirm>
+                </div>
+              ))}
             </div>
           </div>
         </section>
@@ -1130,6 +1254,7 @@ export default function AdminUiComposerPage() {
                       doc={doc}
                       node={selected}
                       onPatch={(patch) => patchNode(selected.id, patch)}
+                      onAddScreen={() => setScreenEditor({ name: "" })}
                     />
                   </>
                 ) : (
@@ -1181,8 +1306,8 @@ export default function AdminUiComposerPage() {
                             <span className="truncate text-[10px] text-slate-400">
                               {node.screen === "all"
                                 ? "Tất cả"
-                                : SCREENS.find((s) => s.value === node.screen)
-                                    ?.label}
+                                : doc.screens.find((s) => s.id === node.screen)
+                                    ?.name}
                             </span>
                             <div className="flex">
                               <Button
@@ -1249,6 +1374,27 @@ export default function AdminUiComposerPage() {
           />
         </section>
       </div>
+      <Modal
+        title={screenEditor?.id ? "Đổi tên màn hình" : "Thêm màn hình"}
+        open={!!screenEditor}
+        onCancel={() => setScreenEditor(null)}
+        onOk={saveScreen}
+        okText={screenEditor?.id ? "Lưu" : "Thêm"}
+        cancelText="Hủy"
+        destroyOnClose
+      >
+        <Input
+          aria-label="Tên màn hình"
+          placeholder="Ví dụ: Túi đồ, Trang bị, Kỹ năng…"
+          maxLength={100}
+          value={screenEditor?.name ?? ""}
+          onChange={(event) => setScreenEditor((current) =>
+            current ? { ...current, name: event.target.value } : null,
+          )}
+          onPressEnter={saveScreen}
+          autoFocus
+        />
+      </Modal>
     </div>
   );
 }

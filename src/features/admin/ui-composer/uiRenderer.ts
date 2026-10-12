@@ -1,6 +1,5 @@
 import {
   ELEMENTS,
-  SCREENS,
   listMetrics,
   visibleNodes,
   type Insets,
@@ -31,9 +30,10 @@ export async function loadAssets(assets: UiAsset[]): Promise<LoadedAssets> {
   const ids = new Set(assets.map((a) => a.id));
   for (const id of imageCache.keys()) if (!ids.has(id)) imageCache.delete(id);
   const results = await Promise.all(
-    assets.map(async (asset) => {
+    assets.filter(asset => asset.dataUrl !== null).map(async (asset) => {
+      const dataUrl = asset.dataUrl!;
       let cached = imageCache.get(asset.id);
-      if (!cached || cached.url !== asset.dataUrl) {
+      if (!cached || cached.url !== dataUrl) {
         const promise = new Promise<HTMLImageElement>((resolve, reject) => {
           const image = new Image();
           image.onload = () => {
@@ -47,9 +47,9 @@ export async function loadAssets(assets: UiAsset[]): Promise<LoadedAssets> {
           };
           image.onerror = () =>
             reject(new Error("Không đọc được res: " + asset.name));
-          image.src = asset.dataUrl;
+          image.src = dataUrl;
         });
-        cached = { url: asset.dataUrl, promise };
+        cached = { url: dataUrl, promise };
         imageCache.set(asset.id, cached);
       }
       return [asset.id, { asset, image: await cached.promise }] as const;
@@ -302,7 +302,7 @@ function paintTabs(
   );
   const selected =
     node.action === "screen"
-      ? SCREENS.findIndex((s) => s.value === preview.screen)
+      ? node.screenTargets.findIndex(id => id === preview.screen)
       : node.action === "element"
         ? ELEMENTS.findIndex((s) => s === preview.element)
         : 0;
@@ -346,7 +346,7 @@ function paintList(
   assets: LoadedAssets,
   preview: PreviewState,
 ) {
-  const filter = node.screen === "storage" ? preview.element : "Tất cả";
+  const filter = preview.element;
   const { items, cell, rowHeight, maxScroll } = listMetrics(node, filter);
   const scroll = Math.max(0, Math.min(preview.scroll[node.id] ?? 0, maxScroll));
   ctx.save();
