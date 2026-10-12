@@ -18,6 +18,15 @@ const imageCache = new Map<
   { url: string; promise: Promise<HTMLImageElement> }
 >();
 
+export async function loadGameFonts(): Promise<void> {
+  const faces = await Promise.all([
+    document.fonts.load('400 16px "HTTH Game"'),
+    document.fonts.load('700 16px "HTTH Game"'),
+  ]);
+  if (faces.some((fonts) => !fonts.length))
+    throw new Error("Không tải được font game.");
+}
+
 export async function loadAssets(assets: UiAsset[]): Promise<LoadedAssets> {
   const ids = new Set(assets.map((a) => a.id));
   for (const id of imageCache.keys()) if (!ids.has(id)) imageCache.delete(id);
@@ -262,9 +271,7 @@ function paintText(
   ctx.clip();
   ctx.fillStyle = color;
   ctx.font =
-    (centered ? "600 " : "500 ") +
-    node.fontSize +
-    "px 'Plus Jakarta Sans', sans-serif";
+    (centered ? "700 " : "400 ") + node.fontSize + "px 'HTTH Game', sans-serif";
   ctx.textBaseline = "top";
   ctx.textAlign = centered ? "center" : "left";
   const lines = linesFor(ctx, text, Math.max(1, target.width - 8));

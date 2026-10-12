@@ -7,7 +7,7 @@ import {
   Menu as MenuIcon,
   Shirt,
   PanelsTopLeft,
-  Wrench,
+  Toolbox,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -41,7 +41,7 @@ const ADMIN_MENU = [
   {
     key: "tools",
     label: "Tools",
-    icon: <Wrench size={18} />,
+    icon: <Toolbox size={18} />,
     children: TOOL_MENU,
   },
 ];
@@ -83,7 +83,7 @@ function SidebarContent({
           navigate(key);
           onNavigate?.();
         }}
-        className="border-0 !bg-transparent px-3 [&_.ant-menu-item]:!my-1 [&_.ant-menu-item]:!h-11 [&_.ant-menu-item]:!rounded-xl [&_.ant-menu-item-selected]:!bg-amber-500 [&_.ant-menu-item-selected]:!text-white"
+        className="border-0 !bg-transparent px-3 [&_.ant-menu-sub]:!bg-white [&_.ant-menu-item]:!my-1 [&_.ant-menu-item]:!h-11 [&_.ant-menu-item]:!rounded-xl [&_.ant-menu-item-selected]:!bg-amber-500 [&_.ant-menu-item-selected]:!text-white"
       />
     </div>
   );

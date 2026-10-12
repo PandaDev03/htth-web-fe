@@ -62,6 +62,7 @@ import {
 } from "@/features/admin/ui-composer/uiComposer";
 import {
   loadAssets,
+  loadGameFonts,
   paintDocument,
   readAsset,
   type LoadedAssets,
@@ -71,6 +72,8 @@ import {
   loadDraft,
   saveDraft,
 } from "@/features/admin/ui-composer/uiStorage";
+
+import "@/features/admin/ui-composer/gameFonts.css";
 
 type History = {
   present: UiDocument;
@@ -113,6 +116,7 @@ export default function AdminUiComposerPage() {
   const [preview, setPreview] = useState<PreviewState>(initialPreview);
   const [loaded, setLoaded] = useState<LoadedAssets>(new Map());
   const [renderError, setRenderError] = useState("");
+  const [fontError, setFontError] = useState("");
   const [saveStatus, setSaveStatus] = useState("Đang mở nháp…");
   const [storageError, setStorageError] = useState("");
   const [search, setSearch] = useState("");
@@ -240,8 +244,16 @@ export default function AdminUiComposerPage() {
           selectedId: mode === "design" ? selectedId : null,
         });
     };
-    paint();
-    void document.fonts.ready.then(paint);
+    void loadGameFonts()
+      .then(() => {
+        if (active) {
+          setFontError("");
+          paint();
+        }
+      })
+      .catch((error) => {
+        if (active) setFontError(errorMessage(error));
+      });
     return () => {
       active = false;
     };
@@ -588,7 +600,7 @@ export default function AdminUiComposerPage() {
     setExporting(true);
     try {
       const assets = await loadAssets(doc.assets);
-      await document.fonts.ready;
+      await loadGameFonts();
       const canvas = document.createElement("canvas");
       canvas.width = doc.width;
       canvas.height = doc.height;
@@ -702,14 +714,10 @@ export default function AdminUiComposerPage() {
           </Button>
         </div>
       </div>
-      <Alert
-        type="info"
-        showIcon
-        message="Preview bố cục Unity"
-        description="Upload res nền, tab, button, slot và tabIcon đang dùng. Ảnh lưu trong trình duyệt; JSON kèm res để mở lại. Font web có thể khác font game; JSON cần triển khai bằng code Unity."
-      />
       {storageError && <Alert type="warning" showIcon message={storageError} />}
-      {renderError && <Alert type="error" showIcon message={renderError} />}
+      {(fontError || renderError) && (
+        <Alert type="error" showIcon message={fontError || renderError} />
+      )}
       <input
         ref={uploadRef}
         type="file"
@@ -929,27 +937,29 @@ export default function AdminUiComposerPage() {
             ref={viewportRef}
             className="max-h-[640px] min-h-[240px] overflow-auto bg-slate-200/70 p-3"
           >
-            <canvas
-              ref={canvasRef}
-              width={doc.width}
-              height={doc.height}
-              tabIndex={0}
-              aria-label="Preview menu game. Thiết kế: kéo để di chuyển, kéo góc dưới phải để đổi kích thước. Preview: nhấn tab hoặc cuộn danh sách."
-              style={{
-                width: doc.width * Math.max(0.1, scale),
-                height: doc.height * Math.max(0.1, scale),
-                touchAction: "none",
-                imageRendering: "pixelated",
-                cursor: mode === "design" ? "move" : "default",
-              }}
-              className="block max-w-none shadow-md outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
-              onPointerDown={pointerDown}
-              onPointerMove={pointerMove}
-              onPointerUp={pointerUp}
-              onPointerCancel={pointerUp}
-              onLostPointerCapture={pointerUp}
-              onKeyDown={keyboard}
-            />
+            <div className="flex min-h-[320px] w-max min-w-full items-center justify-center">
+              <canvas
+                ref={canvasRef}
+                width={doc.width}
+                height={doc.height}
+                tabIndex={0}
+                aria-label="Preview menu game. Thiết kế: kéo để di chuyển, kéo góc dưới phải để đổi kích thước. Preview: nhấn tab hoặc cuộn danh sách."
+                style={{
+                  width: doc.width * Math.max(0.1, scale),
+                  height: doc.height * Math.max(0.1, scale),
+                  touchAction: "none",
+                  imageRendering: "pixelated",
+                  cursor: mode === "design" ? "move" : "default",
+                }}
+                className="block shrink-0 max-w-none shadow-md outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                onPointerDown={pointerDown}
+                onPointerMove={pointerMove}
+                onPointerUp={pointerUp}
+                onPointerCancel={pointerUp}
+                onLostPointerCapture={pointerUp}
+                onKeyDown={keyboard}
+              />
+            </div>
           </div>
           <p className="border-t border-slate-200 px-3 py-2 text-xs leading-5 text-slate-500">
             {mode === "design"

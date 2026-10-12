@@ -1,0 +1,16 @@
+/* Font assets match Unity Assets/Resources/fontsys; only the game canvas uses them. */
+@font-face {
+  font-family: "HTTH Game";
+  src: url("/fonts/ui-composer/fontnho.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "HTTH Game";
+  src: url("/fonts/ui-composer/fontbu.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+}

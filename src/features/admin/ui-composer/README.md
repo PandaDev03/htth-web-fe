@@ -49,7 +49,7 @@ Client hiện vẽ UI bằng mGraphics, AvMain.paintRect, paintRectButton và c�
 - Crop và slice là **pixel ảnh gốc**. Res x4, crop 80px hoặc biên 32px tương ứng 20px/8px logic.
 - Khi triển khai, map name/id sang resource path/ID thật của game; không dùng asset UUID như icon ID.
 - Dùng thứ tự nodes và screen để tổ chức các lệnh vẽ. Tile/9-slice cần lặp/vẽ từng vùng bằng renderer tương ứng của game.
-- Font, kerning, clipping, scale và input phải đối chiếu với client. Preview web chưa mô phỏng bitmap font/game logic. Button chỉ minh họa và hiện thông báo khi nhấn.
+- Canvas và PNG export dùng cùng font TTF của game: fontnho cho chữ thường, fontbu cho chữ đậm. Cần đối chiếu kerning, vị trí baseline, clipping, scale và input với client. Button chỉ minh họa và hiện thông báo khi nhấn.
 - Background, tab, button, slot có thể là ảnh riêng hoặc crop từ sheet; không bắt buộc một ảnh lớn cho toàn menu.
 
 ## Kiểm tra không build
