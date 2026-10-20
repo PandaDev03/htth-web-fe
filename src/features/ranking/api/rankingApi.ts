@@ -5,7 +5,12 @@ import type { RewardIconItem } from "@/shared/types/reward";
 import type { ServerId } from "@/shared/types/server";
 
 export type BuiltinRankingType =
-  "top-donates" | "top-levels" | "top-pvp" | "top-fireworks" | "top-boss-hunt";
+  | "top-donates"
+  | "top-levels"
+  | "top-disciple-levels"
+  | "top-pvp"
+  | "top-fireworks"
+  | "top-boss-hunt";
 
 export type ConfiguredEventRankingType = `event:${string}`;
 export type RankingType = BuiltinRankingType | ConfiguredEventRankingType;
@@ -92,6 +97,21 @@ export type LevelRanking = BaseRanking & {
   >;
 };
 
+export type DiscipleLevelRanking = BaseRanking & {
+  category: "top-disciple-level";
+  season: RankingSeason | null;
+  rewards: RankingRewardSet | null;
+  items: Array<
+    AchievementRankingEntry & {
+      discipleId: string;
+      ownerPlayerName: string;
+      level: number;
+      rebirthLevel: number;
+      experience: string;
+    }
+  >;
+};
+
 export type PvpRanking = BaseRanking & {
   category: "top-pvp";
   items: Array<AchievementRankingEntry & { pvpPoints: number }>;
@@ -108,7 +128,11 @@ export type EventRanking = BaseRanking & {
 };
 
 export type RankingData =
-  DepositRanking | LevelRanking | PvpRanking | EventRanking;
+  | DepositRanking
+  | LevelRanking
+  | DiscipleLevelRanking
+  | PvpRanking
+  | EventRanking;
 
 type ApiEnvelope<T> = { data: T };
 

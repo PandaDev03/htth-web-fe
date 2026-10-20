@@ -36,6 +36,7 @@ type DisplayRankingEntry = {
   rank: number;
   name: string;
   subtitle?: string;
+  subtitleLabel?: string;
   value: number;
   valueDetail?: string;
 };
@@ -220,7 +221,7 @@ function PodiumCard({
           </h2>
           {entry.subtitle && (
             <p className="mt-0.5 truncate text-xs text-gray-400">
-              Tài khoản: {entry.subtitle}
+              {entry.subtitleLabel ?? "Tài khoản"}: {entry.subtitle}
             </p>
           )}
         </div>
@@ -322,7 +323,7 @@ function RemainingRanking({
                       </span>
                       {entry.subtitle && (
                         <span className="mt-0.5 block truncate text-xs text-gray-400">
-                          Tài khoản: {entry.subtitle}
+                          {entry.subtitleLabel ?? "Tài khoản"}: {entry.subtitle}
                         </span>
                       )}
                     </span>
@@ -348,13 +349,14 @@ function RemainingRanking({
 const rankingTypes: BuiltinRankingType[] = [
   "top-donates",
   "top-levels",
+  "top-disciple-levels",
   "top-pvp",
   "top-fireworks",
   "top-boss-hunt",
 ];
 const visibleRankingTypesByServer: Record<ServerId, readonly RankingType[]> = {
   server1: ["top-donates"],
-  tan_binh: ["top-donates", "top-levels"],
+  tan_binh: ["top-donates", "top-levels", "top-disciple-levels"],
 };
 
 function parseRankingType(value: string | null): RankingType | null {
@@ -379,6 +381,19 @@ function getRankingEntries(data?: RankingData): DisplayRankingEntry[] {
       name: entry.playerName || entry.username,
       subtitle: entry.playerName ? entry.username : undefined,
       value: entry.tongnap,
+    }));
+  }
+  if (data.category === "top-disciple-level") {
+    return data.items.map((entry) => ({
+      rank: entry.rank,
+      name: entry.playerName,
+      subtitle: entry.ownerPlayerName,
+      subtitleLabel: "Sư",
+      value: entry.level,
+      valueDetail:
+        (entry.level >= 100 ? "Thông thạo " + entry.rebirthLevel + " | " : "") +
+        BigInt(entry.experience).toLocaleString("vi-VN") +
+        " EXP",
     }));
   }
   if (data.category === "top-level") {
@@ -449,7 +464,7 @@ function RankingPage() {
         isEventRankingType(item.id) || visibleRankingTypes.includes(item.id),
     )
     .map((item) =>
-      item.id === "top-donates"
+      item.id === "top-donates" && viewedServerId === "server1"
         ? {
             ...item,
             label: "Top Điểm tích lũy",
@@ -495,7 +510,9 @@ function RankingPage() {
   const rankingRewards =
     rankingData && "rewards" in rankingData ? rankingData.rewards : undefined;
   const currentRewards =
-    rankingRewards && activeTab === "top-donates"
+    rankingRewards &&
+    activeTab === "top-donates" &&
+    viewedServerId === "server1"
       ? {
           ...rankingRewards,
           title: toPointsRankingCopy(rankingRewards.title),
@@ -515,19 +532,31 @@ function RankingPage() {
       : rankingRewards;
   const presentation = {
     "top-donates": {
-      title: "Top Điểm tích lũy",
+      title: viewedServerId === "tan_binh" ? "Top Nạp" : "Top Điểm tích lũy",
       description:
-        "Vinh danh những thuyền trưởng có Điểm tích lũy cao nhất trong mùa hiện tại.",
-      valueLabel: "Điểm tích lũy",
+        viewedServerId === "tan_binh"
+          ? "Vinh danh những thuyền trưởng có tổng nạp cao nhất trong mùa hiện tại."
+          : "Vinh danh những thuyền trưởng có Điểm tích lũy cao nhất trong mùa hiện tại.",
+      valueLabel: viewedServerId === "tan_binh" ? "Tổng nạp" : "Điểm tích lũy",
       empty:
-        "Bảng Top Điểm tích lũy sẽ hiển thị khi có giao dịch trong mùa hiện tại.",
+        viewedServerId === "tan_binh"
+          ? "Top Nạp sẽ hiển thị khi có giao dịch trong mùa hiện tại."
+          : "Bảng Top Điểm tích lũy sẽ hiển thị khi có giao dịch trong mùa hiện tại.",
     },
     "top-levels": {
-      title: "Top Level",
+      title: "Top Level Sư",
       description:
         "Vinh danh những thuyền trưởng đạt cấp độ cao nhất trong mùa hiện tại.",
       valueLabel: "Level",
-      empty: "Top Level sẽ hiển thị khi mùa đua của Tân binh bắt đầu.",
+      empty: "Top Level Sư sẽ hiển thị khi mùa đua của Tân binh bắt đầu.",
+    },
+    "top-disciple-levels": {
+      title: "Top Level Đệ",
+      description:
+        "Xếp hạng đệ tử hiện tại theo cấp độ, thông thạo và EXP trong mùa đua.",
+      valueLabel: "Level Đệ",
+      empty:
+        "Top Level Đệ sẽ hiển thị khi mùa đua bắt đầu và có đệ tử đủ điều kiện.",
     },
     "top-pvp": {
       title: "Top PvP",
@@ -586,7 +615,7 @@ function RankingPage() {
   const contextLabel = isEventRankingType(activeTab)
     ? (selectedRanking?.status ?? "Đua Top sự kiện")
     : rankingSeason
-      ? activeTab === "top-donates"
+      ? activeTab === "top-donates" && viewedServerId === "server1"
         ? toPointsRankingCopy(rankingSeason.name)
         : rankingSeason.name
       : activeTab === "top-fireworks" || activeTab === "top-boss-hunt"

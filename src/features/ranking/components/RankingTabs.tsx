@@ -1,4 +1,12 @@
-import { Flame, Gift, Shield, Swords, TrendingUp, Trophy } from "lucide-react";
+import {
+  Flame,
+  Gift,
+  Shield,
+  Swords,
+  TrendingUp,
+  Trophy,
+  Users,
+} from "lucide-react";
 
 import {
   isEventRankingType,
@@ -10,6 +18,7 @@ import {
 const iconByRankingType = {
   "top-donates": Trophy,
   "top-levels": TrendingUp,
+  "top-disciple-levels": Users,
   "top-pvp": Shield,
   "top-fireworks": Flame,
   "top-boss-hunt": Swords,
