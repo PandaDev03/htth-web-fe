@@ -1,0 +1,100 @@
+{
+  "checks": [
+    "Luffy renders once in the hero with the existing download route",
+    "Hover selects all six requested expressions with controlled random input and clears on leave",
+    "Focus selects all six requested expressions and clears on blur",
+    "Leaving hover preserves a reaction while keyboard focus remains",
+    "Blurring preserves a reaction while pointer hover remains",
+    "Real Tab navigation activates and releases the download reaction",
+    "Cursor tracking still covers eight directions and the center dead zone",
+    "Mascot clicks and four-click dizzy reaction still recover normally",
+    "Desktop, tablet and small mobile layouts fit the CTA without horizontal overflow or mascot overlap",
+    "Touch avoids hover reactions and still activates mascot click feedback",
+    "Reduced motion disables squash while preserving CTA expressions",
+    "Download navigation and unmount/remount clear transient mascot state",
+    "No browser JavaScript errors"
+  ],
+  "errors": [],
+  "layouts": [
+    {
+      "width": 1440,
+      "height": 900,
+      "overflow": false,
+      "mascot": {
+        "top": 224.203125,
+        "bottom": 384.203125,
+        "width": 160
+      },
+      "headingTop": 400.203125,
+      "cta": {
+        "top": 685.796875,
+        "bottom": 737.796875
+      },
+      "ctaVisible": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "overflow": false,
+      "mascot": {
+        "top": 314.203125,
+        "bottom": 474.203125,
+        "width": 160
+      },
+      "headingTop": 490.203125,
+      "cta": {
+        "top": 775.796875,
+        "bottom": 827.796875
+      },
+      "ctaVisible": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "overflow": false,
+      "mascot": {
+        "top": 214.203125,
+        "bottom": 342.203125,
+        "width": 128
+      },
+      "headingTop": 354.203125,
+      "cta": {
+        "top": 569.796875,
+        "bottom": 621.796875
+      },
+      "ctaVisible": true
+    },
+    {
+      "width": 360,
+      "height": 740,
+      "overflow": false,
+      "mascot": {
+        "top": 162.203125,
+        "bottom": 290.203125,
+        "width": 128
+      },
+      "headingTop": 302.203125,
+      "cta": {
+        "top": 517.796875,
+        "bottom": 569.796875
+      },
+      "ctaVisible": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "overflow": false,
+      "mascot": {
+        "top": 311.015625,
+        "bottom": 471.015625,
+        "width": 160
+      },
+      "headingTop": 487.015625,
+      "cta": {
+        "top": 722.984375,
+        "bottom": 774.984375
+      },
+      "ctaVisible": true
+    }
+  ]
+}
