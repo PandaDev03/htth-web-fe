@@ -1,0 +1,40 @@
+{
+  "checks": [
+    "All 18 gallery frames load",
+    "Browser decodes both WebP atlases with transparent borders in all cells",
+    "Manual selection maps all nine direction cells correctly",
+    "Pointer tracking covers eight sectors and the center dead zone",
+    "Click plays reaction and returns to tracking",
+    "Four rapid clicks trigger dizzy and recover",
+    "All nine reaction cells can be inspected",
+    "All three display sizes work",
+    "Light, dark and checkerboard surfaces work",
+    "Desktop has no horizontal overflow",
+    "Keyboard Enter activates the mascot",
+    "Touch activation works without pointer tracking or mobile horizontal overflow",
+    "Reduced motion suppresses squash animation",
+    "No browser errors, failed requests or third-party requests"
+  ],
+  "errors": [],
+  "requests": [
+    "http://127.0.0.1:4178/luffy-preview.html",
+    "http://127.0.0.1:4178/luffy-directions.webp",
+    "http://127.0.0.1:4178/luffy-reactions.webp"
+  ],
+  "decoded": [
+    {
+      "kind": "directions",
+      "width": 1080,
+      "height": 1080,
+      "cornerAlpha": 0,
+      "edgeClear": true
+    },
+    {
+      "kind": "reactions",
+      "width": 1080,
+      "height": 1080,
+      "cornerAlpha": 0,
+      "edgeClear": true
+    }
+  ]
+}

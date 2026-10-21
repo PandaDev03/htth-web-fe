@@ -1,0 +1,350 @@
+{
+  "generatedAt": "2026-10-21T08:20:43.114Z",
+  "tile": 360,
+  "atlas": 1080,
+  "displaySize": 160,
+  "torsoWidth": 256,
+  "frames": [
+    {
+      "kind": "directions",
+      "index": 0,
+      "bounds": [
+        51,
+        38,
+        315,
+        339
+      ],
+      "transparentRatio": 0.5414737654320988,
+      "correction": {
+        "score": 0.9949270110777513,
+        "dx": 0,
+        "dy": 1
+      },
+      "residualShiftAt160": 0,
+      "torsoOverlap": 0.9949270110777513
+    },
+    {
+      "kind": "directions",
+      "index": 1,
+      "bounds": [
+        45,
+        38,
+        314,
+        338
+      ],
+      "transparentRatio": 0.5292206790123457,
+      "correction": {
+        "score": 0.995857497928749,
+        "dx": -1,
+        "dy": 0
+      },
+      "residualShiftAt160": 0,
+      "torsoOverlap": 0.995857497928749
+    },
+    {
+      "kind": "directions",
+      "index": 2,
+      "bounds": [
+        43,
+        39,
+        307,
+        338
+      ],
+      "transparentRatio": 0.5480246913580247,
+      "correction": {
+        "score": 0.9964796024021536,
+        "dx": -1,
+        "dy": 0
+      },
+      "residualShiftAt160": 0,
+      "torsoOverlap": 0.9964796024021536
+    },
+    {
+      "kind": "directions",
+      "index": 3,
+      "bounds": [
+        46,
+        39,
+        313,
+        338
+      ],
+      "transparentRatio": 0.5474537037037037,
+      "correction": {
+        "score": 0.9938841090494455,
+        "dx": 0,
+        "dy": 0
+      },
+      "residualShiftAt160": 0,
+      "torsoOverlap": 0.9938841090494455
+    },
+    {
+      "kind": "directions",
+      "index": 4,
+      "bounds": [
+        43,
+        38,
+        316,
+        339
+      ],
+      "transparentRatio": 0.5389814814814815,
+      "correction": {
+        "score": 1,
+        "dx": 0,
+        "dy": 0
+      },
+      "residualShiftAt160": 0,
+      "torsoOverlap": 1
+    },
+    {
+      "kind": "directions",
+      "index": 5,
+      "bounds": [
+        45,
+        39,
+        313,
+        339
+      ],
+      "transparentRatio": 0.545054012345679,
+      "correction": {
+        "score": 0.9945009338036938,
+        "dx": 0,
+        "dy": 1
+      },
+      "residualShiftAt160": 0,
+      "torsoOverlap": 0.9945009338036938
+    },
+    {
+      "kind": "directions",
+      "index": 6,
+      "bounds": [
+        33,
+        55,
+        307,
+        338
+      ],
+      "transparentRatio": 0.585733024691358,
+      "correction": {
+        "score": 0.9959539371304077,
+        "dx": 0,
+        "dy": 0
+      },
+      "residualShiftAt160": 0,
+      "torsoOverlap": 0.9959539371304077
+    },
+    {
+      "kind": "directions",
+      "index": 7,
+      "bounds": [
+        50,
+        58,
+        307,
+        338
+      ],
+      "transparentRatio": 0.5929938271604939,
+      "correction": {
+        "score": 0.9936774461028193,
+        "dx": -1,
+        "dy": 1
+      },
+      "residualShiftAt160": 0,
+      "torsoOverlap": 0.9936774461028193
+    },
+    {
+      "kind": "directions",
+      "index": 8,
+      "bounds": [
+        52,
+        55,
+        327,
+        338
+      ],
+      "transparentRatio": 0.5821064814814815,
+      "correction": {
+        "score": 0.9959547764754694,
+        "dx": 0,
+        "dy": 0
+      },
+      "residualShiftAt160": 0,
+      "torsoOverlap": 0.9959547764754694
+    },
+    {
+      "kind": "reactions",
+      "index": 0,
+      "bounds": [
+        43,
+        37,
+        313,
+        336
+      ],
+      "transparentRatio": 0.5435416666666667,
+      "correction": {
+        "score": 0.9889096185737977,
+        "dx": 0,
+        "dy": -3
+      },
+      "residualShiftAt160": 0,
+      "torsoOverlap": 0.9889096185737977
+    },
+    {
+      "kind": "reactions",
+      "index": 1,
+      "bounds": [
+        47,
+        18,
+        312,
+        335
+      ],
+      "transparentRatio": 0.5411265432098765,
+      "correction": {
+        "score": 0.9873365165040482,
+        "dx": 0,
+        "dy": -2
+      },
+      "residualShiftAt160": 0,
+      "torsoOverlap": 0.9873365165040482
+    },
+    {
+      "kind": "reactions",
+      "index": 2,
+      "bounds": [
+        48,
+        18,
+        312,
+        336
+      ],
+      "transparentRatio": 0.5342592592592592,
+      "correction": {
+        "score": 0.9865047233468286,
+        "dx": -1,
+        "dy": -3
+      },
+      "residualShiftAt160": 0,
+      "torsoOverlap": 0.9865047233468286
+    },
+    {
+      "kind": "reactions",
+      "index": 3,
+      "bounds": [
+        45,
+        41,
+        313,
+        337
+      ],
+      "transparentRatio": 0.5486033950617284,
+      "correction": {
+        "score": 0.99055330634278,
+        "dx": 0,
+        "dy": -1
+      },
+      "residualShiftAt160": 0,
+      "torsoOverlap": 0.99055330634278
+    },
+    {
+      "kind": "reactions",
+      "index": 4,
+      "bounds": [
+        45,
+        39,
+        313,
+        337
+      ],
+      "transparentRatio": 0.5458796296296297,
+      "correction": {
+        "score": 0.9934613388687078,
+        "dx": -1,
+        "dy": -1
+      },
+      "residualShiftAt160": 0,
+      "torsoOverlap": 0.9934613388687078
+    },
+    {
+      "kind": "reactions",
+      "index": 5,
+      "bounds": [
+        45,
+        41,
+        312,
+        337
+      ],
+      "transparentRatio": 0.5513271604938271,
+      "correction": {
+        "score": 0.9882682724252492,
+        "dx": -1,
+        "dy": -1
+      },
+      "residualShiftAt160": 0,
+      "torsoOverlap": 0.9882682724252492
+    },
+    {
+      "kind": "reactions",
+      "index": 6,
+      "bounds": [
+        42,
+        30,
+        317,
+        335
+      ],
+      "transparentRatio": 0.5317206790123457,
+      "correction": {
+        "score": 0.9863084742246655,
+        "dx": 0,
+        "dy": -3
+      },
+      "residualShiftAt160": 0,
+      "torsoOverlap": 0.9863084742246655
+    },
+    {
+      "kind": "reactions",
+      "index": 7,
+      "bounds": [
+        43,
+        37,
+        314,
+        337
+      ],
+      "transparentRatio": 0.541304012345679,
+      "correction": {
+        "score": 0.9885809197550088,
+        "dx": -1,
+        "dy": -1
+      },
+      "residualShiftAt160": 0,
+      "torsoOverlap": 0.9885809197550088
+    },
+    {
+      "kind": "reactions",
+      "index": 8,
+      "bounds": [
+        42,
+        36,
+        315,
+        337
+      ],
+      "transparentRatio": 0.5352777777777777,
+      "correction": {
+        "score": 0.989309807991697,
+        "dx": -1,
+        "dy": -1
+      },
+      "residualShiftAt160": 0,
+      "torsoOverlap": 0.989309807991697
+    }
+  ],
+  "files": [
+    {
+      "name": "luffy-directions.webp",
+      "bytes": 300058,
+      "width": 1080,
+      "height": 1080,
+      "hasAlpha": true
+    },
+    {
+      "name": "luffy-reactions.webp",
+      "bytes": 309692,
+      "width": 1080,
+      "height": 1080,
+      "hasAlpha": true
+    }
+  ],
+  "maxResidualShiftAt160": 0
+}
