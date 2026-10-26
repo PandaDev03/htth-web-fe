@@ -7,6 +7,7 @@ import {
   Loader2,
   ReceiptText,
 } from "lucide-react";
+import { useRef, useState, type PointerEvent } from "react";
 
 import { useAppSelector } from "@/app/store/hooks";
 import {
@@ -105,12 +106,61 @@ function MobileHistoryCard({ item }: { item: DepositHistoryItem }) {
 }
 
 export function DepositHistoryTable() {
+  const dragScrollRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startScrollLeft: number;
+  } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const { serverId, user } = useAppSelector((state) => state.auth);
   const historyQuery = useQuery({
     queryKey: ["deposit-history", serverId, user?.id],
     queryFn: getDepositHistory,
     enabled: Boolean(serverId && user),
   });
+
+  function startDragging(event: PointerEvent<HTMLDivElement>) {
+    const container = event.currentTarget;
+    if (
+      event.pointerType !== "mouse" ||
+      event.button !== 0 ||
+      container.scrollWidth <= container.clientWidth
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    dragScrollRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startScrollLeft: container.scrollLeft,
+    };
+    container.setPointerCapture(event.pointerId);
+    setIsDragging(true);
+  }
+
+  function stopDragging(event: PointerEvent<HTMLDivElement>) {
+    const drag = dragScrollRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    dragScrollRef.current = null;
+    setIsDragging(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function dragHorizontally(event: PointerEvent<HTMLDivElement>) {
+    const drag = dragScrollRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if ((event.buttons & 1) === 0) {
+      stopDragging(event);
+      return;
+    }
+
+    event.currentTarget.scrollLeft =
+      drag.startScrollLeft - (event.clientX - drag.startX);
+  }
 
   return (
     <section className="mb-4 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
@@ -152,7 +202,20 @@ export function DepositHistoryTable() {
               <MobileHistoryCard key={item.id} item={item} />
             ))}
           </div>
-          <div className="hidden overflow-x-auto sm:block">
+          <div
+            className={classNames(
+              "hidden overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-400 sm:block",
+              isDragging ? "cursor-grabbing select-none" : "cursor-grab",
+            )}
+            role="region"
+            aria-label="Lịch sử giao dịch"
+            tabIndex={0}
+            onPointerDown={startDragging}
+            onPointerMove={dragHorizontally}
+            onPointerUp={stopDragging}
+            onPointerCancel={stopDragging}
+            onLostPointerCapture={stopDragging}
+          >
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-400">
                 <tr>
