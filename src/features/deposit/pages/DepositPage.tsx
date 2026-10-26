@@ -857,10 +857,7 @@ function WalletDepositPage() {
 
               {statusText && !error && (
                 <div className="mt-4 flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                  <Clock
-                    size={16}
-                    className="mt-0.5 shrink-0 text-amber-700"
-                  />
+                  <Clock size={16} className="mt-0.5 shrink-0 text-amber-700" />
                   <span>{statusText}</span>
                 </div>
               )}
@@ -985,7 +982,7 @@ function WalletDepositPage() {
                       href={payment.checkout_url || "#"}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-700 py-3 text-sm font-bold text-white transition-all hover:bg-amber-800 active:translate-y-px"
+                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-700 py-3 text-sm font-bold text-white transition-all hover:bg-amber-800 active:translate-y-px hover:text-white"
                     >
                       Mở cổng thanh toán
                       <ExternalLink size={16} />
@@ -1037,7 +1034,7 @@ function WalletDepositPage() {
                   onClick={() => resetDeposit()}
                   className="mt-4 w-full rounded-xl border border-gray-200 py-3 text-sm font-bold text-gray-600 transition-all hover:bg-gray-50 active:translate-y-px"
                 >
-                  Tạo giao dịch tích lũy Điểm khác
+                  Tạo giao dịch khác
                 </button>
               )}
             </section>
