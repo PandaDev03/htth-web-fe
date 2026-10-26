@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import classNames from "classnames";
 import {
   AlertCircle,
   Banknote,
@@ -48,14 +49,21 @@ function formatPaymentStatus(status: string) {
     .replace(/Donate/gi, "tích lũy Điểm");
 }
 
-function PaymentStatus({ status }: { status: string }) {
+function PaymentStatus({
+  status,
+  className,
+}: {
+  status: string;
+  className?: string;
+}) {
+  const customClass = classNames(
+    className,
+    "inline-flex rounded-full border px-2.5 py-1 text-xs font-bold " +
+      statusClass(status),
+  );
+
   return (
-    <span
-      className={
-        "inline-flex rounded-full border px-2.5 py-1 text-xs font-bold " +
-        statusClass(status)
-      }
-    >
+    <span className={customClass}>
       {status ? formatPaymentStatus(status) : "Đang xử lý"}
     </span>
   );
@@ -110,11 +118,9 @@ export function DepositHistoryTable() {
         <div>
           <h2 className="flex items-center gap-2 text-sm font-bold text-gray-700">
             <ReceiptText size={16} className="text-amber-500" />
-            Lịch sử tích lũy Điểm
+            Lịch sử
           </h2>
-          <p className="mt-1 text-xs text-gray-400">
-            50 giao dịch gần nhất của tài khoản
-          </p>
+          <p className="mt-1 text-xs text-gray-400">50 giao dịch gần nhất</p>
         </div>
         <Banknote size={20} className="text-gray-300" />
       </div>
@@ -151,9 +157,7 @@ export function DepositHistoryTable() {
               <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-400">
                 <tr>
                   <th className="px-5 py-3 font-semibold">Mã giao dịch</th>
-                  <th className="px-4 py-3 font-semibold">
-                    Số tiền thanh toán
-                  </th>
+                  <th className="px-4 py-3 font-semibold">Số tiền</th>
                   <th className="px-4 py-3 font-semibold">Điểm nhận</th>
                   <th className="px-4 py-3 font-semibold">Ngân hàng</th>
                   <th className="px-4 py-3 font-semibold">Thời gian</th>
@@ -181,7 +185,7 @@ export function DepositHistoryTable() {
                       {formatPaidAt(item.paid_at)}
                     </td>
                     <td className="px-4 py-4 text-right">
-                      <PaymentStatus status={item.status} />
+                      <PaymentStatus status={item.status} className="w-max" />
                     </td>
                   </tr>
                 ))}
