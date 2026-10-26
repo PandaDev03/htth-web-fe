@@ -7,6 +7,8 @@ import {
   Loader2,
   ReceiptText,
 } from "lucide-react";
+import { useRef, useState, type MouseEvent, type PointerEvent } from "react";
+import { toast } from "sonner";
 
 import { useAppSelector } from "@/app/store/hooks";
 import {
@@ -69,13 +71,50 @@ function PaymentStatus({
   );
 }
 
+function PaymentReference({
+  item,
+  fillCell = false,
+}: {
+  item: DepositHistoryItem;
+  fillCell?: boolean;
+}) {
+  if (!item.ref_no) return <span>#{item.id}</span>;
+  const orderCode = item.ref_no.replace(/^payos:/i, "");
+
+  async function copyOrderCode() {
+    try {
+      await navigator.clipboard.writeText(orderCode);
+      toast.success("Đã sao chép mã đơn " + orderCode + ".");
+    } catch {
+      toast.error("Không thể sao chép mã đơn. Vui lòng thử lại.");
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void copyOrderCode()}
+      title={"Sao chép mã đơn " + orderCode}
+      aria-label={"Sao chép mã đơn " + orderCode}
+      className={classNames(
+        "max-w-full cursor-pointer rounded text-left align-bottom underline decoration-gray-300 decoration-dotted underline-offset-4 transition-colors hover:text-amber-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400",
+        fillCell
+          ? "before:absolute before:inset-0 before:content-[''] focus-visible:before:ring-2 focus-visible:before:ring-inset focus-visible:before:ring-amber-400"
+          : "truncate",
+      )}
+    >
+      {item.ref_no}
+    </button>
+  );
+}
+
 function MobileHistoryCard({ item }: { item: DepositHistoryItem }) {
   return (
     <article className="rounded-xl border border-gray-100 bg-gray-50 p-4 sm:hidden">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate font-mono text-xs font-semibold text-gray-500">
-            {item.ref_no || "#" + item.id}
+            <PaymentReference item={item} />
           </p>
           <p className="mt-1 text-lg font-black text-amber-600">
             {formatVnd(item.amount)}
@@ -105,12 +144,81 @@ function MobileHistoryCard({ item }: { item: DepositHistoryItem }) {
 }
 
 export function DepositHistoryTable() {
+  const dragScrollRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startScrollLeft: number;
+    dragged: boolean;
+  } | null>(null);
+  const suppressClickRef = useRef(false);
+  const [isDragging, setIsDragging] = useState(false);
   const { serverId, user } = useAppSelector((state) => state.auth);
   const historyQuery = useQuery({
     queryKey: ["deposit-history", serverId, user?.id],
     queryFn: getDepositHistory,
     enabled: Boolean(serverId && user),
   });
+
+  function startDragging(event: PointerEvent<HTMLDivElement>) {
+    const container = event.currentTarget;
+    suppressClickRef.current = false;
+    if (
+      event.pointerType !== "mouse" ||
+      event.button !== 0 ||
+      container.scrollWidth <= container.clientWidth
+    ) {
+      return;
+    }
+
+    if (!(event.target instanceof Element && event.target.closest("button"))) {
+      event.preventDefault();
+    }
+    dragScrollRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startScrollLeft: container.scrollLeft,
+      dragged: false,
+    };
+  }
+
+  function stopDragging(event: PointerEvent<HTMLDivElement>) {
+    const drag = dragScrollRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    dragScrollRef.current = null;
+    setIsDragging(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function dragHorizontally(event: PointerEvent<HTMLDivElement>) {
+    const drag = dragScrollRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if ((event.buttons & 1) === 0) {
+      stopDragging(event);
+      return;
+    }
+
+    const distance = event.clientX - drag.startX;
+    if (!drag.dragged) {
+      if (Math.abs(distance) < 5) return;
+      drag.dragged = true;
+      suppressClickRef.current = true;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      setIsDragging(true);
+    }
+
+    event.currentTarget.scrollLeft = drag.startScrollLeft - distance;
+  }
+
+  function suppressClickAfterDrag(event: MouseEvent<HTMLDivElement>) {
+    if (suppressClickRef.current && event.detail > 0) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    suppressClickRef.current = false;
+  }
 
   return (
     <section className="mb-4 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
@@ -121,6 +229,14 @@ export function DepositHistoryTable() {
             Lịch sử
           </h2>
           <p className="mt-1 text-xs text-gray-400">50 giao dịch gần nhất</p>
+          {Boolean(historyQuery.data?.length) && (
+            <p className="mt-2 text-xs leading-5 text-gray-500">
+              <span className="hidden sm:inline">
+                Kéo bảng sang trái/phải để xem thêm.{" "}
+              </span>
+              Bấm vào mã giao dịch để sao chép.
+            </p>
+          )}
         </div>
         <Banknote size={20} className="text-gray-300" />
       </div>
@@ -152,7 +268,24 @@ export function DepositHistoryTable() {
               <MobileHistoryCard key={item.id} item={item} />
             ))}
           </div>
-          <div className="hidden overflow-x-auto sm:block">
+          <div
+            className={classNames(
+              "hidden overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-400 sm:block",
+              isDragging ? "cursor-grabbing select-none" : "cursor-grab",
+            )}
+            role="region"
+            aria-label="Lịch sử giao dịch"
+            tabIndex={0}
+            onPointerDown={startDragging}
+            onPointerMove={dragHorizontally}
+            onPointerUp={stopDragging}
+            onPointerCancel={stopDragging}
+            onLostPointerCapture={stopDragging}
+            onPointerLeave={(event) => {
+              if (!dragScrollRef.current?.dragged) stopDragging(event);
+            }}
+            onClickCapture={suppressClickAfterDrag}
+          >
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-400">
                 <tr>
@@ -169,8 +302,8 @@ export function DepositHistoryTable() {
               <tbody className="divide-y divide-gray-100">
                 {historyQuery.data.map((item) => (
                   <tr key={item.id} className="text-gray-600">
-                    <td className="px-5 py-4 font-mono text-xs font-semibold">
-                      {item.ref_no || "#" + item.id}
+                    <td className="relative px-5 py-4 font-mono text-xs font-semibold">
+                      <PaymentReference item={item} fillCell />
                     </td>
                     <td className="whitespace-nowrap px-4 py-4 font-bold text-amber-600">
                       {formatVnd(item.amount)}
