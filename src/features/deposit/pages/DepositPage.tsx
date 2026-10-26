@@ -224,11 +224,6 @@ function WalletDepositPage() {
       if (data.state === "queued") {
         if (bankSuccessOrderCodeRef.current !== orderCode) {
           bankSuccessOrderCodeRef.current = orderCode;
-          showPaymentReceivedModal(
-            result.message ||
-              "Đã xác nhận thanh toán. Hệ thống đang cập nhật Điểm tích lũy.",
-            variables,
-          );
           clearPaymentAfterBankSuccess();
         }
 
@@ -257,23 +252,11 @@ function WalletDepositPage() {
       }
 
       if (data.paid) {
-        if (handledOrderCodeRef.current === orderCode) return;
-        handledOrderCodeRef.current = orderCode;
-        bankSuccessOrderCodeRef.current = orderCode;
-        showPaymentCompletedModal(
+        handlePaymentSuccess(
           result.message ||
             "Giao dịch thành công. Điểm đã được cộng vào tài khoản.",
           variables,
         );
-
-        void queryClient.invalidateQueries({
-          queryKey: ["deposit-history", serverId, user?.id],
-        });
-        void queryClient.invalidateQueries({
-          queryKey: ["coin-conversion-summary", serverId, user?.id],
-        });
-        void refreshAccountSnapshot(variables.session);
-        resetDeposit(true, false);
         return;
       }
 
@@ -484,24 +467,17 @@ function WalletDepositPage() {
     }, delay);
   }
 
-  function showPaymentReceivedModal(message: string, context: RequestContext) {
-    if (!isCurrent(context)) return;
-    dismissPaymentModal();
-    let handle: PaymentModalHandle | null = null;
-    handle = modal.success({
-      centered: true,
-      title: "Đã nhận thanh toán",
-      content: message,
-      okText: "OK",
-      afterClose: () => {
-        if (paymentModalRef.current === handle) paymentModalRef.current = null;
-      },
-    });
-    paymentModalRef.current = handle;
-  }
-
-  function showPaymentCompletedModal(message: string, context: RequestContext) {
-    if (!isCurrent(context)) return;
+  function handlePaymentSuccess(message: string, context: StatusVariables) {
+    if (
+      !isCurrentOrder(context) ||
+      handledOrderCodeRef.current === context.orderCode
+    )
+      return;
+    // Claim completion synchronously before opening the only success modal.
+    // A queued payment keeps polling until the game has credited its points.
+    handledOrderCodeRef.current = context.orderCode;
+    bankSuccessOrderCodeRef.current = context.orderCode;
+    clearStatusTimer();
     dismissPaymentModal();
     let handle: PaymentModalHandle | null = null;
     handle = modal.success({
@@ -514,6 +490,15 @@ function WalletDepositPage() {
       },
     });
     paymentModalRef.current = handle;
+
+    void queryClient.invalidateQueries({
+      queryKey: ["deposit-history", serverId, user?.id],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["coin-conversion-summary", serverId, user?.id],
+    });
+    void refreshAccountSnapshot(context.session);
+    resetDeposit(true, false);
   }
 
   function showPaymentDeliveryFailedModal(
@@ -657,7 +642,6 @@ function WalletDepositPage() {
       )
         return;
       dispatch(setCredentials(session));
-      toast.success("Tài khoản đã được cộng Điểm thành công.");
     } catch {
       if (!mountedRef.current || activeDepositSession() !== expectedSession)
         return;
