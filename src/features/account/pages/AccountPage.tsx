@@ -29,7 +29,6 @@ import { scrollToTop } from "@/shared/utils/utils";
 const PREVIEW_ACCOUNT = {
   username: "pirate_demo",
   coin: 12_500,
-  tongnap: 3_200,
   status: 1,
   joinDate: new Date("2024-03-15T08:30:00"),
   avatar: null as string | null,
@@ -104,7 +103,7 @@ function PlayerAccountPage() {
     ...PREVIEW_ACCOUNT,
     username: authUser?.username ?? authUser?.name ?? PREVIEW_ACCOUNT.username,
     coin: authUser?.coin ?? PREVIEW_ACCOUNT.coin,
-    tongnap: authUser?.tongnap ?? PREVIEW_ACCOUNT.tongnap,
+    tichnapTotal: authUser?.tichnapTotal,
     avatar: authUser?.avatar ?? PREVIEW_ACCOUNT.avatar,
   };
 
@@ -251,7 +250,7 @@ function PlayerAccountPage() {
               [
                 <Star size={16} />,
                 "Điểm tích lũy",
-                account.tongnap,
+                account.tichnapTotal,
                 "Điểm",
                 "slate",
               ],
@@ -273,7 +272,7 @@ function PlayerAccountPage() {
                 <p
                   className={`text-2xl font-bold ${color === "amber" ? "text-amber-700" : "text-slate-700"}`}
                 >
-                  {(value as number).toLocaleString("vi-VN")}
+                  {typeof value === "number" ? value.toLocaleString("vi-VN") : "–"}
                 </p>
                 <p className="mt-0.5 text-xs text-gray-400">{unit}</p>
               </div>

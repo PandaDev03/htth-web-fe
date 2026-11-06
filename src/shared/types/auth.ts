@@ -9,5 +9,6 @@ export type AuthUser = {
   coin?: number;
   ticket?: number;
   tongnap?: number;
+  tichnapTotal?: number;
   avatar?: string | null;
 };
