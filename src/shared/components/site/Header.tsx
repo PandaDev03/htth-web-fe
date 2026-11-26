@@ -22,55 +22,66 @@ function WheelNav({
 }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
+  const [openedBy, setOpenedBy] = useState<"pointer" | "keyboard" | null>(null);
+  const open = openedBy !== null;
+  const mobile = Boolean(onNavigate);
   const active = wheelMenuItems.some(({ key }) => key === pathname);
+  const triggerClassName =
+    "flex h-11 w-full items-center justify-between gap-1.5 whitespace-nowrap rounded-lg px-3 text-left text-sm transition-colors hover:text-amber-600 lg:h-8 lg:w-auto lg:justify-start lg:rounded-none lg:px-0 " +
+    (active
+      ? "bg-amber-50 font-semibold text-amber-600 lg:bg-transparent"
+      : "font-medium text-gray-600 hover:bg-gray-50 lg:hover:bg-transparent");
+  const triggerContent = (
+    <>
+      {label}
+      <ChevronDown size={15} aria-hidden="true" />
+    </>
+  );
 
   return (
-    <div
-      className={
-        "flex items-center rounded-lg text-sm lg:rounded-none " +
-        (active
-          ? "bg-amber-50 font-semibold text-amber-600 lg:bg-transparent"
-          : "font-medium text-gray-600 hover:bg-gray-50 lg:hover:bg-transparent")
-      }
-    >
-      <Link
-        to={PATH.NIKA_WHEEL}
-        onClick={() => {
-          setOpen(false);
+    <Dropdown
+      autoFocus={mobile || openedBy === "keyboard"}
+      trigger={mobile ? ["click"] : ["hover"]}
+      open={open}
+      onOpenChange={(nextOpen) => setOpenedBy(nextOpen ? "pointer" : null)}
+      menu={{
+        items: wheelMenuItems,
+        selectedKeys: active ? [pathname] : [],
+        onClick: ({ key }) => {
+          setOpenedBy(null);
           onNavigate?.();
-        }}
-        className="flex-1 whitespace-nowrap py-3 pl-3 hover:text-amber-600 lg:p-0"
-        aria-current={pathname === PATH.NIKA_WHEEL ? "page" : undefined}
-      >
-        {label}
-      </Link>
-      <Dropdown
-        autoFocus
-        trigger={["click"]}
-        open={open}
-        onOpenChange={setOpen}
-        menu={{
-          items: wheelMenuItems,
-          selectedKeys: active ? [pathname] : [],
-          onClick: ({ key }) => {
-            setOpen(false);
-            onNavigate?.();
-            navigate(key);
-          },
-        }}
-      >
+          navigate(key);
+        },
+      }}
+    >
+      {mobile ? (
         <button
           type="button"
-          className="flex h-11 w-11 items-center justify-center rounded-lg hover:text-amber-600 lg:h-8 lg:w-6"
-          aria-label="Mở danh sách vòng quay"
+          className={triggerClassName}
           aria-haspopup="menu"
           aria-expanded={open}
         >
-          <ChevronDown size={15} />
+          {triggerContent}
         </button>
-      </Dropdown>
-    </div>
+      ) : (
+        <Link
+          to={PATH.NIKA_WHEEL}
+          onClick={() => setOpenedBy(null)}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              setOpenedBy("keyboard");
+            }
+          }}
+          className={triggerClassName}
+          aria-current={pathname === PATH.NIKA_WHEEL ? "page" : undefined}
+          aria-haspopup="menu"
+          aria-expanded={open}
+        >
+          {triggerContent}
+        </Link>
+      )}
+    </Dropdown>
   );
 }
 
