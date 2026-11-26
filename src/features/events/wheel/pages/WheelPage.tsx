@@ -16,17 +16,18 @@ import { toast } from "sonner";
 
 import { useAppSelector } from "@/app/store/hooks";
 import {
-  claimNikaInventory,
-  claimNikaMilestone,
-  getNikaWheelState,
-  spinNikaWheel,
-  type NikaRarity,
-  type NikaSpinResult,
-} from "@/features/events/nika/api/nikaWheelApi";
-import { NikaMilestoneRail } from "@/features/events/nika/components/NikaMilestoneRail";
-import { NikaRewardInventory } from "@/features/events/nika/components/NikaRewardInventory";
-import { NikaWheelArena } from "@/features/events/nika/components/NikaWheelArena";
-import "@/features/events/nika/nika-wheel.css";
+  claimWheelInventory,
+  claimWheelMilestone,
+  getWheelState,
+  spinWheel,
+  type WheelRarity,
+  type WheelSpinResult,
+  type WheelType,
+} from "@/features/events/wheel/api/wheelApi";
+import { WheelArena } from "@/features/events/wheel/components/WheelArena";
+import { WheelMilestoneRail } from "@/features/events/wheel/components/WheelMilestoneRail";
+import { WheelRewardInventory } from "@/features/events/wheel/components/WheelRewardInventory";
+import "@/features/events/wheel/nika-wheel.css";
 import { RewardIcon } from "@/shared/components/RewardIcon";
 import { Footer } from "@/shared/components/site/Footer";
 import { Header } from "@/shared/components/site/Header";
@@ -34,7 +35,9 @@ import { PATH } from "@/shared/config/path";
 
 const numberFormatter = new Intl.NumberFormat("vi-VN");
 
-const rarityContent: Record<NikaRarity, { label: string; className: string }> =
+const wheelNames = { nika: "Nika", pet: "Pet" } as const;
+
+const rarityContent: Record<WheelRarity, { label: string; className: string }> =
   {
     very_rare: {
       label: "Rất hiếm",
@@ -54,7 +57,7 @@ const rarityContent: Record<NikaRarity, { label: string; className: string }> =
     },
   };
 
-type SpinResponse = NikaSpinResult & { message: string };
+type SpinResponse = WheelSpinResult & { message: string };
 
 function useReducedMotion() {
   const [reduced, setReduced] = useState(false);
@@ -72,11 +75,13 @@ function useReducedMotion() {
 
 function WalletSummary({
   tickets,
+  ticketName,
   availableCoin,
   totalSpins,
   className,
 }: {
   tickets: number;
+  ticketName: string;
   availableCoin: number;
   totalSpins: number;
   className?: string;
@@ -90,7 +95,7 @@ function WalletSummary({
           <Tickets size={19} />
         </span>
         <div>
-          <p className="text-xs font-semibold text-slate-500">Vé Quay Nika</p>
+          <p className="text-xs font-semibold text-slate-500">{ticketName}</p>
           <p className="font-mono text-xl font-bold tabular-nums text-slate-900">
             {numberFormatter.format(tickets)}
           </p>
@@ -122,10 +127,13 @@ function WalletSummary({
   );
 }
 
-function NikaWheelPage() {
+function WheelPage({ wheel }: { wheel: WheelType }) {
   const queryClient = useQueryClient();
   const { serverId, user } = useAppSelector((state) => state.auth);
-  const wheelQueryKey = ["nika-wheel", serverId, user?.id] as const;
+  const accountWheelQueryKey = ["wheel", serverId, user?.id] as const;
+  const wheelQueryKey = [...accountWheelQueryKey, wheel] as const;
+  const title = `Vòng Quay ${wheelNames[wheel]}`;
+  const ticketName = `Vé Quay ${wheelNames[wheel]}`;
   const reducedMotion = useReducedMotion();
   const [activeRewardId, setActiveRewardId] = useState<string | null>(null);
   const [mixedCount, setMixedCount] = useState<1 | 5 | 10 | null>(null);
@@ -136,20 +144,22 @@ function NikaWheelPage() {
     "inventory" | "milestones"
   >("inventory");
   const timers = useRef<number[]>([]);
+  const mounted = useRef(false);
 
   const wheelQuery = useQuery({
     queryKey: wheelQueryKey,
-    queryFn: getNikaWheelState,
+    queryFn: () => getWheelState(wheel),
     enabled: Boolean(serverId && user),
   });
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
       timers.current.forEach((timer) => window.clearTimeout(timer));
       timers.current = [];
-    },
-    [],
-  );
+    };
+  }, []);
 
   function wait(duration: number) {
     return new Promise<void>((resolve) => {
@@ -186,11 +196,14 @@ function NikaWheelPage() {
     }: {
       count: 1 | 5 | 10;
       confirmMixedPayment: boolean;
-    }) => spinNikaWheel(count, confirmMixedPayment),
+    }) => spinWheel(wheel, count, confirmMixedPayment),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: accountWheelQueryKey });
+    },
   });
 
   const claimMutation = useMutation({
-    mutationFn: claimNikaMilestone,
+    mutationFn: (milestoneId: number) => claimWheelMilestone(wheel, milestoneId),
     onSuccess: async (result) => {
       toast.success(
         result.pendingGiftId
@@ -206,7 +219,7 @@ function NikaWheelPage() {
   });
 
   const inventoryClaimMutation = useMutation({
-    mutationFn: claimNikaInventory,
+    mutationFn: () => claimWheelInventory(wheel),
     onSuccess: async () => {
       toast.success(
         "Quà đã được ghi nhận. Vui lòng đăng nhập lại game để nhận vật phẩm trong GiftBox.",
@@ -225,21 +238,22 @@ function NikaWheelPage() {
         count,
         confirmMixedPayment,
       });
+      if (!mounted.current) return;
       await animateToReward(result.results);
       setLatestSpin(result);
       setActiveRewardTab("inventory");
       setResultOpen(true);
       toast.success(result.message);
-      await queryClient.invalidateQueries({ queryKey: wheelQueryKey });
     } catch (error) {
+      if (!mounted.current) return;
       setIsAnimating(false);
       if (
         !confirmMixedPayment &&
         error instanceof Error &&
-        error.message.includes("Vé Quay Nika")
+        error.message.includes(ticketName)
       ) {
         await wheelQuery.refetch();
-        setMixedCount(count);
+        if (mounted.current) setMixedCount(count);
         return;
       }
       toast.error(
@@ -265,7 +279,10 @@ function NikaWheelPage() {
   const mixedTickets = mixedCount
     ? Math.min(state?.wallet.tickets ?? 0, mixedCount)
     : 0;
-  const mixedCoin = mixedCount ? (mixedCount - mixedTickets) * 1_000 : 0;
+  const mixedCoin =
+    mixedCount && state
+      ? (mixedCount - mixedTickets) * state.event.coinPerSpin
+      : 0;
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-slate-50">
@@ -279,19 +296,14 @@ function NikaWheelPage() {
             <ArrowLeft size={16} /> Về trang Bài viết
           </Link>
 
-          {/* <header className="mt-8 grid gap-7 lg:grid-cols-[0.8fr_1.2fr] lg:items-end"> */}
           <header className="mt-8">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-700">
                 Sự kiện đặc biệt
               </p>
               <h1 className="mt-3 text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
-                Vòng Quay Nika
+                {title}
               </h1>
-              {/* <p className="mt-4 max-w-xl text-base leading-7 text-slate-500">
-                Dùng Vé Quay Nika hoặc webCoin để nhận quà và mở khóa mốc tích
-                lũy.
-              </p> */}
             </div>
           </header>
 
@@ -299,6 +311,7 @@ function NikaWheelPage() {
             {state && (
               <WalletSummary
                 tickets={state.wallet.tickets}
+                ticketName={ticketName}
                 availableCoin={state.wallet.availableWebCoin}
                 totalSpins={state.progress.totalSpins}
                 className="max-lg:w-full"
@@ -329,7 +342,7 @@ function NikaWheelPage() {
               <p className="mt-2 max-w-lg text-sm leading-6 text-slate-600">
                 {wheelQuery.error instanceof Error
                   ? wheelQuery.error.message
-                  : "Dữ liệu Vòng Quay Nika chưa sẵn sàng."}
+                  : `Dữ liệu ${title} chưa sẵn sàng.`}
               </p>
               <button
                 type="button"
@@ -354,7 +367,9 @@ function NikaWheelPage() {
               )}
 
               <div className="mt-3">
-                <NikaWheelArena
+                <WheelArena
+                  title={title}
+                  coinPerSpin={state.event.coinPerSpin}
                   rewards={state.rewards}
                   activeRewardId={activeRewardId}
                   disabled={wheelBusy || !state.player}
@@ -363,15 +378,10 @@ function NikaWheelPage() {
                 />
               </div>
 
-              {/* <p className="mt-4 text-center text-xs font-semibold leading-5 text-slate-500">
-                Ưu tiên dùng Vé. Khi thiếu Vé, hệ thống sẽ hỏi trước khi dùng
-                webCoin cho lượt còn thiếu.
-              </p> */}
-
-              <section id="nika-reward-tabs" className="mt-14">
+              <section id={`${wheel}-reward-tabs`} className="mt-14">
                 <div
                   role="tablist"
-                  aria-label="Quà Vòng Quay Nika"
+                  aria-label={`Quà ${title}`}
                   className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm"
                 >
                   <button
@@ -404,7 +414,7 @@ function NikaWheelPage() {
 
                 {activeRewardTab === "inventory" ? (
                   <div role="tabpanel">
-                    <NikaRewardInventory
+                    <WheelRewardInventory
                       items={state.inventory.items}
                       totalQuantity={state.inventory.totalQuantity}
                       isClaiming={inventoryClaimMutation.isPending}
@@ -413,7 +423,7 @@ function NikaWheelPage() {
                   </div>
                 ) : (
                   <div role="tabpanel">
-                    <NikaMilestoneRail
+                    <WheelMilestoneRail
                       milestones={state.milestones}
                       totalSpins={state.progress.totalSpins}
                       claimingId={
@@ -437,7 +447,7 @@ function NikaWheelPage() {
 
       <Modal
         open={mixedCount !== null}
-        title="Không đủ Vé Quay Nika"
+        title={`Không đủ ${ticketName}`}
         okText="Xác nhận quay"
         cancelText="Quay lại"
         centered
@@ -451,9 +461,9 @@ function NikaWheelPage() {
         }}
       >
         <p className="leading-7 text-slate-600">
-          Bạn hiện có {mixedTickets}/{mixedCount ?? 0} Vé Quay Nika. Hệ thống sẽ
-          dùng {mixedTickets} Vé và {numberFormatter.format(mixedCoin)} Coin cho
-          lượt còn thiếu. Tiếp tục quay?
+          Bạn hiện có {mixedTickets}/{mixedCount ?? 0} {ticketName}. Hệ thống
+          sẽ dùng {mixedTickets} Vé và {numberFormatter.format(mixedCoin)} Coin
+          cho lượt còn thiếu. Tiếp tục quay?
         </p>
       </Modal>
 
@@ -511,4 +521,4 @@ function NikaWheelPage() {
   );
 }
 
-export default NikaWheelPage;
+export default WheelPage;

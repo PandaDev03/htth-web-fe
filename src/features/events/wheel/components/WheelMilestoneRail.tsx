@@ -1,11 +1,11 @@
 import { Check, CheckCircle2, Gift, Loader2, LockKeyhole } from "lucide-react";
 import type { CSSProperties } from "react";
 
-import type { NikaMilestone } from "@/features/events/nika/api/nikaWheelApi";
+import type { WheelMilestone } from "@/features/events/wheel/api/wheelApi";
 import { RewardIcon } from "@/shared/components/RewardIcon";
 
-type NikaMilestoneRailProps = {
-  milestones: NikaMilestone[];
+type WheelMilestoneRailProps = {
+  milestones: WheelMilestone[];
   totalSpins: number;
   claimingId: number | null;
   onClaim: (milestoneId: number) => void;
@@ -13,7 +13,7 @@ type NikaMilestoneRailProps = {
 
 const numberFormatter = new Intl.NumberFormat("vi-VN");
 
-function getProgressPercent(milestones: NikaMilestone[], totalSpins: number) {
+function getProgressPercent(milestones: WheelMilestone[], totalSpins: number) {
   if (milestones.length === 0) return 0;
   if (milestones.length === 1) {
     return Math.min(100, (totalSpins / milestones[0].target) * 100);
@@ -36,12 +36,12 @@ function getProgressPercent(milestones: NikaMilestone[], totalSpins: number) {
   return ((previousIndex + segmentProgress) / (milestones.length - 1)) * 100;
 }
 
-export function NikaMilestoneRail({
+export function WheelMilestoneRail({
   milestones,
   totalSpins,
   claimingId,
   onClaim,
-}: NikaMilestoneRailProps) {
+}: WheelMilestoneRailProps) {
   const orderedMilestones = [...milestones].sort(
     (left, right) => left.target - right.target,
   );
@@ -59,10 +59,10 @@ export function NikaMilestoneRail({
   } satisfies CSSProperties;
 
   return (
-    <section aria-labelledby="nika-milestones-heading" className="mt-16">
+    <section aria-labelledby="wheel-milestones-heading" className="mt-16">
       <div className="max-w-2xl">
         <h2
-          id="nika-milestones-heading"
+          id="wheel-milestones-heading"
           className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl"
         >
           Quà tích lũy lượt quay

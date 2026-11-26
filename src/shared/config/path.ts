@@ -10,6 +10,7 @@
   ARTICLES: "/articles",
   ARTICLE_DETAIL: "/articles/:id",
   NIKA_WHEEL: "/event/vong-quay-nika",
+  PET_WHEEL: "/event/vong-quay-pet",
   ADMIN_ROOT: "/admin",
   ADMIN_DASHBOARD: "/admin/dashboard",
   ADMIN_ARTICLES: "/admin/articles",

@@ -3,9 +3,10 @@ import axios from "axios";
 import { httpClient } from "@/shared/api/httpClient";
 import type { RewardIconItem, RewardIconSource } from "@/shared/types/reward";
 
-export type NikaRarity = "very_rare" | "rare" | "uncommon" | "common";
+export type WheelType = "nika" | "pet";
+export type WheelRarity = "very_rare" | "rare" | "uncommon" | "common";
 
-export type NikaReward = RewardIconItem & {
+export type WheelRewardItem = RewardIconItem & {
   id: string;
   source: RewardIconSource;
   sourceId: number | null;
@@ -16,28 +17,28 @@ export type NikaReward = RewardIconItem & {
   iconUrl: string | null;
 };
 
-export type NikaWheelReward = NikaReward & {
-  rarity: NikaRarity;
+export type WheelReward = WheelRewardItem & {
+  rarity: WheelRarity;
   weight: number;
   probabilityPercent: number;
 };
 
-export type NikaMilestone = {
+export type WheelMilestone = {
   id: number;
   target: number;
   claimed: boolean;
   claimable: boolean;
-  rewards: NikaReward[];
+  rewards: WheelRewardItem[];
 };
 
-export type NikaWallet = {
+export type WheelWallet = {
   tickets: number;
   webCoin: number;
   reservedCoin: number;
   availableWebCoin: number;
 };
 
-export type NikaWheelState = {
+export type WheelState = {
   event: {
     slug: string;
     name: string;
@@ -46,33 +47,33 @@ export type NikaWheelState = {
     totalWeight: number;
   };
   player: { id: number; name: string } | null;
-  wallet: NikaWallet;
+  wallet: WheelWallet;
   progress: {
     totalSpins: number;
     claimedMilestoneIds: number[];
   };
   inventory: {
-    items: NikaReward[];
+    items: WheelRewardItem[];
     distinctItems: number;
     totalQuantity: number;
   };
-  rewards: NikaWheelReward[];
-  milestones: NikaMilestone[];
+  rewards: WheelReward[];
+  milestones: WheelMilestone[];
 };
 
-export type NikaSpinResult = {
+export type WheelSpinResult = {
   requestId: string;
   historyId: number;
   payment: {
     ticketsSpent: number;
     coinSpent: number;
   };
-  wallet: NikaWallet;
+  wallet: WheelWallet;
   progress: {
     totalSpins: number;
   };
   inventoryAdded: number;
-  results: Array<NikaReward & { rarity: NikaRarity }>;
+  results: Array<WheelRewardItem & { rarity: WheelRarity }>;
 };
 
 type ApiEnvelope<T> = {
@@ -93,15 +94,15 @@ function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
-export async function claimNikaInventory() {
+export async function claimWheelInventory(wheel: WheelType) {
   try {
     const { data } = await httpClient.post<
       ApiEnvelope<{
         claimId: string;
         pendingGiftId: number;
-        items: NikaReward[];
+        items: WheelRewardItem[];
       }>
-    >("/events/nika-wheel/inventory/claim");
+    >(`/events/${wheel}-wheel/inventory/claim`);
     return {
       ...data.data,
       message: data.message ?? "Đã nhận toàn bộ Kho quà.",
@@ -111,26 +112,25 @@ export async function claimNikaInventory() {
   }
 }
 
-export async function getNikaWheelState() {
+export async function getWheelState(wheel: WheelType) {
   try {
-    const { data } = await httpClient.get<ApiEnvelope<NikaWheelState>>(
-      "/events/nika-wheel",
+    const { data } = await httpClient.get<ApiEnvelope<WheelState>>(
+      `/events/${wheel}-wheel`,
     );
     return data.data;
   } catch (error) {
-    throw new Error(
-      errorMessage(error, "Không thể tải dữ liệu Vòng Quay Nika."),
-    );
+    throw new Error(errorMessage(error, "Không thể tải dữ liệu vòng quay."));
   }
 }
 
-export async function spinNikaWheel(
+export async function spinWheel(
+  wheel: WheelType,
   count: 1 | 5 | 10,
   confirmMixedPayment = false,
 ) {
   try {
-    const { data } = await httpClient.post<ApiEnvelope<NikaSpinResult>>(
-      "/events/nika-wheel/spin",
+    const { data } = await httpClient.post<ApiEnvelope<WheelSpinResult>>(
+      `/events/${wheel}-wheel/spin`,
       { count, confirmMixedPayment },
     );
     return {
@@ -142,16 +142,16 @@ export async function spinNikaWheel(
   }
 }
 
-export async function claimNikaMilestone(milestoneId: number) {
+export async function claimWheelMilestone(wheel: WheelType, milestoneId: number) {
   try {
     const { data } = await httpClient.post<
       ApiEnvelope<{
         milestoneId: number;
         pendingGiftId: number | null;
         ticketsReceived: number;
-        wallet: NikaWallet;
+        wallet: WheelWallet;
       }>
-    >(`/events/nika-wheel/milestones/${milestoneId}/claim`);
+    >(`/events/${wheel}-wheel/milestones/${milestoneId}/claim`);
     return {
       ...data.data,
       message: data.message ?? "Đã nhận mốc quà.",
