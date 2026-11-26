@@ -22,8 +22,8 @@ const ArticlesPage = lazy(
   () => import("@/features/articles/pages/ArticlesPage"),
 );
 const ArticlePage = lazy(() => import("@/features/articles/pages/ArticlePage"));
-const NikaWheelPage = lazy(
-  () => import("@/features/events/nika/pages/NikaWheelPage"),
+const WheelPage = lazy(
+  () => import("@/features/events/wheel/pages/WheelPage"),
 );
 const AdminDashboardPage = lazy(
   () => import("@/features/admin/pages/AdminDashboardPage"),
@@ -44,7 +44,12 @@ export const appRoutes: AppRoute[] = [
   { path: PATH.AUTH, element: <PlayerAuthPage />, isPublic: true },
   {
     path: PATH.NIKA_WHEEL,
-    element: <NikaWheelPage />,
+    element: <WheelPage key="nika" wheel="nika" />,
+    allowedRoles: ["user", "moderator", "admin"],
+  },
+  {
+    path: PATH.PET_WHEEL,
+    element: <WheelPage key="pet" wheel="pet" />,
     allowedRoles: ["user", "moderator", "admin"],
   },
   {

@@ -1,10 +1,10 @@
 import { Gift, Loader2, PackageOpen } from "lucide-react";
 
-import type { NikaReward } from "@/features/events/nika/api/nikaWheelApi";
+import type { WheelRewardItem } from "@/features/events/wheel/api/wheelApi";
 import { RewardIcon } from "@/shared/components/RewardIcon";
 
-type NikaRewardInventoryProps = {
-  items: NikaReward[];
+type WheelRewardInventoryProps = {
+  items: WheelRewardItem[];
   totalQuantity: number;
   isClaiming: boolean;
   onClaimAll: () => void;
@@ -12,18 +12,18 @@ type NikaRewardInventoryProps = {
 
 const numberFormatter = new Intl.NumberFormat("vi-VN");
 
-export function NikaRewardInventory({
+export function WheelRewardInventory({
   items,
   totalQuantity,
   isClaiming,
   onClaimAll,
-}: NikaRewardInventoryProps) {
+}: WheelRewardInventoryProps) {
   return (
-    <section className="mt-10" aria-labelledby="nika-inventory-heading">
+    <section className="mt-10" aria-labelledby="wheel-inventory-heading">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
           <h2
-            id="nika-inventory-heading"
+            id="wheel-inventory-heading"
             className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl"
           >
             Kho quà vòng quay

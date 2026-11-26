@@ -2,11 +2,13 @@ import type { CSSProperties } from "react";
 import { useState } from "react";
 
 import { NikaSpinWheel } from "@/assets/images";
-import type { NikaWheelReward } from "@/features/events/nika/api/nikaWheelApi";
+import type { WheelReward } from "@/features/events/wheel/api/wheelApi";
 import { RewardIcon } from "@/shared/components/RewardIcon";
 
-type NikaWheelArenaProps = {
-  rewards: NikaWheelReward[];
+type WheelArenaProps = {
+  title: string;
+  coinPerSpin: number;
+  rewards: WheelReward[];
   activeRewardId: string | null;
   disabled: boolean;
   spinning: boolean;
@@ -15,25 +17,27 @@ type NikaWheelArenaProps = {
 
 const numberFormatter = new Intl.NumberFormat("vi-VN");
 
-function paymentLabel(count: 1 | 5 | 10) {
-  return `${count} Vé/${numberFormatter.format(count * 1_000)} Coin`;
+function paymentLabel(count: number, coinPerSpin: number) {
+  return `${count} Vé/${numberFormatter.format(count * coinPerSpin)} Coin`;
 }
 
-export function NikaWheelArena({
+export function WheelArena({
+  title,
+  coinPerSpin,
   rewards,
   activeRewardId,
   disabled,
   spinning,
   onSpin,
-}: NikaWheelArenaProps) {
+}: WheelArenaProps) {
   const [selectedCount, setSelectedCount] = useState<1 | 5 | 10>(1);
 
   return (
-    <section aria-labelledby="nika-wheel-heading" className="nika-wheel-shell">
-      <h2 id="nika-wheel-heading" className="sr-only">
-        Vòng Quay Nika
+    <section aria-labelledby="wheel-heading" className="nika-wheel-shell">
+      <h2 id="wheel-heading" className="sr-only">
+        {title}
       </h2>
-      <div className="nika-wheel-stage" aria-label="Danh sách quà Vòng Quay Nika">
+      <div className="nika-wheel-stage" aria-label={`Danh sách quà ${title}`}>
         <div className="nika-wheel-orbit" aria-hidden="true" />
         {rewards.map((reward, index) => {
           const angle = `${(index * 360) / rewards.length}deg`;
@@ -59,7 +63,7 @@ export function NikaWheelArena({
           className={`nika-wheel-hub ${spinning ? "is-spinning" : ""}`}
           disabled={disabled}
           onClick={() => onSpin(selectedCount)}
-          aria-label={`Quay ${selectedCount} lượt bằng ${paymentLabel(selectedCount)}`}
+          aria-label={`Quay ${selectedCount} lượt bằng ${paymentLabel(selectedCount, coinPerSpin)}`}
         >
           <img
             src={NikaSpinWheel}
@@ -92,7 +96,7 @@ export function NikaWheelArena({
                 selectedCount === count ? "text-amber-100" : "text-amber-600"
               }`}
             >
-              {paymentLabel(count)}
+              {paymentLabel(count, coinPerSpin)}
             </span>
           </button>
         ))}

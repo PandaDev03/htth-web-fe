@@ -1,11 +1,78 @@
-import { ChevronRight, LogIn, Menu, X } from "lucide-react";
+import { Dropdown } from "antd";
+import { ChevronDown, ChevronRight, LogIn, Menu, X } from "lucide-react";
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { useAppSelector } from "@/app/store/hooks";
 import { PirateBrandMark } from "@/shared/components/site/BrandMark";
 import { UserMenu } from "@/shared/components/site/UserMenu";
 import { PATH } from "@/shared/config/path";
+
+const wheelMenuItems = [
+  { key: PATH.NIKA_WHEEL, label: "Vòng quay Nika" },
+  { key: PATH.PET_WHEEL, label: "Vòng quay Pet" },
+];
+
+function WheelNav({
+  label,
+  onNavigate,
+}: {
+  label: string;
+  onNavigate?: () => void;
+}) {
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const active = wheelMenuItems.some(({ key }) => key === pathname);
+
+  return (
+    <div
+      className={
+        "flex items-center rounded-lg text-sm lg:rounded-none " +
+        (active
+          ? "bg-amber-50 font-semibold text-amber-600 lg:bg-transparent"
+          : "font-medium text-gray-600 hover:bg-gray-50 lg:hover:bg-transparent")
+      }
+    >
+      <Link
+        to={PATH.NIKA_WHEEL}
+        onClick={() => {
+          setOpen(false);
+          onNavigate?.();
+        }}
+        className="flex-1 whitespace-nowrap py-3 pl-3 hover:text-amber-600 lg:p-0"
+        aria-current={pathname === PATH.NIKA_WHEEL ? "page" : undefined}
+      >
+        {label}
+      </Link>
+      <Dropdown
+        autoFocus
+        trigger={["click"]}
+        open={open}
+        onOpenChange={setOpen}
+        menu={{
+          items: wheelMenuItems,
+          selectedKeys: active ? [pathname] : [],
+          onClick: ({ key }) => {
+            setOpen(false);
+            onNavigate?.();
+            navigate(key);
+          },
+        }}
+      >
+        <button
+          type="button"
+          className="flex h-11 w-11 items-center justify-center rounded-lg hover:text-amber-600 lg:h-8 lg:w-6"
+          aria-label="Mở danh sách vòng quay"
+          aria-haspopup="menu"
+          aria-expanded={open}
+        >
+          <ChevronDown size={15} />
+        </button>
+      </Dropdown>
+    </div>
+  );
+}
 
 export function Header() {
   const { pathname } = useLocation();
@@ -18,6 +85,7 @@ export function Header() {
     { label: "Bài viết", href: PATH.ARTICLES },
     { label: "Tải Game", href: PATH.DOWNLOAD },
     { label: "Đua Top", href: PATH.RANKING },
+    { label: "Vòng quay", href: PATH.NIKA_WHEEL },
     { label: "Tích Điểm", href: PATH.WALLET_DEPOSIT },
     { label: "Đổi Coin", href: PATH.COIN_EXCHANGE },
   ];
@@ -36,20 +104,25 @@ export function Header() {
               <PirateBrandMark />
             </Link>
             <nav className="hidden items-center gap-4 lg:flex xl:gap-6">
-              {PUBLIC_NAV_ITEMS.map((item) => (
-                <Link
-                  key={item.href}
-                  to={item.href}
-                  className={
-                    "flex items-center gap-1.5 text-sm transition-colors " +
-                    (isNavItemActive(item.href)
-                      ? "font-semibold text-amber-600 hover:text-amber-600"
-                      : "font-medium text-gray-600 hover:text-amber-600")
-                  }
-                >
-                  {item.label}
-                </Link>
-              ))}
+              {PUBLIC_NAV_ITEMS.map((item) => {
+                if (item.href === PATH.NIKA_WHEEL) {
+                  return <WheelNav key={item.href} label={item.label} />;
+                }
+                return (
+                  <Link
+                    key={item.href}
+                    to={item.href}
+                    className={
+                      "flex items-center gap-1.5 text-sm transition-colors " +
+                      (isNavItemActive(item.href)
+                        ? "font-semibold text-amber-600 hover:text-amber-600"
+                        : "font-medium text-gray-600 hover:text-amber-600")
+                    }
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
             </nav>
             <div className="hidden items-center lg:flex">
               {isAuthenticated ? (
@@ -113,22 +186,33 @@ export function Header() {
           </button>
         </div>
         <nav className="flex flex-col gap-1 px-4 py-4">
-          {PUBLIC_NAV_ITEMS.map((item) => (
-            <Link
-              key={item.href}
-              to={item.href}
-              onClick={() => setMobileOpen(false)}
-              className={
-                "flex items-center gap-3 rounded-lg px-3 py-3 " +
-                (isNavItemActive(item.href)
-                  ? "bg-amber-50 text-amber-600"
-                  : "text-gray-600 hover:bg-gray-50")
-              }
-            >
-              <span className="text-sm font-medium">{item.label}</span>
-              <ChevronRight size={14} className="ml-auto opacity-40" />
-            </Link>
-          ))}
+          {PUBLIC_NAV_ITEMS.map((item) => {
+            if (item.href === PATH.NIKA_WHEEL) {
+              return (
+                <WheelNav
+                  key={item.href}
+                  label={item.label}
+                  onNavigate={() => setMobileOpen(false)}
+                />
+              );
+            }
+            return (
+              <Link
+                key={item.href}
+                to={item.href}
+                onClick={() => setMobileOpen(false)}
+                className={
+                  "flex items-center gap-3 rounded-lg px-3 py-3 " +
+                  (isNavItemActive(item.href)
+                    ? "bg-amber-50 text-amber-600"
+                    : "text-gray-600 hover:bg-gray-50")
+                }
+              >
+                <span className="text-sm font-medium">{item.label}</span>
+                <ChevronRight size={14} className="ml-auto opacity-40" />
+              </Link>
+            );
+          })}
         </nav>
       </aside>
     </>
