@@ -1,5 +1,5 @@
-import { Dropdown } from "antd";
-import { ChevronDown, ChevronRight, LogIn, Menu, X } from "lucide-react";
+import { Dropdown, Menu, type MenuProps } from "antd";
+import { ChevronDown, LogIn, Menu as MenuIcon, X } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
@@ -13,35 +13,38 @@ const wheelMenuItems = [
   { key: PATH.PET_WHEEL, label: "Vòng quay Pet" },
 ];
 
-function WheelNav({
-  label,
-  onNavigate,
-}: {
-  label: string;
-  onNavigate?: () => void;
-}) {
+const WHEEL_MENU_KEY = "wheel";
+const PUBLIC_NAV_ITEMS = [
+  { label: "Trang Chủ", href: PATH.HOME },
+  { label: "Bài viết", href: PATH.ARTICLES },
+  { label: "Tải Game", href: PATH.DOWNLOAD },
+  { label: "Đua Top", href: PATH.RANKING },
+  { label: "Vòng quay", href: PATH.NIKA_WHEEL },
+  { label: "Tích Điểm", href: PATH.WALLET_DEPOSIT },
+  { label: "Đổi Coin", href: PATH.COIN_EXCHANGE },
+];
+const mobileNavItems: MenuProps["items"] = PUBLIC_NAV_ITEMS.map(({ href, label }) =>
+  href === PATH.NIKA_WHEEL
+    ? { key: WHEEL_MENU_KEY, label, children: wheelMenuItems }
+    : { key: href, label },
+);
+
+function WheelNav({ label }: { label: string }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [openedBy, setOpenedBy] = useState<"pointer" | "keyboard" | null>(null);
   const open = openedBy !== null;
-  const mobile = Boolean(onNavigate);
   const active = wheelMenuItems.some(({ key }) => key === pathname);
   const triggerClassName =
-    "flex h-11 w-full items-center justify-between gap-1.5 whitespace-nowrap rounded-lg px-3 text-left text-sm transition-colors hover:text-amber-600 lg:h-8 lg:w-auto lg:justify-start lg:rounded-none lg:px-0 " +
+    "flex h-8 items-center gap-1.5 whitespace-nowrap text-sm transition-colors hover:text-amber-600 " +
     (active
-      ? "bg-amber-50 font-semibold text-amber-600 lg:bg-transparent"
-      : "font-medium text-gray-600 hover:bg-gray-50 lg:hover:bg-transparent");
-  const triggerContent = (
-    <>
-      {label}
-      <ChevronDown size={15} aria-hidden="true" />
-    </>
-  );
+      ? "font-semibold text-amber-600"
+      : "font-medium text-gray-600");
 
   return (
     <Dropdown
-      autoFocus={mobile || openedBy === "keyboard"}
-      trigger={mobile ? ["click"] : ["hover"]}
+      autoFocus={openedBy === "keyboard"}
+      trigger={["hover"]}
       open={open}
       onOpenChange={(nextOpen) => setOpenedBy(nextOpen ? "pointer" : null)}
       menu={{
@@ -49,62 +52,45 @@ function WheelNav({
         selectedKeys: active ? [pathname] : [],
         onClick: ({ key }) => {
           setOpenedBy(null);
-          onNavigate?.();
           navigate(key);
         },
       }}
     >
-      {mobile ? (
-        <button
-          type="button"
-          className={triggerClassName}
-          aria-haspopup="menu"
-          aria-expanded={open}
-        >
-          {triggerContent}
-        </button>
-      ) : (
-        <Link
-          to={PATH.NIKA_WHEEL}
-          onClick={() => setOpenedBy(null)}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowDown") {
-              event.preventDefault();
-              setOpenedBy("keyboard");
-            }
-          }}
-          className={triggerClassName}
-          aria-current={pathname === PATH.NIKA_WHEEL ? "page" : undefined}
-          aria-haspopup="menu"
-          aria-expanded={open}
-        >
-          {triggerContent}
-        </Link>
-      )}
+      <Link
+        to={PATH.NIKA_WHEEL}
+        onClick={() => setOpenedBy(null)}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setOpenedBy("keyboard");
+          }
+        }}
+        className={triggerClassName}
+        aria-current={pathname === PATH.NIKA_WHEEL ? "page" : undefined}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        {label}
+        <ChevronDown size={15} aria-hidden="true" />
+      </Link>
     </Dropdown>
   );
 }
 
 export function Header() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { accessToken, serverId, user } = useAppSelector((state) => state.auth);
   const isAuthenticated = Boolean(accessToken && serverId && user);
-
-  const PUBLIC_NAV_ITEMS = [
-    { label: "Trang Chủ", href: PATH.HOME },
-    { label: "Bài viết", href: PATH.ARTICLES },
-    { label: "Tải Game", href: PATH.DOWNLOAD },
-    { label: "Đua Top", href: PATH.RANKING },
-    { label: "Vòng quay", href: PATH.NIKA_WHEEL },
-    { label: "Tích Điểm", href: PATH.WALLET_DEPOSIT },
-    { label: "Đổi Coin", href: PATH.COIN_EXCHANGE },
-  ];
 
   const isNavItemActive = (href: string) =>
     href === PATH.HOME
       ? pathname === PATH.HOME
       : pathname === href || pathname.startsWith(`${href}/`);
+  const activeWheel = wheelMenuItems.find(({ key }) => isNavItemActive(key));
+  const mobileSelectedKey =
+    activeWheel?.key ?? PUBLIC_NAV_ITEMS.find(({ href }) => isNavItemActive(href))?.href;
 
   return (
     <>
@@ -166,7 +152,7 @@ export function Header() {
                 className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
                 aria-label="Mở menu"
               >
-                <Menu size={22} />
+                <MenuIcon size={22} />
               </button>
             </div>
           </div>
@@ -181,8 +167,9 @@ export function Header() {
         />
       )}
       <aside
+        inert={!mobileOpen}
         className={
-          "fixed right-0 top-0 z-50 h-full w-72 border-l border-gray-200 bg-white shadow-xl transition-transform duration-300 lg:hidden " +
+          "fixed right-0 top-0 z-50 h-full w-72 overflow-y-auto border-l border-gray-200 bg-white shadow-xl transition-transform duration-300 lg:hidden " +
           (mobileOpen ? "translate-x-0" : "translate-x-full")
         }
       >
@@ -196,34 +183,19 @@ export function Header() {
             <X size={20} />
           </button>
         </div>
-        <nav className="flex flex-col gap-1 px-4 py-4">
-          {PUBLIC_NAV_ITEMS.map((item) => {
-            if (item.href === PATH.NIKA_WHEEL) {
-              return (
-                <WheelNav
-                  key={item.href}
-                  label={item.label}
-                  onNavigate={() => setMobileOpen(false)}
-                />
-              );
-            }
-            return (
-              <Link
-                key={item.href}
-                to={item.href}
-                onClick={() => setMobileOpen(false)}
-                className={
-                  "flex items-center gap-3 rounded-lg px-3 py-3 " +
-                  (isNavItemActive(item.href)
-                    ? "bg-amber-50 text-amber-600"
-                    : "text-gray-600 hover:bg-gray-50")
-                }
-              >
-                <span className="text-sm font-medium">{item.label}</span>
-                <ChevronRight size={14} className="ml-auto opacity-40" />
-              </Link>
-            );
-          })}
+        <nav className="px-4 py-4">
+          <Menu
+            mode="inline"
+            inlineIndent={16}
+            items={mobileNavItems}
+            selectedKeys={mobileSelectedKey ? [mobileSelectedKey] : []}
+            defaultOpenKeys={activeWheel ? [WHEEL_MENU_KEY] : []}
+            style={{ borderInlineEnd: 0 }}
+            onClick={({ key }) => {
+              setMobileOpen(false);
+              navigate(key);
+            }}
+          />
         </nav>
       </aside>
     </>
